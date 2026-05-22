@@ -49,6 +49,11 @@ export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<Cv
       if (err.kind === 'not-found') {
         return okAsync<CveSlice, GithubError>({ status: 'not-enabled' });
       }
+      // GitHub also returns 403 with body "Dependabot alerts are disabled for
+      // this repository." when the feature is off — treat the same as 404.
+      if (err.kind === 'forbidden' && /alerts are disabled/i.test(err.message)) {
+        return okAsync<CveSlice, GithubError>({ status: 'not-enabled' });
+      }
       return errAsync<CveSlice, GithubError>(err);
     });
 }

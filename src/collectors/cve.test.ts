@@ -63,6 +63,29 @@ test("converts a 404 into 'not-enabled'", async () => {
   expect(result._unsafeUnwrap()).toEqual({ status: 'not-enabled' });
 });
 
+test("converts a 403 'Dependabot alerts are disabled' into 'not-enabled'", async () => {
+  const client = new FakeGithubClient();
+  client.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).fails({
+    kind: 'forbidden',
+    message: 'Dependabot alerts are disabled for this repository.',
+  });
+
+  const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
+  expect(result.isOk()).toBe(true);
+  expect(result._unsafeUnwrap()).toEqual({ status: 'not-enabled' });
+});
+
+test('propagates an unrelated 403 instead of swallowing it as not-enabled', async () => {
+  const client = new FakeGithubClient();
+  client
+    .onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {})
+    .fails({ kind: 'forbidden', message: 'Must have admin rights to Repository.' });
+
+  const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
+  expect(result.isErr()).toBe(true);
+  expect(result._unsafeUnwrapErr()).toMatchObject({ kind: 'forbidden' });
+});
+
 test('propagates other errors instead of pretending alerts are disabled', async () => {
   const client = new FakeGithubClient();
   client

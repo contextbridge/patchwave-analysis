@@ -42,22 +42,26 @@ export function toGithubError(err: unknown): GithubError {
 }
 
 function detectMissingScope(err: RequestErrorLike): string | null {
-  const required = err.response?.headers?.['x-accepted-oauth-scopes'];
+  const accepted = err.response?.headers?.['x-accepted-oauth-scopes'];
   const present = err.response?.headers?.['x-oauth-scopes'];
-  if (!required) return null;
-  const requiredScopes = required
+  if (!accepted) return null;
+  const acceptedScopes = accepted
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  if (requiredScopes.length === 0) return null;
+  if (acceptedScopes.length === 0) return null;
   const presentScopes = new Set(
     (present ?? '')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
   );
-  const missing = requiredScopes.find((s) => !presentScopes.has(s));
-  return missing ?? requiredScopes[0] ?? null;
+  // x-accepted-oauth-scopes is OR semantics: any one of the listed scopes
+  // grants access. If the token has any of them, this 403 isn't a scope
+  // problem — GitHub also returns 403 for things like per-repo features
+  // being disabled or insufficient repo-level permissions.
+  if (acceptedScopes.some((s) => presentScopes.has(s))) return null;
+  return acceptedScopes[0] ?? null;
 }
 
 export function formatGithubError(err: GithubError): string {
