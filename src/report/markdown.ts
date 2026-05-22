@@ -125,9 +125,20 @@ function renderPrBacklog(b: PrBacklog): string {
     `- Green: ${b.ciStatusMix.green}`,
     `- Failing: ${b.ciStatusMix.failing}`,
     `- Pending / no checks: ${b.ciStatusMix.pending}`,
-    '',
-    `Of the failing PRs, ~${b.mechanicalFailureShare.percentage}% (${b.mechanicalFailureShare.mechanical}) look mechanical (lockfile or install). Estimate is approximate — based on check-name pattern matching.`,
   );
+
+  if (b.failingCheckBreakdown.length > 0) {
+    const topN = 15;
+    const top = b.failingCheckBreakdown.slice(0, topN);
+    const overflow = b.failingCheckBreakdown.length - top.length;
+    lines.push('', `### Failing checks across open PRs`, '', '| Check | Open PRs failing |', '|---|---:|');
+    for (const entry of top) {
+      lines.push(`| \`${entry.checkName}\` | ${entry.failingPrCount} |`);
+    }
+    if (overflow > 0) {
+      lines.push('', `_… and ${overflow} more check names with fewer failures._`);
+    }
+  }
 
   return lines.join('\n');
 }
@@ -157,17 +168,6 @@ function renderStalledSignals(s: StalledSignals): string {
     '',
     `- **${s.revertsInWindow}** total reverts in window; **${s.dependabotRevertsInWindow}** of those reverted a Dependabot PR.`,
   );
-  if (s.siblingBumps.length > 0) {
-    lines.push(
-      '',
-      `### Sibling-bump signal`,
-      '',
-      `**${s.siblingBumps.length}** repo/package pairs have multiple open Dependabot PRs targeting the same dependency (typical workspace/monorepo signal):`,
-    );
-    for (const g of s.siblingBumps.slice(0, 10)) {
-      lines.push(`- \`${g.repo}\` · \`${g.packageName}\` · ${g.prNumbers.length} PRs (#${g.prNumbers.join(', #')})`);
-    }
-  }
   return lines.join('\n');
 }
 

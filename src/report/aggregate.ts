@@ -1,6 +1,4 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
-import { summarizeMechanicalFailures } from '../heuristics/mechanicalFailure.ts';
-import { type SiblingGroup, findSiblingBumps } from '../heuristics/siblingBump.ts';
 import { type Instant, Temporal, instantFromString } from '../time.ts';
 import type { CollectedData, CveAlert, CveSeverity, DependabotPr, LanguageBytes } from '../types.ts';
 
@@ -54,7 +52,7 @@ export interface PrBacklog {
   bumpTypeSplit: Array<{ bumpType: string; count: number; percentage: number }>;
   devOnlyShare: { count: number; percentage: number };
   ciStatusMix: { green: number; failing: number; pending: number };
-  mechanicalFailureShare: { mechanical: number; nonMechanical: number; percentage: number };
+  failingCheckBreakdown: Array<{ checkName: string; failingPrCount: number }>;
   timeToMergeP50Days: number | null;
   timeToMergeP90Days: number | null;
 }
@@ -64,7 +62,6 @@ export interface StalledSignals {
   reposWithConfigButNoRecentPrs: string[];
   revertsInWindow: number;
   dependabotRevertsInWindow: number;
-  siblingBumps: SiblingGroup[];
 }
 
 export interface People {
@@ -276,7 +273,7 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   let green = 0;
   let failing = 0;
   let pending = 0;
-  const failedNames: string[] = [];
+  const failingPrCountByCheck = new Map<string, number>();
   for (const pr of openPrs) {
     if (pr.checks.total === 0) {
       pending += 1;
@@ -284,20 +281,19 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     }
     if (pr.checks.failure > 0) {
       failing += 1;
-      failedNames.push(...pr.checks.failedCheckNames);
+      const uniqueNames = new Set(pr.checks.failedCheckNames);
+      for (const name of uniqueNames) {
+        failingPrCountByCheck.set(name, (failingPrCountByCheck.get(name) ?? 0) + 1);
+      }
     } else if (pr.checks.pending > 0) {
       pending += 1;
     } else {
       green += 1;
     }
   }
-  const mech = summarizeMechanicalFailures(failedNames);
-  const totalFails = mech.mechanical + mech.nonMechanical;
-  const mechanicalFailureShare = {
-    mechanical: mech.mechanical,
-    nonMechanical: mech.nonMechanical,
-    percentage: pct(mech.mechanical, totalFails),
-  };
+  const failingCheckBreakdown = [...failingPrCountByCheck.entries()]
+    .map(([checkName, failingPrCount]) => ({ checkName, failingPrCount }))
+    .sort((a, b) => b.failingPrCount - a.failingPrCount || a.checkName.localeCompare(b.checkName));
 
   const ttMergeDays: number[] = mergedInWindow
     .filter((p) => p.mergedAt !== null)
@@ -315,7 +311,7 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     bumpTypeSplit,
     devOnlyShare,
     ciStatusMix: { green, failing, pending },
-    mechanicalFailureShare,
+    failingCheckBreakdown,
     timeToMergeP50Days,
     timeToMergeP90Days,
   };
@@ -349,14 +345,12 @@ function buildStalledSignals(data: CollectedData, windowStart: Instant): Stalled
 
   const revertsInWindow = data.reverts.length;
   const dependabotRevertsInWindow = data.reverts.filter((r) => r.revertsDependabotPr).length;
-  const siblingBumps = findSiblingBumps(data.dependabotPrs);
 
   return {
     reposAtPrCap,
     reposWithConfigButNoRecentPrs,
     revertsInWindow,
     dependabotRevertsInWindow,
-    siblingBumps,
   };
 }
 
@@ -479,24 +473,6 @@ function buildRecommendations(input: {
 }): Recommendation[] {
   const recs: Recommendation[] = [];
   const { prBacklog, stalledSignals, cve, dependabotCoverage, orgOverview } = input;
-
-  if (prBacklog.mechanicalFailureShare.percentage >= 30 && prBacklog.mechanicalFailureShare.mechanical >= 3) {
-    recs.push({
-      priority: 'high',
-      message: `Roughly ${prBacklog.mechanicalFailureShare.percentage}% of your failing Dependabot PRs look lockfile-related. Automating lockfile regeneration alone would likely unblock ~${prBacklog.mechanicalFailureShare.mechanical} PRs.`,
-    });
-  }
-
-  if (stalledSignals.siblingBumps.length >= 3) {
-    const examples = stalledSignals.siblingBumps
-      .slice(0, 3)
-      .map((g) => `${g.repo} (\`${g.packageName}\`)`)
-      .join(', ');
-    recs.push({
-      priority: 'medium',
-      message: `Multiple open Dependabot PRs target the same dependency in ${stalledSignals.siblingBumps.length} repo/package pairs — likely a workspace or monorepo coordination problem. Examples: ${examples}.`,
-    });
-  }
 
   if (stalledSignals.reposAtPrCap.length >= 5) {
     recs.push({

@@ -94,24 +94,44 @@ test('counts CVE alerts by severity and surfaces oldest critical days', () => {
   }
 });
 
-test('recommends action when more than half of failing CI is mechanical', () => {
-  const failing = dependabotPr.build({
+test('aggregates failing check names across open PRs, sorted by frequency', () => {
+  const prA = dependabotPr.build({
     state: 'open',
     checks: {
-      total: 1,
+      total: 2,
       success: 0,
-      failure: 1,
+      failure: 2,
       pending: 0,
-      failedCheckNames: ['install dependencies', 'lockfile check', 'lockfile integrity'],
+      failedCheckNames: ['test (unit)', 'lint'],
     },
   });
-  const data = collectedData.build({
-    dependabotPrs: [failing, failing, failing, failing],
+  const prB = dependabotPr.build({
+    state: 'open',
+    checks: {
+      total: 2,
+      success: 1,
+      failure: 1,
+      pending: 0,
+      failedCheckNames: ['test (unit)'],
+    },
+  });
+  const prC = dependabotPr.build({
+    state: 'open',
+    checks: {
+      total: 3,
+      success: 2,
+      failure: 1,
+      pending: 0,
+      failedCheckNames: ['typecheck', 'typecheck'],
+    },
   });
 
-  const bundle = aggregate(data);
-  const high = bundle.recommendations.find((r) => r.priority === 'high');
-  expect(high?.message).toContain('lockfile-related');
+  const bundle = aggregate(collectedData.build({ dependabotPrs: [prA, prB, prC] }));
+  expect(bundle.prBacklog.failingCheckBreakdown).toEqual([
+    { checkName: 'test (unit)', failingPrCount: 2 },
+    { checkName: 'lint', failingPrCount: 1 },
+    { checkName: 'typecheck', failingPrCount: 1 },
+  ]);
 });
 
 test('recommends investigating a long-standing Critical CVE', () => {

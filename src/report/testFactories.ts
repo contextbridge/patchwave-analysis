@@ -64,7 +64,7 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
   ],
   devOnlyShare: { count: 80, percentage: 29.3 },
   ciStatusMix: { green: 50, failing: 30, pending: 22 },
-  mechanicalFailureShare: { mechanical: 12, nonMechanical: 18, percentage: 40 },
+  failingCheckBreakdown: [],
   timeToMergeP50Days: 2,
   timeToMergeP90Days: 14,
 }));
@@ -74,7 +74,6 @@ export const stalledSignals = Factory.define<StalledSignals>(() => ({
   reposWithConfigButNoRecentPrs: ['acme/old-tool'],
   revertsInWindow: 4,
   dependabotRevertsInWindow: 1,
-  siblingBumps: [],
 }));
 
 export const people = Factory.define<People>(() => ({
