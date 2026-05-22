@@ -1,12 +1,32 @@
 {
   "name": "patchwave-analysis",
-  "module": "index.ts",
+  "version": "0.0.1",
+  "description": "Diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org.",
   "type": "module",
-  "private": true,
+  "bin": {
+    "patchwave-analysis": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "build:darwin-arm64": "bun build --compile --target=bun-darwin-arm64 ./src/index.ts --outfile dist/patchwave-analysis-darwin-arm64",
+    "build:darwin-x64": "bun build --compile --target=bun-darwin-x64 ./src/index.ts --outfile dist/patchwave-analysis-darwin-x64",
+    "build:linux-x64": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist/patchwave-analysis-linux-x64"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/semver": "^7.7.1"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@octokit/graphql": "^9.0.3",
+    "@octokit/plugin-retry": "^8.1.0",
+    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/rest": "^22.0.1",
+    "neverthrow": "^8.2.0",
+    "semver": "^7.8.1"
   }
 }
