@@ -24,7 +24,7 @@ test('rejects an invalid --window value', async () => {
 });
 
 test('writes a report when the GitHub calls succeed', async () => {
-  const { ctx, io, githubClient, fs } = createFakeContext();
+  const { ctx, io, githubClient, fs, analytics } = createFakeContext();
 
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
     {
@@ -59,6 +59,33 @@ test('writes a report when the GitHub calls succeed', async () => {
   const written = fs.read('/tmp/report.md');
   expect(written).toBeDefined();
   expect(written).toContain('# Dependabot diagnostic — `acme`');
+
+  expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
+    window_days: 90,
+    has_include: false,
+    has_exclude: false,
+  });
+  const completed = analytics.capturedEvents('run_completed')[0];
+  expect(completed?.properties).toMatchObject({
+    window_days: 90,
+    repos_total: 1,
+    repos_included: 1,
+    dependabot_prs: 0,
+    warnings: 0,
+  });
+  // org/repo names must never appear in telemetry payloads
+  expect(JSON.stringify(analytics.captureCalls)).not.toContain('acme');
+  expect(JSON.stringify(analytics.captureCalls)).not.toContain('widgets');
+});
+
+test('captures run_failed when listOrgRepos fails', async () => {
+  const { ctx, githubClient, analytics } = createFakeContext();
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });
+
+  await main(ctx, ['acme']);
+
+  const failed = analytics.capturedEvents('run_failed')[0];
+  expect(failed?.properties).toMatchObject({ error_kind: 'forbidden' });
 });
 
 test('exits 1 when listOrgRepos fails non-recoverably', async () => {

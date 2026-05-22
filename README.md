@@ -59,8 +59,22 @@ A single Markdown file at `--out`. Open it locally, or paste it back to share.
 
 ## What it does not do
 
-- It does not upload anything. No telemetry, no auto-update.
-- It only reads from `api.github.com`. Filesystem writes are limited to `--out`.
+- It does not upload the report or any GitHub data. It only reads from `api.github.com`. Filesystem writes are limited to `--out` and a one-time anonymous-id file (see Telemetry).
+- No auto-update.
+
+## Telemetry
+
+The CLI sends anonymous product analytics (PostHog) to help us understand how it's used. A random UUID is stored at `$XDG_CONFIG_HOME/contextbridge/anonymous_id` (or `~/.config/contextbridge/anonymous_id`) and shared across contextbridge tools. **Org names, repo names, tokens, and report contents are never sent** — only event counts and timings.
+
+Events captured: `run_started` (window size, whether include/exclude was used), `run_completed` (repo/PR/warning counts and duration), `run_failed` (error kind and duration).
+
+Opt out by setting any of:
+
+- `DO_NOT_TRACK=1` — the cross-vendor convention
+- `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`
+- `CI=1` — automatically disabled in CI environments
+
+When disabled, no anonymous-id file is created and no events are sent.
 
 ## License
 

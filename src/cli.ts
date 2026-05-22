@@ -45,23 +45,62 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
   }
   const opts = parsed.value;
 
+  const startedAt = ctx.clock.now();
+  ctx.analytics.capture('run_started', {
+    window_days: opts.windowDays,
+    has_include: opts.include !== null,
+    has_exclude: opts.exclude.length > 0,
+  });
+
   const renderResult = await renderReport(ctx, opts);
   if (renderResult.isErr()) {
     ctx.logger.error(formatGithubError(renderResult.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: renderResult.error.kind,
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
     return 1;
   }
 
-  const writeResult = await ctx.fs.writeTextFile(opts.out, renderResult.value);
+  const writeResult = await ctx.fs.writeTextFile(opts.out, renderResult.value.report);
   if (writeResult.isErr()) {
     ctx.logger.error(formatFsError(writeResult.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: 'write-failed',
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
     return 1;
   }
 
   ctx.io.writeStdout(`wrote ${opts.out}\n`);
+  ctx.analytics.capture('run_completed', {
+    window_days: opts.windowDays,
+    repos_total: renderResult.value.stats.reposTotal,
+    repos_included: renderResult.value.stats.reposIncluded,
+    dependabot_prs: renderResult.value.stats.dependabotPrs,
+    warnings: renderResult.value.stats.warnings,
+    duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+  });
   return 0;
 }
 
-function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, GithubError> {
+interface ReportStats {
+  readonly reposTotal: number;
+  readonly reposIncluded: number;
+  readonly dependabotPrs: number;
+  readonly warnings: number;
+}
+
+interface RenderedReport {
+  readonly report: string;
+  readonly stats: ReportStats;
+}
+
+function elapsedMs(start: Instant, end: Instant): number {
+  return Number(end.epochMilliseconds - start.epochMilliseconds);
+}
+
+function renderReport(ctx: Context, opts: CliOptions): ResultAsync<RenderedReport, GithubError> {
   ctx.logger.info(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
@@ -76,7 +115,7 @@ function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, Githu
     const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
     return ResultAsync.fromSafePromise(collectAll(ctx, filtered, opts.target, opts.windowDays, windowStart, now)).map(
-      (data) => {
+      (data): RenderedReport => {
         ctx.logger.info(
           { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
           `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
@@ -88,7 +127,15 @@ function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, Githu
           );
         }
         const bundle = aggregate(data);
-        return renderMarkdown(bundle);
+        return {
+          report: renderMarkdown(bundle),
+          stats: {
+            reposTotal: repos.length,
+            reposIncluded: filtered.length,
+            dependabotPrs: data.dependabotPrs.length,
+            warnings: data.errors.length,
+          },
+        };
       },
     );
   });
