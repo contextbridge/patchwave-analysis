@@ -41,18 +41,11 @@ test('falls back to dependabot.yaml when .yml is absent', async () => {
     content: base64(`updates:\n  - package-ecosystem: bundler\n`),
     encoding: 'base64',
   });
-  client
-    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'pnpm-lock.yaml' })
-    .fails({ kind: 'not-found', message: 'no lock' });
-  client
-    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'yarn.lock' })
-    .fails({ kind: 'not-found', message: 'no lock' });
-  client
-    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'bun.lockb' })
-    .fails({ kind: 'not-found', message: 'no lock' });
-  client
-    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'package-lock.json' })
-    .fails({ kind: 'not-found', message: 'no lock' });
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'package-lock.json']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
 
   const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
   expect(result.isOk()).toBe(true);
@@ -70,7 +63,7 @@ test('returns hasConfig: false when both paths 404 but the call still succeeds',
       .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
       .fails({ kind: 'not-found', message: 'no config' });
   }
-  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'package-lock.json']) {
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'package-lock.json']) {
     client
       .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
       .fails({ kind: 'not-found', message: 'no lock' });
@@ -83,6 +76,46 @@ test('returns hasConfig: false when both paths 404 but the call still succeeds',
     ecosystems: [],
     packageManager: null,
   });
+});
+
+test('detects bun via bun.lock (the 1.2+ text-format default)', async () => {
+  const client = new FakeGithubClient();
+  for (const path of ['.github/dependabot.yml', '.github/dependabot.yaml']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no config' });
+  }
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
+  client
+    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'bun.lock' })
+    .resolves({ content: base64(''), encoding: 'base64' });
+
+  const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
+  expect(result._unsafeUnwrap()).toMatchObject({ packageManager: 'bun' });
+});
+
+test('falls back to bun.lockb when bun.lock is absent', async () => {
+  const client = new FakeGithubClient();
+  for (const path of ['.github/dependabot.yml', '.github/dependabot.yaml']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no config' });
+  }
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
+  client
+    .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: 'bun.lockb' })
+    .resolves({ content: base64(''), encoding: 'base64' });
+
+  const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
+  expect(result._unsafeUnwrap()).toMatchObject({ packageManager: 'bun' });
 });
 
 test('propagates non-404 errors when fetching the config', async () => {

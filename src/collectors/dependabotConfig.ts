@@ -9,13 +9,19 @@ interface ContentResponse {
 }
 
 const CONFIG_PATHS = ['.github/dependabot.yml', '.github/dependabot.yaml'];
-const LOCKFILES: Record<DependabotConfigSlice['packageManager'] & string, string> = {
-  pnpm: 'pnpm-lock.yaml',
-  yarn: 'yarn.lock',
-  bun: 'bun.lockb',
-  npm: 'package-lock.json',
-  unknown: '',
-};
+
+type DetectedPackageManager = Exclude<DependabotConfigSlice['packageManager'], null | 'unknown'>;
+
+// Bun 1.2 made the text-format `bun.lock` the default lockfile; older projects
+// still ship the legacy binary `bun.lockb`. Check both so we don't miss a
+// modern Bun project.
+const LOCKFILE_CANDIDATES: ReadonlyArray<{ pm: DetectedPackageManager; path: string }> = [
+  { pm: 'pnpm', path: 'pnpm-lock.yaml' },
+  { pm: 'yarn', path: 'yarn.lock' },
+  { pm: 'bun', path: 'bun.lock' },
+  { pm: 'bun', path: 'bun.lockb' },
+  { pm: 'npm', path: 'package-lock.json' },
+];
 
 export function getDependabotConfig(
   client: GithubClient,
@@ -59,19 +65,13 @@ function resolvePackageManager(
   client: GithubClient,
   ref: RepoRef,
 ): ResultAsync<DependabotConfigSlice['packageManager'], GithubError> {
-  const candidates: Array<{ pm: DependabotConfigSlice['packageManager'] & string; path: string }> = [
-    { pm: 'pnpm', path: LOCKFILES.pnpm },
-    { pm: 'yarn', path: LOCKFILES.yarn },
-    { pm: 'bun', path: LOCKFILES.bun },
-    { pm: 'npm', path: LOCKFILES.npm },
-  ];
-  return checkLockfile(client, ref, candidates, 0);
+  return checkLockfile(client, ref, LOCKFILE_CANDIDATES, 0);
 }
 
 function checkLockfile(
   client: GithubClient,
   ref: RepoRef,
-  candidates: ReadonlyArray<{ pm: DependabotConfigSlice['packageManager'] & string; path: string }>,
+  candidates: ReadonlyArray<{ pm: DetectedPackageManager; path: string }>,
   index: number,
 ): ResultAsync<DependabotConfigSlice['packageManager'], GithubError> {
   const current = candidates[index];
@@ -82,7 +82,7 @@ function checkLockfile(
       repo: ref.name,
       path: current.path,
     })
-    .map(() => current.pm as DependabotConfigSlice['packageManager'])
+    .map((): DependabotConfigSlice['packageManager'] => current.pm)
     .orElse((err) => {
       if (err.kind === 'not-found') return checkLockfile(client, ref, candidates, index + 1);
       return errAsync<DependabotConfigSlice['packageManager'], GithubError>(err);

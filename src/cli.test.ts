@@ -48,6 +48,7 @@ test('writes a report when the GitHub calls succeed', async () => {
   githubClient
     .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
     .fails({ kind: 'not-found', message: 'no protection' });
+  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
   githubClient.onPaginate('GET /repos/{owner}/{repo}/commits', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },

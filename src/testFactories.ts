@@ -81,6 +81,7 @@ export const branchProtectionSlice = Factory.define<BranchProtectionSlice>(() =>
   owner: 'acme',
   name: 'widgets',
   hasProtection: true,
+  sources: ['classic'],
   requiredApprovingReviewCount: 1,
   requiresStatusChecks: true,
 }));

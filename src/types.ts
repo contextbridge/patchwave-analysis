@@ -84,8 +84,11 @@ export interface RevertEvent extends RepoRef {
   revertedPrNumber: number | null;
 }
 
+export type BranchProtectionSource = 'classic' | 'ruleset';
+
 export interface BranchProtectionSlice extends RepoRef {
   hasProtection: boolean;
+  sources: BranchProtectionSource[];
   requiredApprovingReviewCount: number | null;
   requiresStatusChecks: boolean;
 }

@@ -2,44 +2,103 @@ import { expect, test } from 'bun:test';
 import { FakeGithubClient } from '../testHelpers/index.ts';
 import { getBranchProtection } from './branchProtection.ts';
 
-test('converts a configured branch into a hasProtection slice', async () => {
+const CLASSIC = 'GET /repos/{owner}/{repo}/branches/{branch}/protection';
+const RULES = 'GET /repos/{owner}/{repo}/rules/branches/{branch}';
+
+test('builds a classic-only slice when rulesets return an empty list', async () => {
   const client = new FakeGithubClient();
-  client.onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', { branch: 'main' }).resolves({
+  client.onRequest(CLASSIC, { branch: 'main' }).resolves({
     required_pull_request_reviews: { required_approving_review_count: 2 },
     required_status_checks: { contexts: ['test'] },
   });
+  client.onRequest(RULES, { branch: 'main' }).resolves([]);
 
   const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
-  expect(result.isOk()).toBe(true);
   expect(result._unsafeUnwrap()).toMatchObject({
-    owner: 'acme',
-    name: 'widgets',
     hasProtection: true,
+    sources: ['classic'],
     requiredApprovingReviewCount: 2,
     requiresStatusChecks: true,
   });
 });
 
-test("treats a 404 as 'no protection configured' rather than an error", async () => {
+test('builds a ruleset-only slice when classic 404s but rulesets are active', async () => {
   const client = new FakeGithubClient();
+  client.onRequest(CLASSIC, { branch: 'main' }).fails({ kind: 'not-found', message: 'no classic' });
   client
-    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
-    .fails({ kind: 'not-found', message: 'not found' });
+    .onRequest(RULES, { branch: 'main' })
+    .resolves([
+      { type: 'pull_request', parameters: { required_approving_review_count: 1 } },
+      { type: 'required_status_checks', parameters: {} },
+      { type: 'deletion' },
+    ]);
 
   const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
-  expect(result.isOk()).toBe(true);
+  expect(result._unsafeUnwrap()).toMatchObject({
+    hasProtection: true,
+    sources: ['ruleset'],
+    requiredApprovingReviewCount: 1,
+    requiresStatusChecks: true,
+  });
+});
+
+test('merges classic + ruleset, taking the strictest review count and OR-ing status checks', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest(CLASSIC, { branch: 'main' }).resolves({
+    required_pull_request_reviews: { required_approving_review_count: 1 },
+    required_status_checks: null,
+  });
+  client.onRequest(RULES, { branch: 'main' }).resolves([
+    { type: 'pull_request', parameters: { required_approving_review_count: 2 } },
+    { type: 'required_status_checks', parameters: {} },
+  ]);
+
+  const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
+  expect(result._unsafeUnwrap()).toMatchObject({
+    hasProtection: true,
+    sources: ['classic', 'ruleset'],
+    requiredApprovingReviewCount: 2,
+    requiresStatusChecks: true,
+  });
+});
+
+test('returns hasProtection: false when both classic and rulesets are absent', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest(CLASSIC, {}).fails({ kind: 'not-found', message: 'no classic' });
+  client.onRequest(RULES, {}).resolves([]);
+
+  const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
   expect(result._unsafeUnwrap()).toMatchObject({
     hasProtection: false,
+    sources: [],
     requiredApprovingReviewCount: null,
     requiresStatusChecks: false,
   });
 });
 
-test('propagates a non-404 error so the partial-failure boundary can log it', async () => {
+test('treats a 404 on the rules-for-branch endpoint as no rulesets', async () => {
   const client = new FakeGithubClient();
-  client
-    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
-    .fails({ kind: 'http', status: 500, message: 'boom' });
+  client.onRequest(CLASSIC, {}).fails({ kind: 'not-found', message: 'no classic' });
+  client.onRequest(RULES, {}).fails({ kind: 'not-found', message: 'no rules' });
+
+  const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
+  expect(result._unsafeUnwrap()).toMatchObject({ hasProtection: false, sources: [] });
+});
+
+test('propagates non-404 classic errors so the partial-failure boundary can log it', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest(CLASSIC, {}).fails({ kind: 'http', status: 500, message: 'boom' });
+  client.onRequest(RULES, {}).resolves([]);
+
+  const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
+  expect(result.isErr()).toBe(true);
+  expect(result._unsafeUnwrapErr()).toMatchObject({ kind: 'http', status: 500 });
+});
+
+test('propagates non-404 ruleset errors so the partial-failure boundary can log it', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest(CLASSIC, {}).fails({ kind: 'not-found', message: 'no classic' });
+  client.onRequest(RULES, {}).fails({ kind: 'http', status: 500, message: 'boom' });
 
   const result = await getBranchProtection(client, { owner: 'acme', name: 'widgets' }, 'main');
   expect(result.isErr()).toBe(true);
