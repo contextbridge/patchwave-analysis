@@ -71,10 +71,12 @@ export interface CveAlert extends RepoRef {
   summary: string;
 }
 
-export type CveSlice =
-  | { status: 'ok'; alerts: CveAlert[] }
-  | { status: 'scope-missing'; requiredScope: string }
-  | { status: 'not-enabled' };
+export type CveSlice = RepoRef &
+  (
+    | { status: 'ok'; alerts: CveAlert[] }
+    | { status: 'scope-missing'; requiredScope: string }
+    | { status: 'not-enabled' }
+  );
 
 export interface RevertEvent extends RepoRef {
   sha: string;
@@ -119,6 +121,6 @@ export interface CollectedData {
 
 export interface CollectorWarning {
   collector: string;
-  repo?: string;
+  repo?: RepoRef;
   message: string;
 }

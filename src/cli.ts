@@ -26,6 +26,7 @@ import type {
   DependabotPr,
   RepoLanguages,
   RepoMeta,
+  RepoRef,
   RevertEvent,
 } from './types.ts';
 
@@ -234,14 +235,13 @@ async function collectAll(
 
   const prIndex = indexDependabotPrsByRepo(dependabotPrs);
   const revertGroups = await mapWithConcurrency(repos, 8, async (r) => {
-    const repoKey = `${r.owner}/${r.name}`;
-    const numbers = prIndex.get(repoKey) ?? new Set<number>();
+    const numbers = prIndex.get(`${r.owner}/${r.name}`) ?? new Set<number>();
     return await runResultAsync<RevertEvent[]>(
       listReverts(client, { owner: r.owner, name: r.name }, windowStartIso, numbers),
       [],
       warnings,
       'reverts',
-      repoKey,
+      { owner: r.owner, name: r.name },
     );
   });
   const reverts: RevertEvent[] = revertGroups.flat();
@@ -277,7 +277,7 @@ async function crawlPerRepo<T>(
     } else {
       warnings.push({
         collector,
-        repo: `${repo.owner}/${repo.name}`,
+        repo: { owner: repo.owner, name: repo.name },
         message: formatGithubError(result.error),
       });
     }
@@ -290,7 +290,7 @@ async function runResultAsync<T>(
   fallback: T,
   warnings: CollectorWarning[],
   collector: string,
-  repo?: string,
+  repo?: RepoRef,
 ): Promise<T> {
   const result = await ra;
   if (result.isOk()) return result.value;

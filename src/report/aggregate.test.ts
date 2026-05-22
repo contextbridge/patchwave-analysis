@@ -67,7 +67,7 @@ test('rolls org/visibility/language counts up into orgOverview', () => {
 
 test('emits a scope-missing CVE exposure when any slice signals scope-missing', () => {
   const data = collectedData.build({
-    cve: [{ status: 'scope-missing', requiredScope: 'security_events' }],
+    cve: [{ owner: 'acme', name: 'widgets', status: 'scope-missing', requiredScope: 'security_events' }],
   });
   const bundle = aggregate(data);
   expect(bundle.cve).toMatchObject({ status: 'scope-missing', requiredScope: 'security_events' });

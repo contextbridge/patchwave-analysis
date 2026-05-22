@@ -419,16 +419,9 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
     };
   }
 
-  const okSlices = data.cve.filter((s): s is { status: 'ok'; alerts: CveAlert[] } => s.status === 'ok');
-  const disabledRepos: string[] = [];
-  for (let i = 0; i < data.cve.length; i++) {
-    const slice = data.cve[i];
-    if (slice?.status === 'not-enabled') {
-      const repo = data.repos[i];
-      if (repo) disabledRepos.push(`${repo.owner}/${repo.name}`);
-    }
-  }
-  const allAlerts = okSlices.flatMap((s) => s.alerts);
+  const okSlices = data.cve.filter((s) => s.status === 'ok');
+  const disabledRepos = data.cve.filter((s) => s.status === 'not-enabled').map((s) => `${s.owner}/${s.name}`);
+  const allAlerts: CveAlert[] = okSlices.flatMap((s) => (s.status === 'ok' ? s.alerts : []));
   const bySeverity: Record<CveSeverity, number> = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const a of allAlerts) bySeverity[a.severity] += 1;
 

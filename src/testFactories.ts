@@ -73,6 +73,8 @@ export const cveAlert = Factory.define<CveAlert>(({ sequence }) => ({
 }));
 
 export const cveSliceOk = Factory.define<Extract<CveSlice, { status: 'ok' }>>(() => ({
+  owner: 'acme',
+  name: 'widgets',
   status: 'ok',
   alerts: [],
 }));
@@ -118,7 +120,7 @@ export const repoLanguages = Factory.define<RepoLanguages>(() => ({
 
 export const collectorWarning = Factory.define<CollectorWarning>(() => ({
   collector: 'branchProtection',
-  repo: 'acme/widgets',
+  repo: { owner: 'acme', name: 'widgets' },
   message: 'GitHub returned 500',
 }));
 

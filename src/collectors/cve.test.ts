@@ -47,6 +47,8 @@ test('converts a scope-missing error into the corresponding slice', async () => 
   const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
   expect(result.isOk()).toBe(true);
   expect(result._unsafeUnwrap()).toEqual({
+    owner: 'acme',
+    name: 'widgets',
     status: 'scope-missing',
     requiredScope: 'security_events',
   });
@@ -60,7 +62,7 @@ test("converts a 404 into 'not-enabled'", async () => {
 
   const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
   expect(result.isOk()).toBe(true);
-  expect(result._unsafeUnwrap()).toEqual({ status: 'not-enabled' });
+  expect(result._unsafeUnwrap()).toEqual({ owner: 'acme', name: 'widgets', status: 'not-enabled' });
 });
 
 test("converts a 403 'Dependabot alerts are disabled' into 'not-enabled'", async () => {
@@ -72,7 +74,7 @@ test("converts a 403 'Dependabot alerts are disabled' into 'not-enabled'", async
 
   const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
   expect(result.isOk()).toBe(true);
-  expect(result._unsafeUnwrap()).toEqual({ status: 'not-enabled' });
+  expect(result._unsafeUnwrap()).toEqual({ owner: 'acme', name: 'widgets', status: 'not-enabled' });
 });
 
 test('propagates an unrelated 403 instead of swallowing it as not-enabled', async () => {
