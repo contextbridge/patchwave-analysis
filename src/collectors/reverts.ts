@@ -1,6 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import { toGithubError } from "../github/errors.ts";
-import type { GithubClient } from "../github/client.ts";
+import type { ResultAsync } from "neverthrow";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { DependabotPr, RepoRef, RevertEvent } from "../types.ts";
 
@@ -17,15 +16,13 @@ export function listReverts(
   windowStartIso: string,
   dependabotPrNumbersForRepo: ReadonlySet<number>,
 ): ResultAsync<RevertEvent[], GithubError> {
-  return ResultAsync.fromPromise(
-    client.rest.paginate("GET /repos/{owner}/{repo}/commits", {
+  return client
+    .paginate<ListCommitsItem>("GET /repos/{owner}/{repo}/commits", {
       owner: ref.owner,
       repo: ref.name,
       since: windowStartIso,
       per_page: 100,
-    }) as Promise<ListCommitsItem[]>,
-    toGithubError,
-  )
+    })
     .map((commits) => {
       const reverts: RevertEvent[] = [];
       for (const c of commits) {
@@ -42,8 +39,7 @@ export function listReverts(
         });
       }
       return reverts;
-    })
-    .orElse(() => okAsync<RevertEvent[], GithubError>([]));
+    });
 }
 
 export function indexDependabotPrsByRepo(

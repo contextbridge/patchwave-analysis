@@ -1,6 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import { toGithubError } from "../github/errors.ts";
-import type { GithubClient } from "../github/client.ts";
+import type { ResultAsync } from "neverthrow";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { ContributorSlice, RepoRef } from "../types.ts";
 
@@ -14,15 +13,13 @@ export function listActiveCommitters(
   ref: RepoRef,
   windowStartIso: string,
 ): ResultAsync<ContributorSlice, GithubError> {
-  return ResultAsync.fromPromise(
-    client.rest.paginate("GET /repos/{owner}/{repo}/commits", {
+  return client
+    .paginate<ListCommitsItem>("GET /repos/{owner}/{repo}/commits", {
       owner: ref.owner,
       repo: ref.name,
       since: windowStartIso,
       per_page: 100,
-    }) as Promise<ListCommitsItem[]>,
-    toGithubError,
-  )
+    })
     .map((commits) => {
       const logins = new Set<string>();
       for (const c of commits) {
@@ -33,6 +30,5 @@ export function listActiveCommitters(
         logins.add(author.login);
       }
       return { ...ref, activeHumanLogins: [...logins].sort() };
-    })
-    .orElse(() => okAsync<ContributorSlice, GithubError>({ ...ref, activeHumanLogins: [] }));
+    });
 }

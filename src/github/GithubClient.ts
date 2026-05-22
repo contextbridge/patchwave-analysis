@@ -1,0 +1,66 @@
+import { graphql as graphqlBase } from "@octokit/graphql";
+import { retry } from "@octokit/plugin-retry";
+import { throttling } from "@octokit/plugin-throttling";
+import { Octokit } from "@octokit/rest";
+import { ResultAsync } from "neverthrow";
+import { type GithubError, toGithubError } from "./errors.ts";
+
+const PatchwaveOctokit = Octokit.plugin(retry, throttling);
+
+function noop(): void {}
+
+/**
+ * Narrow GitHub API surface the collectors depend on. Each method returns a
+ * ResultAsync so callers can chain without try/catch. Production wires this to
+ * Octokit + @octokit/graphql; tests use FakeGithubClient.
+ */
+export interface GithubClient {
+  paginate<T>(route: string, params?: Record<string, unknown>): ResultAsync<T[], GithubError>;
+  request<T>(route: string, params?: Record<string, unknown>): ResultAsync<T, GithubError>;
+  graphql<T>(query: string, variables?: Record<string, unknown>): ResultAsync<T, GithubError>;
+}
+
+export interface GithubClientImplOptions {
+  readonly token: string;
+  readonly userAgent?: string;
+  readonly onLogError?: (msg: string) => void;
+}
+
+export class GithubClientImpl implements GithubClient {
+  private readonly rest: InstanceType<typeof PatchwaveOctokit>;
+  private readonly graphqlClient: typeof graphqlBase;
+
+  constructor(options: GithubClientImplOptions) {
+    const { token, userAgent = "patchwave-analysis", onLogError = console.error } = options;
+    this.rest = new PatchwaveOctokit({
+      auth: token,
+      userAgent,
+      log: { debug: noop, info: noop, warn: noop, error: onLogError },
+      retry: { doNotRetry: [400, 401, 403, 404, 409, 422] },
+      throttle: {
+        onRateLimit: (_retryAfter, _opts, _octokit, retryCount) => retryCount < 2,
+        onSecondaryRateLimit: () => true,
+      },
+    });
+    this.graphqlClient = graphqlBase.defaults({
+      headers: { authorization: `token ${token}` },
+    });
+  }
+
+  paginate<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T[], GithubError> {
+    return ResultAsync.fromPromise(
+      this.rest.paginate(route, params) as Promise<T[]>,
+      toGithubError,
+    );
+  }
+
+  request<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T, GithubError> {
+    return ResultAsync.fromPromise(this.rest.request(route, params), toGithubError).map(
+      (res) => res.data as T,
+    );
+  }
+
+  graphql<T>(query: string, variables: Record<string, unknown> = {}): ResultAsync<T, GithubError> {
+    return ResultAsync.fromPromise(this.graphqlClient<T>(query, variables), toGithubError);
+  }
+}

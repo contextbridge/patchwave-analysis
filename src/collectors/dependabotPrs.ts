@@ -1,5 +1,5 @@
 import { okAsync, ResultAsync } from "neverthrow";
-import { callGraphql, type GithubClient } from "../github/client.ts";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { CheckSummary, DependabotPr, PrState } from "../types.ts";
 
@@ -133,9 +133,7 @@ function pageThrough(
   cursor: string | null,
   acc: DependabotPr[],
 ): ResultAsync<DependabotPr[], GithubError> {
-  return callGraphql<GraphqlSearchResponse>(
-    client.graphql<GraphqlSearchResponse>(SEARCH_QUERY, { query, cursor }),
-  ).andThen((res) => {
+  return client.graphql<GraphqlSearchResponse>(SEARCH_QUERY, { query, cursor }).andThen((res) => {
     for (const node of res.search.nodes) {
       if (node === null) continue;
       acc.push(toDependabotPr(node));

@@ -1,6 +1,5 @@
 import { parseArgs } from "node:util";
 import { ResultAsync } from "neverthrow";
-import { mapWithConcurrency } from "./concurrency.ts";
 import { getBranchProtection } from "./collectors/branchProtection.ts";
 import { listActiveCommitters } from "./collectors/contributors.ts";
 import { getCveAlerts } from "./collectors/cve.ts";
@@ -8,10 +7,10 @@ import { getDependabotConfig } from "./collectors/dependabotConfig.ts";
 import { listDependabotPrs } from "./collectors/dependabotPrs.ts";
 import { getRepoLanguages, listOrgRepos } from "./collectors/repos.ts";
 import { indexDependabotPrsByRepo, listReverts } from "./collectors/reverts.ts";
-import { formatAuthError, resolveToken } from "./github/auth.ts";
-import { type GithubClient, makeClient } from "./github/client.ts";
+import { mapWithConcurrency } from "./concurrency.ts";
+import type { Context } from "./context.ts";
+import { formatFsError } from "./FileSystem.ts";
 import { formatGithubError, type GithubError } from "./github/errors.ts";
-import { formatFsError, writeTextFile } from "./io/fs.ts";
 import { aggregate } from "./report/aggregate.ts";
 import { renderMarkdown } from "./report/markdown.ts";
 import type {
@@ -27,7 +26,7 @@ import type {
   RevertEvent,
 } from "./types.ts";
 
-interface CliOptions {
+export interface CliOptions {
   target: string;
   windowDays: number;
   out: string;
@@ -35,53 +34,46 @@ interface CliOptions {
   exclude: string[];
 }
 
-export async function main(argv: readonly string[]): Promise<number> {
+export async function main(ctx: Context, argv: readonly string[]): Promise<number> {
   const parsed = parseCli(argv);
   if (parsed.kind === "err") {
-    if (parsed.message.length > 0) console.error(parsed.message);
-    console.error(usage());
+    if (parsed.message.length > 0) ctx.io.writeStderr(`${parsed.message}\n`);
+    ctx.io.writeStderr(`${usage()}\n`);
     return parsed.message.length > 0 ? 1 : 0;
   }
   const opts = parsed.value;
 
-  const tokenResult = await resolveToken();
-  if (tokenResult.isErr()) {
-    console.error(formatAuthError(tokenResult.error));
-    return 1;
-  }
-  const client = makeClient(tokenResult.value);
-
-  const renderResult = await renderReport(client, opts);
+  const renderResult = await renderReport(ctx, opts);
   if (renderResult.isErr()) {
-    console.error(formatGithubError(renderResult.error));
+    ctx.io.writeStderr(`${formatGithubError(renderResult.error)}\n`);
     return 1;
   }
 
-  const writeResult = await writeTextFile(opts.out, renderResult.value);
+  const writeResult = await ctx.fs.writeTextFile(opts.out, renderResult.value);
   if (writeResult.isErr()) {
-    console.error(formatFsError(writeResult.error));
+    ctx.io.writeStderr(`${formatFsError(writeResult.error)}\n`);
     return 1;
   }
 
-  console.log(`wrote ${opts.out}`);
+  ctx.io.writeStdout(`wrote ${opts.out}\n`);
   return 0;
 }
 
-function renderReport(client: GithubClient, opts: CliOptions): ResultAsync<string, GithubError> {
-  log(`scanning ${opts.target} (${opts.windowDays}-day window)…`);
-  return listOrgRepos(client, opts.target).andThen((repos) => {
+function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, GithubError> {
+  log(ctx, `scanning ${opts.target} (${opts.windowDays}-day window)…`);
+  return listOrgRepos(ctx.githubClient, opts.target).andThen((repos) => {
     const filtered = filterRepos(repos, opts);
-    log(`found ${repos.length} repos; ${filtered.length} included after filters`);
-    const now = new Date();
+    log(ctx, `found ${repos.length} repos; ${filtered.length} included after filters`);
+    const now = ctx.clock.now();
     const windowStart = new Date(now.getTime() - opts.windowDays * 86_400_000);
     const windowStartIso = windowStart.toISOString();
 
     return ResultAsync.fromSafePromise(
-      collectAll(client, filtered, opts.target, opts.windowDays, windowStartIso, now),
+      collectAll(ctx, filtered, opts.target, opts.windowDays, windowStartIso, now),
     ).map((data) => {
-      log(`crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report…`);
+      log(ctx, `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report…`);
       if (data.errors.length > 0) {
-        log(`(${data.errors.length} per-repo warnings were suppressed during crawl)`);
+        log(ctx, `(${data.errors.length} per-repo warnings were suppressed during crawl)`);
       }
       const bundle = aggregate(data);
       return renderMarkdown(bundle);
@@ -90,51 +82,57 @@ function renderReport(client: GithubClient, opts: CliOptions): ResultAsync<strin
 }
 
 async function collectAll(
-  client: GithubClient,
+  ctx: Context,
   repos: RepoMeta[],
   target: string,
   windowDays: number,
   windowStartIso: string,
   now: Date,
 ): Promise<CollectedData> {
+  const client = ctx.githubClient;
   const warnings: CollectorWarning[] = [];
 
-  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
-    crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, "languages")
-      .then((rows): RepoLanguages[] =>
+  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] =
+    await Promise.all([
+      crawlPerRepo(
+        repos,
+        (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }),
+        warnings,
+        "languages",
+      ).then((rows): RepoLanguages[] =>
         rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
       ),
-    crawlPerRepo<DependabotConfigSlice>(
-      repos,
-      (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
-      warnings,
-      "dependabotConfig",
-    ),
-    crawlPerRepo<CveSlice>(
-      repos,
-      (r) => getCveAlerts(client, { owner: r.owner, name: r.name }),
-      warnings,
-      "cve",
-    ),
-    crawlPerRepo<BranchProtectionSlice>(
-      repos,
-      (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
-      warnings,
-      "branchProtection",
-    ),
-    crawlPerRepo<ContributorSlice>(
-      repos,
-      (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
-      warnings,
-      "contributors",
-    ),
-    runResultAsync<DependabotPr[]>(
-      listDependabotPrs(client, target, windowStartIso),
-      [],
-      warnings,
-      "dependabotPrs",
-    ),
-  ]);
+      crawlPerRepo<DependabotConfigSlice>(
+        repos,
+        (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
+        warnings,
+        "dependabotConfig",
+      ),
+      crawlPerRepo<CveSlice>(
+        repos,
+        (r) => getCveAlerts(client, { owner: r.owner, name: r.name }),
+        warnings,
+        "cve",
+      ),
+      crawlPerRepo<BranchProtectionSlice>(
+        repos,
+        (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
+        warnings,
+        "branchProtection",
+      ),
+      crawlPerRepo<ContributorSlice>(
+        repos,
+        (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
+        warnings,
+        "contributors",
+      ),
+      runResultAsync<DependabotPr[]>(
+        listDependabotPrs(client, target, windowStartIso),
+        [],
+        warnings,
+        "dependabotPrs",
+      ),
+    ]);
 
   const prIndex = indexDependabotPrsByRepo(dependabotPrs);
   const revertGroups = await mapWithConcurrency(repos, 8, async (r) => {
@@ -202,9 +200,11 @@ async function runResultAsync<T>(
   return fallback;
 }
 
-function parseCli(
-  argv: readonly string[],
-): { kind: "ok"; value: CliOptions } | { kind: "err"; message: string } {
+export type ParseCliResult =
+  | { kind: "ok"; value: CliOptions }
+  | { kind: "err"; message: string };
+
+export function parseCli(argv: readonly string[]): ParseCliResult {
   let parsed;
   try {
     parsed = parseArgs({
@@ -283,6 +283,6 @@ function usage(): string {
   ].join("\n");
 }
 
-function log(message: string): void {
-  process.stderr.write(`${message}\n`);
+function log(ctx: Context, message: string): void {
+  ctx.io.writeStderr(`${message}\n`);
 }

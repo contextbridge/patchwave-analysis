@@ -1,6 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import { toGithubError } from "../github/errors.ts";
-import type { GithubClient } from "../github/client.ts";
+import { okAsync, ResultAsync, errAsync } from "neverthrow";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { BranchProtectionSlice, RepoRef } from "../types.ts";
 
@@ -18,23 +17,24 @@ export function getBranchProtection(
   ref: RepoRef,
   branch: string,
 ): ResultAsync<BranchProtectionSlice, GithubError> {
-  return ResultAsync.fromPromise(
-    client.rest.repos.getBranchProtection({ owner: ref.owner, repo: ref.name, branch }),
-    toGithubError,
-  )
-    .map((res) => {
-      const data = res.data as ProtectionResponse;
+  return client
+    .request<ProtectionResponse>("GET /repos/{owner}/{repo}/branches/{branch}/protection", {
+      owner: ref.owner,
+      repo: ref.name,
+      branch,
+    })
+    .map((data): BranchProtectionSlice => {
       const required = data.required_pull_request_reviews?.required_approving_review_count ?? null;
-      const slice: BranchProtectionSlice = {
+      return {
         ...ref,
         hasProtection: true,
         requiredApprovingReviewCount: required,
         requiresStatusChecks: (data.required_status_checks?.contexts?.length ?? 0) > 0,
       };
-      return slice;
     })
     .orElse((err) => {
-      if (err.kind === "not-found" || err.kind === "forbidden") {
+      // 404 is the documented signal that no protection rule exists.
+      if (err.kind === "not-found") {
         return okAsync<BranchProtectionSlice, GithubError>({
           ...ref,
           hasProtection: false,
@@ -42,11 +42,6 @@ export function getBranchProtection(
           requiresStatusChecks: false,
         });
       }
-      return okAsync<BranchProtectionSlice, GithubError>({
-        ...ref,
-        hasProtection: false,
-        requiredApprovingReviewCount: null,
-        requiresStatusChecks: false,
-      });
+      return errAsync<BranchProtectionSlice, GithubError>(err);
     });
 }

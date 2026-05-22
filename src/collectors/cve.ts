@@ -1,6 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import { toGithubError } from "../github/errors.ts";
-import type { GithubClient } from "../github/client.ts";
+import { errAsync, okAsync, type ResultAsync } from "neverthrow";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { CveAlert, CveSeverity, CveSlice, RepoRef } from "../types.ts";
 
@@ -19,16 +18,14 @@ export function getCveAlerts(
   client: GithubClient,
   ref: RepoRef,
 ): ResultAsync<CveSlice, GithubError> {
-  return ResultAsync.fromPromise(
-    client.rest.paginate("GET /repos/{owner}/{repo}/dependabot/alerts", {
+  return client
+    .paginate<RawCveAlert>("GET /repos/{owner}/{repo}/dependabot/alerts", {
       owner: ref.owner,
       repo: ref.name,
       state: "open",
       per_page: 100,
-    }) as Promise<RawCveAlert[]>,
-    toGithubError,
-  )
-    .map((raw) => {
+    })
+    .map((raw): CveSlice => {
       const alerts: CveAlert[] = raw.map((a) => ({
         owner: ref.owner,
         name: ref.name,
@@ -39,20 +36,23 @@ export function getCveAlerts(
         ecosystem: a.security_vulnerability.package.ecosystem,
         summary: a.security_advisory.summary,
       }));
-      const slice: CveSlice = { status: "ok", alerts };
-      return slice;
+      return { status: "ok", alerts };
     })
     .orElse((err) => {
+      // Token missing the security_events scope: surface to the caller so the
+      // report can prompt the user to refresh auth, but don't fail the run.
       if (err.kind === "scope-missing") {
         return okAsync<CveSlice, GithubError>({
           status: "scope-missing",
-          requiredScope: "security_events",
+          requiredScope: err.required,
         });
       }
-      if (err.kind === "forbidden" || err.kind === "not-found") {
+      // 404 is GitHub's signal that Dependabot alerts aren't enabled on this
+      // repo (or it doesn't exist for this token's scope) — semantic answer.
+      if (err.kind === "not-found") {
         return okAsync<CveSlice, GithubError>({ status: "not-enabled" });
       }
-      return okAsync<CveSlice, GithubError>({ status: "not-enabled" });
+      return errAsync<CveSlice, GithubError>(err);
     });
 }
 

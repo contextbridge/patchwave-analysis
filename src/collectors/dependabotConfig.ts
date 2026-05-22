@@ -1,6 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import { toGithubError } from "../github/errors.ts";
-import type { GithubClient } from "../github/client.ts";
+import { okAsync, ResultAsync, errAsync } from "neverthrow";
+import type { GithubClient } from "../github/GithubClient.ts";
 import type { GithubError } from "../github/errors.ts";
 import type { DependabotConfigSlice, RepoRef } from "../types.ts";
 
@@ -23,21 +22,16 @@ export function getDependabotConfig(
   ref: RepoRef,
 ): ResultAsync<DependabotConfigSlice, GithubError> {
   return fetchFirstAvailable(client, ref, CONFIG_PATHS).andThen((configBody) => {
-    if (configBody === null) {
-      return resolvePackageManager(client, ref).map((pm) => ({
+    const hasConfig = configBody !== null;
+    const ecosystems = configBody === null ? [] : parseEcosystems(configBody);
+    return resolvePackageManager(client, ref).map(
+      (pm): DependabotConfigSlice => ({
         ...ref,
-        hasConfig: false,
-        ecosystems: [],
+        hasConfig,
+        ecosystems,
         packageManager: pm,
-      }));
-    }
-    const ecosystems = parseEcosystems(configBody);
-    return resolvePackageManager(client, ref).map((pm) => ({
-      ...ref,
-      hasConfig: true,
-      ecosystems,
-      packageManager: pm,
-    }));
+      }),
+    );
   });
 }
 
@@ -48,14 +42,16 @@ function fetchFirstAvailable(
 ): ResultAsync<string | null, GithubError> {
   const [head, ...rest] = paths;
   if (head === undefined) return okAsync(null);
-  return ResultAsync.fromPromise(
-    client.rest.repos.getContent({ owner: ref.owner, repo: ref.name, path: head }),
-    toGithubError,
-  )
-    .map((res) => decodeContent(res.data as ContentResponse))
+  return client
+    .request<ContentResponse>("GET /repos/{owner}/{repo}/contents/{path}", {
+      owner: ref.owner,
+      repo: ref.name,
+      path: head,
+    })
+    .map((data) => decodeContent(data))
     .orElse((err) => {
       if (err.kind === "not-found") return fetchFirstAvailable(client, ref, rest);
-      return okAsync<string | null, GithubError>(null);
+      return errAsync<string | null, GithubError>(err);
     });
 }
 
@@ -80,14 +76,16 @@ function checkLockfile(
 ): ResultAsync<DependabotConfigSlice["packageManager"], GithubError> {
   const current = candidates[index];
   if (current === undefined) return okAsync(null);
-  return ResultAsync.fromPromise(
-    client.rest.repos.getContent({ owner: ref.owner, repo: ref.name, path: current.path }),
-    toGithubError,
-  )
+  return client
+    .request<ContentResponse>("GET /repos/{owner}/{repo}/contents/{path}", {
+      owner: ref.owner,
+      repo: ref.name,
+      path: current.path,
+    })
     .map(() => current.pm as DependabotConfigSlice["packageManager"])
     .orElse((err) => {
       if (err.kind === "not-found") return checkLockfile(client, ref, candidates, index + 1);
-      return okAsync<DependabotConfigSlice["packageManager"], GithubError>(null);
+      return errAsync<DependabotConfigSlice["packageManager"], GithubError>(err);
     });
 }
 
