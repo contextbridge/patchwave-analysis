@@ -43,8 +43,8 @@ interface RawPullRequest {
 }
 
 const SEARCH_QUERY = /* GraphQL */ `
-  query DependabotPrs($query: String!, $cursor: String) {
-    search(query: $query, type: ISSUE, first: 50, after: $cursor) {
+  query DependabotPrs($searchQuery: String!, $cursor: String) {
+    search(query: $searchQuery, type: ISSUE, first: 50, after: $cursor) {
       pageInfo {
         hasNextPage
         endCursor
@@ -118,23 +118,25 @@ export function listDependabotPrs(
   org: string,
   windowStartIso: string,
 ): ResultAsync<DependabotPr[], GithubError> {
-  const query = [`is:pr`, `author:app/dependabot`, `org:${org}`, `updated:>=${windowStartIso.slice(0, 10)}`].join(' ');
-  return pageThrough(client, query, null, []);
+  const searchQuery = [`is:pr`, `author:app/dependabot`, `org:${org}`, `updated:>=${windowStartIso.slice(0, 10)}`].join(
+    ' ',
+  );
+  return pageThrough(client, searchQuery, null, []);
 }
 
 function pageThrough(
   client: GithubClient,
-  query: string,
+  searchQuery: string,
   cursor: string | null,
   acc: DependabotPr[],
 ): ResultAsync<DependabotPr[], GithubError> {
-  return client.graphql<GraphqlSearchResponse>(SEARCH_QUERY, { query, cursor }).andThen((res) => {
+  return client.graphql<GraphqlSearchResponse>(SEARCH_QUERY, { searchQuery, cursor }).andThen((res) => {
     for (const node of res.search.nodes) {
       if (node === null) continue;
       acc.push(toDependabotPr(node));
     }
     if (res.search.pageInfo.hasNextPage && res.search.pageInfo.endCursor) {
-      return pageThrough(client, query, res.search.pageInfo.endCursor, acc);
+      return pageThrough(client, searchQuery, res.search.pageInfo.endCursor, acc);
     }
     return okAsync<DependabotPr[], GithubError>(acc);
   });
