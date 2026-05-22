@@ -1,7 +1,7 @@
-import type { ResultAsync } from "neverthrow";
-import type { GithubClient } from "../github/GithubClient.ts";
-import type { GithubError } from "../github/errors.ts";
-import type { DependabotPr, RepoRef, RevertEvent } from "../types.ts";
+import type { ResultAsync } from 'neverthrow';
+import type { GithubError } from '../github/errors.ts';
+import type { GithubClient } from '../github/GithubClient.ts';
+import type { DependabotPr, RepoRef, RevertEvent } from '../types.ts';
 
 interface ListCommitsItem {
   sha: string;
@@ -17,7 +17,7 @@ export function listReverts(
   dependabotPrNumbersForRepo: ReadonlySet<number>,
 ): ResultAsync<RevertEvent[], GithubError> {
   return client
-    .paginate<ListCommitsItem>("GET /repos/{owner}/{repo}/commits", {
+    .paginate<ListCommitsItem>('GET /repos/{owner}/{repo}/commits', {
       owner: ref.owner,
       repo: ref.name,
       since: windowStartIso,
@@ -26,14 +26,14 @@ export function listReverts(
     .map((commits) => {
       const reverts: RevertEvent[] = [];
       for (const c of commits) {
-        if (!c.commit.message.startsWith("Revert ")) continue;
+        if (!c.commit.message.startsWith('Revert ')) continue;
         const revertedPr = extractRevertedPrNumber(c.commit.message);
         reverts.push({
           owner: ref.owner,
           name: ref.name,
           sha: c.sha,
           message: firstLine(c.commit.message),
-          committedAt: c.commit.committer?.date ?? "",
+          committedAt: c.commit.committer?.date ?? '',
           revertedPrNumber: revertedPr,
           revertsDependabotPr: revertedPr !== null && dependabotPrNumbersForRepo.has(revertedPr),
         });
@@ -42,9 +42,7 @@ export function listReverts(
     });
 }
 
-export function indexDependabotPrsByRepo(
-  prs: readonly DependabotPr[],
-): Map<string, Set<number>> {
+export function indexDependabotPrsByRepo(prs: readonly DependabotPr[]): Map<string, Set<number>> {
   const index = new Map<string, Set<number>>();
   for (const pr of prs) {
     const key = `${pr.owner}/${pr.name}`;
@@ -66,6 +64,6 @@ function extractRevertedPrNumber(message: string): number | null {
 }
 
 function firstLine(text: string): string {
-  const idx = text.indexOf("\n");
+  const idx = text.indexOf('\n');
   return idx === -1 ? text : text.slice(0, idx);
 }

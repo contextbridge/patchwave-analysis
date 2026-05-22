@@ -1,7 +1,7 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import type { GithubClient } from "../github/GithubClient.ts";
-import type { GithubError } from "../github/errors.ts";
-import type { CheckSummary, DependabotPr, PrState } from "../types.ts";
+import { ResultAsync, okAsync } from 'neverthrow';
+import type { GithubError } from '../github/errors.ts';
+import type { GithubClient } from '../github/GithubClient.ts';
+import type { CheckSummary, DependabotPr, PrState } from '../types.ts';
 
 interface GraphqlSearchResponse {
   search: {
@@ -13,7 +13,7 @@ interface GraphqlSearchResponse {
 interface RawPullRequest {
   number: number;
   title: string;
-  state: "OPEN" | "CLOSED" | "MERGED";
+  state: 'OPEN' | 'CLOSED' | 'MERGED';
   createdAt: string;
   closedAt: string | null;
   mergedAt: string | null;
@@ -31,8 +31,8 @@ interface RawPullRequest {
         statusCheckRollup: {
           contexts: {
             nodes: Array<
-              | { __typename: "CheckRun"; name: string; conclusion: string | null }
-              | { __typename: "StatusContext"; context: string; state: string }
+              | { __typename: 'CheckRun'; name: string; conclusion: string | null }
+              | { __typename: 'StatusContext'; context: string; state: string }
               | null
             >;
           };
@@ -118,12 +118,7 @@ export function listDependabotPrs(
   org: string,
   windowStartIso: string,
 ): ResultAsync<DependabotPr[], GithubError> {
-  const query = [
-    `is:pr`,
-    `author:app/dependabot`,
-    `org:${org}`,
-    `updated:>=${windowStartIso.slice(0, 10)}`,
-  ].join(" ");
+  const query = [`is:pr`, `author:app/dependabot`, `org:${org}`, `updated:>=${windowStartIso.slice(0, 10)}`].join(' ');
   return pageThrough(client, query, null, []);
 }
 
@@ -146,8 +141,8 @@ function pageThrough(
 }
 
 function toDependabotPr(raw: RawPullRequest): DependabotPr {
-  const state: PrState = raw.state === "OPEN" ? "open" : "closed";
-  const merged = raw.state === "MERGED";
+  const state: PrState = raw.state === 'OPEN' ? 'open' : 'closed';
+  const merged = raw.state === 'MERGED';
   const reviewers = uniqueLogins(raw.reviews.nodes.map((n) => n?.author?.login));
   const commenters = uniqueLogins(raw.comments.nodes.map((n) => n?.author?.login));
   return {
@@ -185,11 +180,11 @@ function summarizeChecks(raw: RawPullRequest): CheckSummary {
   for (const ctx of rollup.contexts.nodes) {
     if (ctx === null) continue;
     summary.total += 1;
-    if (ctx.__typename === "CheckRun") {
-      const c = (ctx.conclusion ?? "").toUpperCase();
-      if (c === "SUCCESS" || c === "NEUTRAL" || c === "SKIPPED") {
+    if (ctx.__typename === 'CheckRun') {
+      const c = (ctx.conclusion ?? '').toUpperCase();
+      if (c === 'SUCCESS' || c === 'NEUTRAL' || c === 'SKIPPED') {
         summary.success += 1;
-      } else if (c === "FAILURE" || c === "TIMED_OUT" || c === "CANCELLED" || c === "ACTION_REQUIRED") {
+      } else if (c === 'FAILURE' || c === 'TIMED_OUT' || c === 'CANCELLED' || c === 'ACTION_REQUIRED') {
         summary.failure += 1;
         summary.failedCheckNames.push(ctx.name);
       } else {
@@ -197,8 +192,8 @@ function summarizeChecks(raw: RawPullRequest): CheckSummary {
       }
     } else {
       const s = ctx.state.toUpperCase();
-      if (s === "SUCCESS") summary.success += 1;
-      else if (s === "FAILURE" || s === "ERROR") {
+      if (s === 'SUCCESS') summary.success += 1;
+      else if (s === 'FAILURE' || s === 'ERROR') {
         summary.failure += 1;
         summary.failedCheckNames.push(ctx.context);
       } else summary.pending += 1;
@@ -211,7 +206,7 @@ function uniqueLogins(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   for (const v of values) {
     if (!v) continue;
-    if (v.endsWith("[bot]")) continue;
+    if (v.endsWith('[bot]')) continue;
     seen.add(v);
   }
   return [...seen].sort();

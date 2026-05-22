@@ -1,0 +1,6 @@
+dist/
+node_modules/
+coverage/
+claude-tmp/
+bun.lock
+.husky/_/

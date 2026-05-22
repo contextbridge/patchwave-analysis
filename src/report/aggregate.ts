@@ -1,13 +1,7 @@
-import { classifyBumpType, isDevDependencyBump } from "../heuristics/bumpType.ts";
-import { summarizeMechanicalFailures } from "../heuristics/mechanicalFailure.ts";
-import { findSiblingBumps, type SiblingGroup } from "../heuristics/siblingBump.ts";
-import type {
-  CollectedData,
-  CveAlert,
-  CveSeverity,
-  DependabotPr,
-  LanguageBytes,
-} from "../types.ts";
+import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
+import { summarizeMechanicalFailures } from '../heuristics/mechanicalFailure.ts';
+import { type SiblingGroup, findSiblingBumps } from '../heuristics/siblingBump.ts';
+import type { CollectedData, CveAlert, CveSeverity, DependabotPr, LanguageBytes } from '../types.ts';
 
 export interface ReportBundle {
   meta: ReportMeta;
@@ -90,7 +84,7 @@ export interface ToilCost {
 }
 
 export interface CveExposure {
-  status: "ok" | "scope-missing" | "no-data";
+  status: 'ok' | 'scope-missing' | 'no-data';
   requiredScope?: string;
   totalOpenAlerts: number;
   bySeverity: Record<CveSeverity, number>;
@@ -101,7 +95,7 @@ export interface CveExposure {
 }
 
 export interface Recommendation {
-  priority: "high" | "medium" | "low";
+  priority: 'high' | 'medium' | 'low';
   message: string;
 }
 
@@ -114,11 +108,7 @@ export interface AggregateOptions {
 }
 
 export function aggregate(data: CollectedData, options: AggregateOptions = {}): ReportBundle {
-  const {
-    minutesPerMergedPr = 3,
-    idleMinutesPerStalePr = 1,
-    hourlyRateUsd = 150,
-  } = options;
+  const { minutesPerMergedPr = 3, idleMinutesPerStalePr = 1, hourlyRateUsd = 150 } = options;
 
   const now = data.ctx.now;
   const windowStart = new Date(data.ctx.windowStartIso);
@@ -166,9 +156,9 @@ export function aggregate(data: CollectedData, options: AggregateOptions = {}): 
 function buildOrgOverview(data: CollectedData): OrgOverview {
   const repos = data.repos.filter((r) => !r.archived);
   const archivedExcluded = data.repos.length - repos.length;
-  const publicCount = repos.filter((r) => r.visibility === "public").length;
-  const privateCount = repos.filter((r) => r.visibility === "private").length;
-  const internalCount = repos.filter((r) => r.visibility === "internal").length;
+  const publicCount = repos.filter((r) => r.visibility === 'public').length;
+  const privateCount = repos.filter((r) => r.visibility === 'private').length;
+  const internalCount = repos.filter((r) => r.visibility === 'internal').length;
 
   const aggregateBytes: LanguageBytes = {};
   for (const lang of data.languages) {
@@ -187,7 +177,7 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     .slice(0, 10);
 
   const nodeTsRepoCount = repos.filter(
-    (r) => r.primaryLanguage === "TypeScript" || r.primaryLanguage === "JavaScript",
+    (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
   ).length;
 
   const allCommitters = new Set<string>();
@@ -247,18 +237,16 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
 
 function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBacklog {
   const prs = data.dependabotPrs;
-  const openPrs = prs.filter((p) => p.state === "open");
+  const openPrs = prs.filter((p) => p.state === 'open');
   const mergedInWindow = prs.filter((p) => p.merged && p.mergedAt && new Date(p.mergedAt) >= windowStart);
-  const closedNotMergedInWindow = prs.filter(
-    (p) => !p.merged && p.closedAt && new Date(p.closedAt) >= windowStart,
-  );
+  const closedNotMergedInWindow = prs.filter((p) => !p.merged && p.closedAt && new Date(p.closedAt) >= windowStart);
 
   const buckets = [
-    { label: "0–30 days", min: 0, max: 30 },
-    { label: "30–60 days", min: 30, max: 60 },
-    { label: "60–90 days", min: 60, max: 90 },
-    { label: "90–180 days", min: 90, max: 180 },
-    { label: "180+ days", min: 180, max: Number.POSITIVE_INFINITY },
+    { label: '0–30 days', min: 0, max: 30 },
+    { label: '30–60 days', min: 30, max: 60 },
+    { label: '60–90 days', min: 60, max: 90 },
+    { label: '90–180 days', min: 90, max: 180 },
+    { label: '180+ days', min: 180, max: Number.POSITIVE_INFINITY },
   ];
   const openAgeBuckets = buckets.map((b) => ({
     label: b.label,
@@ -268,9 +256,8 @@ function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBa
     }).length,
   }));
 
-  const oldestOpenDays = openPrs.length === 0
-    ? null
-    : Math.max(...openPrs.map((p) => daysBetween(now, new Date(p.createdAt))));
+  const oldestOpenDays =
+    openPrs.length === 0 ? null : Math.max(...openPrs.map((p) => daysBetween(now, new Date(p.createdAt))));
 
   const bumpCounts = new Map<string, number>();
   for (const pr of prs) {
@@ -336,7 +323,7 @@ function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBa
 function buildStalledSignals(data: CollectedData, windowStart: Date): StalledSignals {
   const openByRepo = new Map<string, DependabotPr[]>();
   for (const pr of data.dependabotPrs) {
-    if (pr.state !== "open") continue;
+    if (pr.state !== 'open') continue;
     const key = `${pr.owner}/${pr.name}`;
     const list = openByRepo.get(key) ?? [];
     list.push(pr);
@@ -406,7 +393,7 @@ function buildToilCost(
   hourlyRateUsd: number,
 ): ToilCost {
   const openOver30Days = prBacklog.openAgeBuckets
-    .filter((b) => b.label !== "0–30 days")
+    .filter((b) => b.label !== '0–30 days')
     .reduce((sum, b) => sum + b.count, 0);
   const minutes = prBacklog.mergedInWindowCount * minutesPerMergedPr + openOver30Days * idleMinutesPerStalePr;
   const weeks = Math.max(1, windowDays / 7);
@@ -423,10 +410,10 @@ function buildToilCost(
 }
 
 function buildCveExposure(data: CollectedData, now: Date): CveExposure {
-  const scopeMissing = data.cve.find((s) => s.status === "scope-missing");
-  if (scopeMissing && scopeMissing.status === "scope-missing") {
+  const scopeMissing = data.cve.find((s) => s.status === 'scope-missing');
+  if (scopeMissing && scopeMissing.status === 'scope-missing') {
     return {
-      status: "scope-missing",
+      status: 'scope-missing',
       requiredScope: scopeMissing.requiredScope,
       totalOpenAlerts: 0,
       bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
@@ -437,11 +424,11 @@ function buildCveExposure(data: CollectedData, now: Date): CveExposure {
     };
   }
 
-  const okSlices = data.cve.filter((s): s is { status: "ok"; alerts: CveAlert[] } => s.status === "ok");
+  const okSlices = data.cve.filter((s): s is { status: 'ok'; alerts: CveAlert[] } => s.status === 'ok');
   const disabledRepos: string[] = [];
   for (let i = 0; i < data.cve.length; i++) {
     const slice = data.cve[i];
-    if (slice?.status === "not-enabled") {
+    if (slice?.status === 'not-enabled') {
       const repo = data.repos[i];
       if (repo) disabledRepos.push(`${repo.owner}/${repo.name}`);
     }
@@ -472,12 +459,12 @@ function buildCveExposure(data: CollectedData, now: Date): CveExposure {
   };
 
   return {
-    status: "ok",
+    status: 'ok',
     totalOpenAlerts: allAlerts.length,
     bySeverity,
     topReposBySeverity,
-    oldestCriticalDays: oldest("critical"),
-    oldestHighDays: oldest("high"),
+    oldestCriticalDays: oldest('critical'),
+    oldestHighDays: oldest('high'),
     reposWithSecurityAlertsDisabled: disabledRepos,
   };
 }
@@ -494,29 +481,32 @@ function buildRecommendations(input: {
 
   if (prBacklog.mechanicalFailureShare.percentage >= 30 && prBacklog.mechanicalFailureShare.mechanical >= 3) {
     recs.push({
-      priority: "high",
+      priority: 'high',
       message: `Roughly ${prBacklog.mechanicalFailureShare.percentage}% of your failing Dependabot PRs look lockfile-related. Automating lockfile regeneration alone would likely unblock ~${prBacklog.mechanicalFailureShare.mechanical} PRs.`,
     });
   }
 
   if (stalledSignals.siblingBumps.length >= 3) {
-    const examples = stalledSignals.siblingBumps.slice(0, 3).map((g) => `${g.repo} (\`${g.packageName}\`)`).join(", ");
+    const examples = stalledSignals.siblingBumps
+      .slice(0, 3)
+      .map((g) => `${g.repo} (\`${g.packageName}\`)`)
+      .join(', ');
     recs.push({
-      priority: "medium",
+      priority: 'medium',
       message: `Multiple open Dependabot PRs target the same dependency in ${stalledSignals.siblingBumps.length} repo/package pairs — likely a workspace or monorepo coordination problem. Examples: ${examples}.`,
     });
   }
 
   if (stalledSignals.reposAtPrCap.length >= 5) {
     recs.push({
-      priority: "high",
+      priority: 'high',
       message: `${stalledSignals.reposAtPrCap.length} repos are sitting at Dependabot's default 5-PR cap. New PRs (including security ones) may not be opening invisibly — CVE exposure could be accumulating.`,
     });
   }
 
-  if (cve.status === "ok" && cve.oldestCriticalDays !== null && cve.oldestCriticalDays >= 90) {
+  if (cve.status === 'ok' && cve.oldestCriticalDays !== null && cve.oldestCriticalDays >= 90) {
     recs.push({
-      priority: "high",
+      priority: 'high',
       message: `You have at least one Critical CVE open for ${cve.oldestCriticalDays}+ days. This is an audit-risk finding even before it lands in a customer environment.`,
     });
   }
@@ -524,7 +514,7 @@ function buildRecommendations(input: {
   const liveRepoCount = orgOverview.repoCount;
   if (liveRepoCount > 0 && dependabotCoverage.reposWithConfigPercentage < 50) {
     recs.push({
-      priority: "medium",
+      priority: 'medium',
       message: `Only ${dependabotCoverage.reposWithConfigPercentage}% of your active repos have a Dependabot config file. Coverage gaps mean new CVEs may never reach you as PRs.`,
     });
   }
@@ -532,7 +522,7 @@ function buildRecommendations(input: {
   const oldestOpen = prBacklog.oldestOpenDays;
   if (oldestOpen !== null && oldestOpen >= 180) {
     recs.push({
-      priority: "medium",
+      priority: 'medium',
       message: `Your oldest open Dependabot PR is ${oldestOpen} days old. Stale PRs are the leading indicator that Dependabot will eventually stop opening new ones in that repo.`,
     });
   }
@@ -562,4 +552,3 @@ function percentile(sorted: readonly number[], p: number): number | null {
   const rank = Math.ceil((p / 100) * sorted.length) - 1;
   return sorted[Math.max(0, Math.min(rank, sorted.length - 1))] ?? null;
 }
-

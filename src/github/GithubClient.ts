@@ -1,9 +1,10 @@
-import { graphql as graphqlBase } from "@octokit/graphql";
-import { retry } from "@octokit/plugin-retry";
-import { throttling } from "@octokit/plugin-throttling";
-import { Octokit } from "@octokit/rest";
-import { ResultAsync } from "neverthrow";
-import { type GithubError, toGithubError } from "./errors.ts";
+import { graphql as graphqlBase } from '@octokit/graphql';
+import { retry } from '@octokit/plugin-retry';
+import { throttling } from '@octokit/plugin-throttling';
+import { Octokit } from '@octokit/rest';
+import { ResultAsync } from 'neverthrow';
+import type { Logger } from '../logger.ts';
+import { type GithubError, toGithubError } from './errors.ts';
 
 const PatchwaveOctokit = Octokit.plugin(retry, throttling);
 
@@ -22,8 +23,8 @@ export interface GithubClient {
 
 export interface GithubClientImplOptions {
   readonly token: string;
+  readonly logger: Logger;
   readonly userAgent?: string;
-  readonly onLogError?: (msg: string) => void;
 }
 
 export class GithubClientImpl implements GithubClient {
@@ -31,11 +32,16 @@ export class GithubClientImpl implements GithubClient {
   private readonly graphqlClient: typeof graphqlBase;
 
   constructor(options: GithubClientImplOptions) {
-    const { token, userAgent = "patchwave-analysis", onLogError = console.error } = options;
+    const { token, logger, userAgent = 'patchwave-analysis' } = options;
     this.rest = new PatchwaveOctokit({
       auth: token,
       userAgent,
-      log: { debug: noop, info: noop, warn: noop, error: onLogError },
+      log: {
+        debug: noop,
+        info: noop,
+        warn: noop,
+        error: (msg: string) => logger.error({ source: 'octokit' }, msg),
+      },
       retry: { doNotRetry: [400, 401, 403, 404, 409, 422] },
       throttle: {
         onRateLimit: (_retryAfter, _opts, _octokit, retryCount) => retryCount < 2,
@@ -48,16 +54,11 @@ export class GithubClientImpl implements GithubClient {
   }
 
   paginate<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T[], GithubError> {
-    return ResultAsync.fromPromise(
-      this.rest.paginate(route, params) as Promise<T[]>,
-      toGithubError,
-    );
+    return ResultAsync.fromPromise(this.rest.paginate(route, params), toGithubError);
   }
 
   request<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T, GithubError> {
-    return ResultAsync.fromPromise(this.rest.request(route, params), toGithubError).map(
-      (res) => res.data as T,
-    );
+    return ResultAsync.fromPromise(this.rest.request(route, params), toGithubError).map((res) => res.data as T);
   }
 
   graphql<T>(query: string, variables: Record<string, unknown> = {}): ResultAsync<T, GithubError> {

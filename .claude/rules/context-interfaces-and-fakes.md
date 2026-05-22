@@ -1,6 +1,6 @@
 ---
-paths: ["src/**/*.ts"]
-globs: ["src/**/*.ts"]
+paths: ['src/**/*.ts']
+globs: ['src/**/*.ts']
 ---
 
 # Context Interfaces and Fakes

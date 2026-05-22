@@ -1,4 +1,4 @@
-export type Visibility = "public" | "private" | "internal";
+export type Visibility = 'public' | 'private' | 'internal';
 
 export interface RepoRef {
   owner: string;
@@ -27,10 +27,10 @@ export type DependabotEcosystem = string;
 export interface DependabotConfigSlice extends RepoRef {
   hasConfig: boolean;
   ecosystems: DependabotEcosystem[];
-  packageManager: "npm" | "yarn" | "pnpm" | "bun" | "unknown" | null;
+  packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun' | 'unknown' | null;
 }
 
-export type PrState = "open" | "closed";
+export type PrState = 'open' | 'closed';
 
 export interface CheckSummary {
   total: number;
@@ -58,7 +58,7 @@ export interface DependabotPr extends RepoRef {
   checks: CheckSummary;
 }
 
-export type CveSeverity = "critical" | "high" | "medium" | "low";
+export type CveSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 export interface CveAlert extends RepoRef {
   number: number;
@@ -70,9 +70,9 @@ export interface CveAlert extends RepoRef {
 }
 
 export type CveSlice =
-  | { status: "ok"; alerts: CveAlert[] }
-  | { status: "scope-missing"; requiredScope: string }
-  | { status: "not-enabled" };
+  | { status: 'ok'; alerts: CveAlert[] }
+  | { status: 'scope-missing'; requiredScope: string }
+  | { status: 'not-enabled' };
 
 export interface RevertEvent extends RepoRef {
   sha: string;

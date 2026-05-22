@@ -1,5 +1,5 @@
-import { okAsync, ResultAsync } from "neverthrow";
-import type { FileSystem, FsError } from "../FileSystem.ts";
+import { ResultAsync, errAsync, okAsync } from 'neverthrow';
+import type { FileSystem, FsError } from '../FileSystem.ts';
 
 export interface FakeWrite {
   readonly path: string;
@@ -18,7 +18,7 @@ export class FakeFileSystem implements FileSystem {
     if (this.failure) {
       const err = this.failure;
       this.failure = null;
-      return ResultAsync.fromPromise(Promise.reject(err), () => err);
+      return errAsync(err);
     }
     this.writes.push({ path, contents });
     return okAsync(undefined);

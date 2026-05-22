@@ -1,6 +1,6 @@
 ---
-paths: ["src/**/*.test.ts"]
-globs: ["src/**/*.test.ts"]
+paths: ['src/**/*.test.ts']
+globs: ['src/**/*.test.ts']
 ---
 
 # Bun testing conventions

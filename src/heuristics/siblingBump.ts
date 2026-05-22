@@ -1,4 +1,4 @@
-import type { DependabotPr } from "../types.ts";
+import type { DependabotPr } from '../types.ts';
 
 export interface SiblingGroup {
   repo: string;
@@ -14,7 +14,7 @@ export function extractPackageNameFromHeadRef(headRef: string): string | null {
 }
 
 export function findSiblingBumps(prs: readonly DependabotPr[]): SiblingGroup[] {
-  const open = prs.filter((p) => p.state === "open");
+  const open = prs.filter((p) => p.state === 'open');
   const buckets = new Map<string, { repo: string; packageName: string; numbers: number[] }>();
   for (const pr of open) {
     const pkg = extractPackageNameFromHeadRef(pr.headRef);

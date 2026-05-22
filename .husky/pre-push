@@ -1,0 +1,9 @@
+bun run lint
+bun run typecheck
+
+# AI agent only — set IS_AI_AGENT=1 to enable
+if [ "$IS_AI_AGENT" = "1" ]; then
+  bun test
+else
+  echo "tests skipped (set IS_AI_AGENT=1 to run on pre-push)"
+fi

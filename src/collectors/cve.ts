@@ -1,7 +1,7 @@
-import { errAsync, okAsync, type ResultAsync } from "neverthrow";
-import type { GithubClient } from "../github/GithubClient.ts";
-import type { GithubError } from "../github/errors.ts";
-import type { CveAlert, CveSeverity, CveSlice, RepoRef } from "../types.ts";
+import { type ResultAsync, errAsync, okAsync } from 'neverthrow';
+import type { GithubError } from '../github/errors.ts';
+import type { GithubClient } from '../github/GithubClient.ts';
+import type { CveAlert, CveSeverity, CveSlice, RepoRef } from '../types.ts';
 
 interface RawCveAlert {
   number: number;
@@ -14,15 +14,12 @@ interface RawCveAlert {
   };
 }
 
-export function getCveAlerts(
-  client: GithubClient,
-  ref: RepoRef,
-): ResultAsync<CveSlice, GithubError> {
+export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<CveSlice, GithubError> {
   return client
-    .paginate<RawCveAlert>("GET /repos/{owner}/{repo}/dependabot/alerts", {
+    .paginate<RawCveAlert>('GET /repos/{owner}/{repo}/dependabot/alerts', {
       owner: ref.owner,
       repo: ref.name,
-      state: "open",
+      state: 'open',
       per_page: 100,
     })
     .map((raw): CveSlice => {
@@ -36,21 +33,21 @@ export function getCveAlerts(
         ecosystem: a.security_vulnerability.package.ecosystem,
         summary: a.security_advisory.summary,
       }));
-      return { status: "ok", alerts };
+      return { status: 'ok', alerts };
     })
     .orElse((err) => {
       // Token missing the security_events scope: surface to the caller so the
       // report can prompt the user to refresh auth, but don't fail the run.
-      if (err.kind === "scope-missing") {
+      if (err.kind === 'scope-missing') {
         return okAsync<CveSlice, GithubError>({
-          status: "scope-missing",
+          status: 'scope-missing',
           requiredScope: err.required,
         });
       }
       // 404 is GitHub's signal that Dependabot alerts aren't enabled on this
       // repo (or it doesn't exist for this token's scope) — semantic answer.
-      if (err.kind === "not-found") {
-        return okAsync<CveSlice, GithubError>({ status: "not-enabled" });
+      if (err.kind === 'not-found') {
+        return okAsync<CveSlice, GithubError>({ status: 'not-enabled' });
       }
       return errAsync<CveSlice, GithubError>(err);
     });
@@ -58,8 +55,8 @@ export function getCveAlerts(
 
 function normalizeSeverity(raw: string): CveSeverity {
   const v = raw.toLowerCase();
-  if (v === "critical") return "critical";
-  if (v === "high") return "high";
-  if (v === "medium" || v === "moderate") return "medium";
-  return "low";
+  if (v === 'critical') return 'critical';
+  if (v === 'high') return 'high';
+  if (v === 'medium' || v === 'moderate') return 'medium';
+  return 'low';
 }

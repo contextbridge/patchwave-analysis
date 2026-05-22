@@ -1,4 +1,4 @@
-import type { Writable } from "node:stream";
+import type { Writable } from 'node:stream';
 
 export interface Writer extends Writable {
   readonly isTTY?: boolean;

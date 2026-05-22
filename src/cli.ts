@@ -1,18 +1,18 @@
-import { parseArgs } from "node:util";
-import { ResultAsync } from "neverthrow";
-import { getBranchProtection } from "./collectors/branchProtection.ts";
-import { listActiveCommitters } from "./collectors/contributors.ts";
-import { getCveAlerts } from "./collectors/cve.ts";
-import { getDependabotConfig } from "./collectors/dependabotConfig.ts";
-import { listDependabotPrs } from "./collectors/dependabotPrs.ts";
-import { getRepoLanguages, listOrgRepos } from "./collectors/repos.ts";
-import { indexDependabotPrsByRepo, listReverts } from "./collectors/reverts.ts";
-import { mapWithConcurrency } from "./concurrency.ts";
-import type { Context } from "./context.ts";
-import { formatFsError } from "./FileSystem.ts";
-import { formatGithubError, type GithubError } from "./github/errors.ts";
-import { aggregate } from "./report/aggregate.ts";
-import { renderMarkdown } from "./report/markdown.ts";
+import { parseArgs } from 'node:util';
+import { ResultAsync } from 'neverthrow';
+import { getBranchProtection } from './collectors/branchProtection.ts';
+import { listActiveCommitters } from './collectors/contributors.ts';
+import { getCveAlerts } from './collectors/cve.ts';
+import { getDependabotConfig } from './collectors/dependabotConfig.ts';
+import { listDependabotPrs } from './collectors/dependabotPrs.ts';
+import { getRepoLanguages, listOrgRepos } from './collectors/repos.ts';
+import { indexDependabotPrsByRepo, listReverts } from './collectors/reverts.ts';
+import { mapWithConcurrency } from './concurrency.ts';
+import type { Context } from './context.ts';
+import { formatFsError } from './FileSystem.ts';
+import { type GithubError, formatGithubError } from './github/errors.ts';
+import { aggregate } from './report/aggregate.ts';
+import { renderMarkdown } from './report/markdown.ts';
 import type {
   BranchProtectionSlice,
   CollectedData,
@@ -24,7 +24,7 @@ import type {
   RepoLanguages,
   RepoMeta,
   RevertEvent,
-} from "./types.ts";
+} from './types.ts';
 
 export interface CliOptions {
   target: string;
@@ -36,8 +36,9 @@ export interface CliOptions {
 
 export async function main(ctx: Context, argv: readonly string[]): Promise<number> {
   const parsed = parseCli(argv);
-  if (parsed.kind === "err") {
-    if (parsed.message.length > 0) ctx.io.writeStderr(`${parsed.message}\n`);
+  if (parsed.kind === 'err') {
+    if (parsed.message.length > 0) ctx.logger.error(parsed.message);
+    // usage text is a multi-line reference document, not a log line — bypass pino.
     ctx.io.writeStderr(`${usage()}\n`);
     return parsed.message.length > 0 ? 1 : 0;
   }
@@ -45,13 +46,13 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
 
   const renderResult = await renderReport(ctx, opts);
   if (renderResult.isErr()) {
-    ctx.io.writeStderr(`${formatGithubError(renderResult.error)}\n`);
+    ctx.logger.error(formatGithubError(renderResult.error));
     return 1;
   }
 
   const writeResult = await ctx.fs.writeTextFile(opts.out, renderResult.value);
   if (writeResult.isErr()) {
-    ctx.io.writeStderr(`${formatFsError(writeResult.error)}\n`);
+    ctx.logger.error(formatFsError(writeResult.error));
     return 1;
   }
 
@@ -60,10 +61,16 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
 }
 
 function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, GithubError> {
-  log(ctx, `scanning ${opts.target} (${opts.windowDays}-day window)…`);
+  ctx.logger.info(
+    { target: opts.target, windowDays: opts.windowDays },
+    `scanning ${opts.target} (${opts.windowDays}-day window)`,
+  );
   return listOrgRepos(ctx.githubClient, opts.target).andThen((repos) => {
     const filtered = filterRepos(repos, opts);
-    log(ctx, `found ${repos.length} repos; ${filtered.length} included after filters`);
+    ctx.logger.info(
+      { total: repos.length, included: filtered.length },
+      `found ${repos.length} repos; ${filtered.length} included after filters`,
+    );
     const now = ctx.clock.now();
     const windowStart = new Date(now.getTime() - opts.windowDays * 86_400_000);
     const windowStartIso = windowStart.toISOString();
@@ -71,9 +78,15 @@ function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, Githu
     return ResultAsync.fromSafePromise(
       collectAll(ctx, filtered, opts.target, opts.windowDays, windowStartIso, now),
     ).map((data) => {
-      log(ctx, `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report…`);
+      ctx.logger.info(
+        { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
+        `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
+      );
       if (data.errors.length > 0) {
-        log(ctx, `(${data.errors.length} per-repo warnings were suppressed during crawl)`);
+        ctx.logger.warn(
+          { count: data.errors.length },
+          `${data.errors.length} per-repo warnings were suppressed during crawl`,
+        );
       }
       const bundle = aggregate(data);
       return renderMarkdown(bundle);
@@ -92,47 +105,31 @@ async function collectAll(
   const client = ctx.githubClient;
   const warnings: CollectorWarning[] = [];
 
-  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] =
-    await Promise.all([
-      crawlPerRepo(
-        repos,
-        (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }),
-        warnings,
-        "languages",
-      ).then((rows): RepoLanguages[] =>
-        rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
-      ),
-      crawlPerRepo<DependabotConfigSlice>(
-        repos,
-        (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
-        warnings,
-        "dependabotConfig",
-      ),
-      crawlPerRepo<CveSlice>(
-        repos,
-        (r) => getCveAlerts(client, { owner: r.owner, name: r.name }),
-        warnings,
-        "cve",
-      ),
-      crawlPerRepo<BranchProtectionSlice>(
-        repos,
-        (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
-        warnings,
-        "branchProtection",
-      ),
-      crawlPerRepo<ContributorSlice>(
-        repos,
-        (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
-        warnings,
-        "contributors",
-      ),
-      runResultAsync<DependabotPr[]>(
-        listDependabotPrs(client, target, windowStartIso),
-        [],
-        warnings,
-        "dependabotPrs",
-      ),
-    ]);
+  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
+    crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
+      (rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
+    ),
+    crawlPerRepo<DependabotConfigSlice>(
+      repos,
+      (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
+      warnings,
+      'dependabotConfig',
+    ),
+    crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve'),
+    crawlPerRepo<BranchProtectionSlice>(
+      repos,
+      (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
+      warnings,
+      'branchProtection',
+    ),
+    crawlPerRepo<ContributorSlice>(
+      repos,
+      (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
+      warnings,
+      'contributors',
+    ),
+    runResultAsync<DependabotPr[]>(listDependabotPrs(client, target, windowStartIso), [], warnings, 'dependabotPrs'),
+  ]);
 
   const prIndex = indexDependabotPrsByRepo(dependabotPrs);
   const revertGroups = await mapWithConcurrency(repos, 8, async (r) => {
@@ -142,7 +139,7 @@ async function collectAll(
       listReverts(client, { owner: r.owner, name: r.name }, windowStartIso, numbers),
       [],
       warnings,
-      "reverts",
+      'reverts',
       repoKey,
     );
   });
@@ -200,9 +197,7 @@ async function runResultAsync<T>(
   return fallback;
 }
 
-export type ParseCliResult =
-  | { kind: "ok"; value: CliOptions }
-  | { kind: "err"; message: string };
+export type ParseCliResult = { kind: 'ok'; value: CliOptions } | { kind: 'err'; message: string };
 
 export function parseCli(argv: readonly string[]): ParseCliResult {
   let parsed;
@@ -211,36 +206,36 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
       args: [...argv],
       allowPositionals: true,
       options: {
-        window: { type: "string", default: "90d" },
-        out: { type: "string", default: "./patchwave-report.md" },
-        include: { type: "string" },
-        exclude: { type: "string" },
-        help: { type: "boolean", default: false },
+        window: { type: 'string', default: '90d' },
+        out: { type: 'string', default: './patchwave-report.md' },
+        include: { type: 'string' },
+        exclude: { type: 'string' },
+        help: { type: 'boolean', default: false },
       },
     });
   } catch (e) {
-    return { kind: "err", message: `failed to parse arguments: ${(e as Error).message}` };
+    return { kind: 'err', message: `failed to parse arguments: ${(e as Error).message}` };
   }
-  if (parsed.values.help) return { kind: "err", message: "" };
+  if (parsed.values.help) return { kind: 'err', message: '' };
   const positional = parsed.positionals;
   const target = positional[0];
   if (target === undefined) {
-    return { kind: "err", message: "missing required argument: <org-or-user>" };
+    return { kind: 'err', message: 'missing required argument: <org-or-user>' };
   }
 
-  const windowDays = parseWindow(parsed.values.window as string);
+  const windowDays = parseWindow(parsed.values.window);
   if (windowDays === null) {
-    return { kind: "err", message: `invalid --window: expected formats like '90d' or '12w'` };
+    return { kind: 'err', message: `invalid --window: expected formats like '90d' or '12w'` };
   }
 
   return {
-    kind: "ok",
+    kind: 'ok',
     value: {
       target,
       windowDays,
-      out: parsed.values.out as string,
-      include: parsed.values.include ? splitCsv(parsed.values.include as string) : null,
-      exclude: parsed.values.exclude ? splitCsv(parsed.values.exclude as string) : [],
+      out: parsed.values.out,
+      include: parsed.values.include ? splitCsv(parsed.values.include) : null,
+      exclude: parsed.values.exclude ? splitCsv(parsed.values.exclude) : [],
     },
   };
 }
@@ -248,14 +243,14 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
 function parseWindow(s: string): number | null {
   const match = /^(\d+)([dw])$/.exec(s.trim());
   if (!match) return null;
-  const n = Number.parseInt(match[1] ?? "", 10);
+  const n = Number.parseInt(match[1] ?? '', 10);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return match[2] === "w" ? n * 7 : n;
+  return match[2] === 'w' ? n * 7 : n;
 }
 
 function splitCsv(s: string): string[] {
   return s
-    .split(",")
+    .split(',')
     .map((v) => v.trim())
     .filter((v) => v.length > 0);
 }
@@ -271,18 +266,14 @@ function filterRepos(repos: RepoMeta[], opts: CliOptions): RepoMeta[] {
 
 function usage(): string {
   return [
-    "",
-    "usage: patchwave-analysis <org-or-user> [options]",
-    "",
-    "options:",
-    "  --window <Nd|Nw>     rolling time window (default 90d)",
-    "  --out <path>         markdown destination (default ./patchwave-report.md)",
-    "  --include <repos>    comma-separated repo names to include",
-    "  --exclude <repos>    comma-separated repo names to exclude",
-    "  --help               show this help",
-  ].join("\n");
-}
-
-function log(ctx: Context, message: string): void {
-  ctx.io.writeStderr(`${message}\n`);
+    '',
+    'usage: patchwave-analysis <org-or-user> [options]',
+    '',
+    'options:',
+    '  --window <Nd|Nw>     rolling time window (default 90d)',
+    '  --out <path>         markdown destination (default ./patchwave-report.md)',
+    '  --include <repos>    comma-separated repo names to include',
+    '  --exclude <repos>    comma-separated repo names to exclude',
+    '  --help               show this help',
+  ].join('\n');
 }

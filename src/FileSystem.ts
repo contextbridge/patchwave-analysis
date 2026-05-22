@@ -1,7 +1,7 @@
-import { ResultAsync } from "neverthrow";
-import { toError } from "./errors.ts";
+import { ResultAsync } from 'neverthrow';
+import { toError } from './errors.ts';
 
-export type FsError = { kind: "write-failed"; path: string; message: string };
+export type FsError = { kind: 'write-failed'; path: string; message: string };
 
 export interface FileSystem {
   writeTextFile(path: string, contents: string): ResultAsync<void, FsError>;
@@ -12,7 +12,7 @@ export class FileSystemImpl implements FileSystem {
     return ResultAsync.fromPromise(
       Bun.write(path, contents).then(() => undefined),
       (e): FsError => ({
-        kind: "write-failed",
+        kind: 'write-failed',
         path,
         message: toError(e).message,
       }),

@@ -1,6 +1,6 @@
 ---
-paths: ["src/**/*.ts", "src/**/*.tsx"]
-globs: ["src/**/*.ts", "src/**/*.tsx"]
+paths: ['src/**/*.ts', 'src/**/*.tsx']
+globs: ['src/**/*.ts', 'src/**/*.tsx']
 ---
 
 # Error Handling Neverthrow

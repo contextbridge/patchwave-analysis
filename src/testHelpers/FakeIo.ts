@@ -1,5 +1,5 @@
-import { BaseIo } from "../BaseIo.ts";
-import { MemoryStream } from "./MemoryStream.ts";
+import { BaseIo } from '../BaseIo.ts';
+import { MemoryStream } from './MemoryStream.ts';
 
 export class FakeIo extends BaseIo {
   declare readonly stdout: MemoryStream;

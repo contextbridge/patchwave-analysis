@@ -3,7 +3,7 @@ export async function mapWithConcurrency<T, U>(
   limit: number,
   fn: (item: T, index: number) => Promise<U>,
 ): Promise<U[]> {
-  const results: U[] = new Array(items.length);
+  const results: U[] = new Array<U>(items.length);
   let cursor = 0;
 
   async function worker(): Promise<void> {
