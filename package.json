@@ -44,6 +44,7 @@
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/rest": "^22.0.1",
+    "fflate": "^0.8.3",
     "neverthrow": "^8.2.0",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",

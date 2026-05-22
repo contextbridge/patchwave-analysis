@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test';
+import { strFromU8, unzipSync } from 'fflate';
 import { main } from './cli.ts';
 import { createFakeContext } from './testHelpers/index.ts';
 
@@ -52,13 +53,44 @@ test('writes a report when the GitHub calls succeed', async () => {
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
 
-  const code = await main(ctx, ['acme', '--out', '/tmp/report.md']);
+  const code = await main(ctx, ['acme', '--out', '/tmp/report']);
   expect(code).toBe(0);
   expect(io.stdout.text()).toContain('wrote /tmp/report.md');
+  expect(io.stdout.text()).toContain('wrote /tmp/report.zip');
 
   const written = fs.read('/tmp/report.md');
   expect(written).toBeDefined();
   expect(written).toContain('# Dependabot diagnostic — `acme`');
+
+  const zipBytes = fs.readBinary('/tmp/report.zip');
+  expect(zipBytes).toBeInstanceOf(Uint8Array);
+  const entries = unzipSync(zipBytes as Uint8Array);
+  expect(Object.keys(entries).sort()).toEqual(
+    [
+      'README.txt',
+      'data/aggregated.json',
+      'data/branch-protection.json',
+      'data/contributors.json',
+      'data/cve.json',
+      'data/dependabot-config.json',
+      'data/dependabot-prs.json',
+      'data/languages.json',
+      'data/meta.json',
+      'data/repos.json',
+      'data/reverts.json',
+      'data/warnings.json',
+      'patchwave-report.md',
+    ].sort(),
+  );
+  const meta = JSON.parse(strFromU8(entries['data/meta.json'] as Uint8Array)) as Record<string, unknown>;
+  expect(meta).toMatchObject({
+    target: 'acme',
+    windowDays: 90,
+    counts: { reposTotal: 1, reposIncluded: 1, dependabotPrs: 0, warnings: 0 },
+  });
+  const repos = JSON.parse(strFromU8(entries['data/repos.json'] as Uint8Array)) as Array<{ name: string }>;
+  expect(repos).toHaveLength(1);
+  expect(repos[0]?.name).toBe('widgets');
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
     window_days: 90,

@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { ResultAsync } from 'neverthrow';
+import pkg from '../package.json' with { type: 'json' };
 import { getBranchProtection } from './collectors/branchProtection.ts';
 import { listActiveCommitters } from './collectors/contributors.ts';
 import { getCveAlerts } from './collectors/cve.ts';
@@ -11,7 +12,8 @@ import { mapWithConcurrency } from './concurrency.ts';
 import type { Context } from './context.ts';
 import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
-import { aggregate } from './report/aggregate.ts';
+import { type ReportBundle, aggregate } from './report/aggregate.ts';
+import { type BundleMeta, buildBundleFiles, zipBundleFiles } from './report/bundle.ts';
 import { renderMarkdown } from './report/markdown.ts';
 import { type Instant, Temporal } from './time.ts';
 import type {
@@ -30,9 +32,18 @@ import type {
 export interface CliOptions {
   target: string;
   windowDays: number;
-  out: string;
+  outBase: string;
   include: string[] | null;
   exclude: string[];
+}
+
+export interface OutputPaths {
+  readonly markdown: string;
+  readonly zip: string;
+}
+
+export function resolveOutputPaths(outBase: string): OutputPaths {
+  return { markdown: `${outBase}.md`, zip: `${outBase}.zip` };
 }
 
 export async function main(ctx: Context, argv: readonly string[]): Promise<number> {
@@ -62,9 +73,12 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
     return 1;
   }
 
-  const writeResult = await ctx.fs.writeTextFile(opts.out, renderResult.value.report);
-  if (writeResult.isErr()) {
-    ctx.logger.error(formatFsError(writeResult.error));
+  const { report, collected, aggregated, stats } = renderResult.value;
+  const paths = resolveOutputPaths(opts.outBase);
+
+  const mdResult = await ctx.fs.writeTextFile(paths.markdown, report);
+  if (mdResult.isErr()) {
+    ctx.logger.error(formatFsError(mdResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
@@ -72,16 +86,51 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
     return 1;
   }
 
-  ctx.io.writeStdout(`wrote ${opts.out}\n`);
+  const meta = buildBundleMeta(opts, stats, aggregated, collected);
+  const files = buildBundleFiles({ meta, collected, aggregated, reportMarkdown: report });
+  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBundleFiles(files));
+  if (zipResult.isErr()) {
+    ctx.logger.error(formatFsError(zipResult.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: 'write-failed',
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
+    return 1;
+  }
+
+  ctx.io.writeStdout(`wrote ${paths.markdown}\n`);
+  ctx.io.writeStdout(`wrote ${paths.zip}\n`);
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
-    repos_total: renderResult.value.stats.reposTotal,
-    repos_included: renderResult.value.stats.reposIncluded,
-    dependabot_prs: renderResult.value.stats.dependabotPrs,
-    warnings: renderResult.value.stats.warnings,
+    repos_total: stats.reposTotal,
+    repos_included: stats.reposIncluded,
+    dependabot_prs: stats.dependabotPrs,
+    warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, ctx.clock.now()),
   });
   return 0;
+}
+
+function buildBundleMeta(
+  opts: CliOptions,
+  stats: ReportStats,
+  aggregated: ReportBundle,
+  collected: CollectedData,
+): BundleMeta {
+  return {
+    cliVersion: pkg.version,
+    generatedAt: aggregated.meta.generatedAt.toString(),
+    target: opts.target,
+    windowDays: opts.windowDays,
+    windowStart: collected.ctx.windowStart.toString(),
+    options: { include: opts.include, exclude: opts.exclude },
+    counts: {
+      reposTotal: stats.reposTotal,
+      reposIncluded: stats.reposIncluded,
+      dependabotPrs: stats.dependabotPrs,
+      warnings: stats.warnings,
+    },
+  };
 }
 
 interface ReportStats {
@@ -93,6 +142,8 @@ interface ReportStats {
 
 interface RenderedReport {
   readonly report: string;
+  readonly collected: CollectedData;
+  readonly aggregated: ReportBundle;
   readonly stats: ReportStats;
 }
 
@@ -129,6 +180,8 @@ function renderReport(ctx: Context, opts: CliOptions): ResultAsync<RenderedRepor
         const bundle = aggregate(data);
         return {
           report: renderMarkdown(bundle),
+          collected: data,
+          aggregated: bundle,
           stats: {
             reposTotal: repos.length,
             reposIncluded: filtered.length,
@@ -255,7 +308,7 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
       allowPositionals: true,
       options: {
         window: { type: 'string', default: '90d' },
-        out: { type: 'string', default: './patchwave-report.md' },
+        out: { type: 'string', default: './patchwave-report' },
         include: { type: 'string' },
         exclude: { type: 'string' },
         help: { type: 'boolean', default: false },
@@ -281,11 +334,15 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
     value: {
       target,
       windowDays,
-      out: parsed.values.out,
+      outBase: normalizeOutBase(parsed.values.out),
       include: parsed.values.include ? splitCsv(parsed.values.include) : null,
       exclude: parsed.values.exclude ? splitCsv(parsed.values.exclude) : [],
     },
   };
+}
+
+function normalizeOutBase(out: string): string {
+  return out.replace(/\.(md|zip)$/i, '');
 }
 
 function parseWindow(s: string): number | null {
@@ -319,7 +376,8 @@ function usage(): string {
     '',
     'options:',
     '  --window <Nd|Nw>     rolling time window (default 90d)',
-    '  --out <path>         markdown destination (default ./patchwave-report.md)',
+    '  --out <basename>     output basename; writes <basename>.md and <basename>.zip',
+    '                       (default ./patchwave-report)',
     '  --include <repos>    comma-separated repo names to include',
     '  --exclude <repos>    comma-separated repo names to exclude',
     '  --help               show this help',
