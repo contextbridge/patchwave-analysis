@@ -10,6 +10,7 @@ import {
   repoMeta,
   revertEvent,
 } from '../testFactories.ts';
+import { instantFromString } from '../time.ts';
 import { aggregate } from './aggregate.ts';
 
 test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
@@ -74,7 +75,7 @@ test('emits a scope-missing CVE exposure when any slice signals scope-missing', 
 
 test('counts CVE alerts by severity and surfaces oldest critical days', () => {
   const data = collectedData.build({
-    ctx: collectionContext.build({ now: new Date('2026-05-22T00:00:00Z') }),
+    ctx: collectionContext.build({ now: instantFromString('2026-05-22T00:00:00Z') }),
     cve: [
       cveSliceOk.build({
         alerts: [
@@ -115,7 +116,7 @@ test('recommends action when more than half of failing CI is mechanical', () => 
 
 test('recommends investigating a long-standing Critical CVE', () => {
   const data = collectedData.build({
-    ctx: collectionContext.build({ now: new Date('2026-05-22T00:00:00Z') }),
+    ctx: collectionContext.build({ now: instantFromString('2026-05-22T00:00:00Z') }),
     cve: [
       cveSliceOk.build({
         alerts: [cveAlert.build({ severity: 'critical', createdAt: '2025-11-01T00:00:00Z' })],

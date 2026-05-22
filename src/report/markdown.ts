@@ -1,3 +1,4 @@
+import type { Instant } from '../time.ts';
 import type {
   CveExposure,
   DependabotCoverage,
@@ -32,7 +33,7 @@ function renderHeader(meta: ReportMeta): string {
   return [
     `# Dependabot diagnostic — \`${meta.org}\``,
     '',
-    `Generated ${formatDate(new Date(meta.generatedAt))} · ${meta.windowDays}-day rolling window · ${meta.totalReposScanned} repos scanned`,
+    `Generated ${formatDate(meta.generatedAt)} · ${meta.windowDays}-day rolling window · ${meta.totalReposScanned} repos scanned`,
   ].join('\n');
 }
 
@@ -264,8 +265,8 @@ function renderFooter(): string {
   ].join('\n');
 }
 
-function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function formatDate(d: Instant): string {
+  return d.toString().slice(0, 10);
 }
 
 function formatDays(days: number | null): string {

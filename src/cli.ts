@@ -13,6 +13,7 @@ import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
 import { aggregate } from './report/aggregate.ts';
 import { renderMarkdown } from './report/markdown.ts';
+import { type Instant, Temporal } from './time.ts';
 import type {
   BranchProtectionSlice,
   CollectedData,
@@ -72,25 +73,24 @@ function renderReport(ctx: Context, opts: CliOptions): ResultAsync<string, Githu
       `found ${repos.length} repos; ${filtered.length} included after filters`,
     );
     const now = ctx.clock.now();
-    const windowStart = new Date(now.getTime() - opts.windowDays * 86_400_000);
-    const windowStartIso = windowStart.toISOString();
+    const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
-    return ResultAsync.fromSafePromise(
-      collectAll(ctx, filtered, opts.target, opts.windowDays, windowStartIso, now),
-    ).map((data) => {
-      ctx.logger.info(
-        { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
-        `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
-      );
-      if (data.errors.length > 0) {
-        ctx.logger.warn(
-          { count: data.errors.length },
-          `${data.errors.length} per-repo warnings were suppressed during crawl`,
+    return ResultAsync.fromSafePromise(collectAll(ctx, filtered, opts.target, opts.windowDays, windowStart, now)).map(
+      (data) => {
+        ctx.logger.info(
+          { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
+          `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
         );
-      }
-      const bundle = aggregate(data);
-      return renderMarkdown(bundle);
-    });
+        if (data.errors.length > 0) {
+          ctx.logger.warn(
+            { count: data.errors.length },
+            `${data.errors.length} per-repo warnings were suppressed during crawl`,
+          );
+        }
+        const bundle = aggregate(data);
+        return renderMarkdown(bundle);
+      },
+    );
   });
 }
 
@@ -99,11 +99,12 @@ async function collectAll(
   repos: RepoMeta[],
   target: string,
   windowDays: number,
-  windowStartIso: string,
-  now: Date,
+  windowStart: Instant,
+  now: Instant,
 ): Promise<CollectedData> {
   const client = ctx.githubClient;
   const warnings: CollectorWarning[] = [];
+  const windowStartIso = windowStart.toString();
 
   const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
     crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
@@ -146,7 +147,7 @@ async function collectAll(
   const reverts: RevertEvent[] = revertGroups.flat();
 
   return {
-    ctx: { org: target, windowDays, windowStartIso, now },
+    ctx: { org: target, windowDays, windowStart, now },
     repos,
     languages,
     dependabotConfig,

@@ -1,3 +1,5 @@
+import type { Instant } from './time.ts';
+
 export type Visibility = 'public' | 'private' | 'internal';
 
 export interface RepoRef {
@@ -95,8 +97,8 @@ export interface ContributorSlice extends RepoRef {
 export interface CollectionContext {
   org: string;
   windowDays: number;
-  windowStartIso: string;
-  now: Date;
+  windowStart: Instant;
+  now: Instant;
 }
 
 export interface CollectedData {

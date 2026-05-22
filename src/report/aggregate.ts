@@ -1,6 +1,7 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
 import { summarizeMechanicalFailures } from '../heuristics/mechanicalFailure.ts';
 import { type SiblingGroup, findSiblingBumps } from '../heuristics/siblingBump.ts';
+import { type Instant, Temporal, instantFromString } from '../time.ts';
 import type { CollectedData, CveAlert, CveSeverity, DependabotPr, LanguageBytes } from '../types.ts';
 
 export interface ReportBundle {
@@ -18,7 +19,7 @@ export interface ReportBundle {
 export interface ReportMeta {
   org: string;
   windowDays: number;
-  generatedAt: string;
+  generatedAt: Instant;
   totalReposScanned: number;
 }
 
@@ -111,11 +112,11 @@ export function aggregate(data: CollectedData, options: AggregateOptions = {}): 
   const { minutesPerMergedPr = 3, idleMinutesPerStalePr = 1, hourlyRateUsd = 150 } = options;
 
   const now = data.ctx.now;
-  const windowStart = new Date(data.ctx.windowStartIso);
+  const windowStart = data.ctx.windowStart;
   const meta: ReportMeta = {
     org: data.ctx.org,
     windowDays: data.ctx.windowDays,
-    generatedAt: now.toISOString(),
+    generatedAt: now,
     totalReposScanned: data.repos.length,
   };
 
@@ -235,11 +236,11 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
   };
 }
 
-function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBacklog {
+function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant): PrBacklog {
   const prs = data.dependabotPrs;
   const openPrs = prs.filter((p) => p.state === 'open');
-  const mergedInWindow = prs.filter((p) => p.merged && p.mergedAt && new Date(p.mergedAt) >= windowStart);
-  const closedNotMergedInWindow = prs.filter((p) => !p.merged && p.closedAt && new Date(p.closedAt) >= windowStart);
+  const mergedInWindow = prs.filter((p) => p.merged && p.mergedAt && isAtOrAfter(p.mergedAt, windowStart));
+  const closedNotMergedInWindow = prs.filter((p) => !p.merged && p.closedAt && isAtOrAfter(p.closedAt, windowStart));
 
   const buckets = [
     { label: '0–30 days', min: 0, max: 30 },
@@ -251,13 +252,13 @@ function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBa
   const openAgeBuckets = buckets.map((b) => ({
     label: b.label,
     count: openPrs.filter((p) => {
-      const age = daysBetween(now, new Date(p.createdAt));
+      const age = daysBetween(now, instantFromString(p.createdAt));
       return age >= b.min && age < b.max;
     }).length,
   }));
 
   const oldestOpenDays =
-    openPrs.length === 0 ? null : Math.max(...openPrs.map((p) => daysBetween(now, new Date(p.createdAt))));
+    openPrs.length === 0 ? null : Math.max(...openPrs.map((p) => daysBetween(now, instantFromString(p.createdAt))));
 
   const bumpCounts = new Map<string, number>();
   for (const pr of prs) {
@@ -300,7 +301,7 @@ function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBa
 
   const ttMergeDays: number[] = mergedInWindow
     .filter((p) => p.mergedAt !== null)
-    .map((p) => daysBetween(new Date(p.mergedAt as string), new Date(p.createdAt)));
+    .map((p) => daysBetween(instantFromString(p.mergedAt as string), instantFromString(p.createdAt)));
   ttMergeDays.sort((a, b) => a - b);
   const timeToMergeP50Days = percentile(ttMergeDays, 50);
   const timeToMergeP90Days = percentile(ttMergeDays, 90);
@@ -320,7 +321,7 @@ function buildPrBacklog(data: CollectedData, now: Date, windowStart: Date): PrBa
   };
 }
 
-function buildStalledSignals(data: CollectedData, windowStart: Date): StalledSignals {
+function buildStalledSignals(data: CollectedData, windowStart: Instant): StalledSignals {
   const openByRepo = new Map<string, DependabotPr[]>();
   for (const pr of data.dependabotPrs) {
     if (pr.state !== 'open') continue;
@@ -336,7 +337,7 @@ function buildStalledSignals(data: CollectedData, windowStart: Date): StalledSig
 
   const repoToRecentPrs = new Map<string, number>();
   for (const pr of data.dependabotPrs) {
-    if (new Date(pr.createdAt) < windowStart) continue;
+    if (!isAtOrAfter(pr.createdAt, windowStart)) continue;
     const key = `${pr.owner}/${pr.name}`;
     repoToRecentPrs.set(key, (repoToRecentPrs.get(key) ?? 0) + 1);
   }
@@ -409,7 +410,7 @@ function buildToilCost(
   };
 }
 
-function buildCveExposure(data: CollectedData, now: Date): CveExposure {
+function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
   const scopeMissing = data.cve.find((s) => s.status === 'scope-missing');
   if (scopeMissing && scopeMissing.status === 'scope-missing') {
     return {
@@ -455,7 +456,7 @@ function buildCveExposure(data: CollectedData, now: Date): CveExposure {
   const oldest = (sev: CveSeverity): number | null => {
     const filtered = allAlerts.filter((a) => a.severity === sev);
     if (filtered.length === 0) return null;
-    return Math.max(...filtered.map((a) => daysBetween(now, new Date(a.createdAt))));
+    return Math.max(...filtered.map((a) => daysBetween(now, instantFromString(a.createdAt))));
   };
 
   return {
@@ -543,8 +544,12 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-function daysBetween(later: Date, earlier: Date): number {
-  return Math.max(0, Math.floor((later.getTime() - earlier.getTime()) / 86_400_000));
+function daysBetween(later: Instant, earlier: Instant): number {
+  return Math.max(0, Math.floor((later.epochMilliseconds - earlier.epochMilliseconds) / 86_400_000));
+}
+
+function isAtOrAfter(iso: string, target: Instant): boolean {
+  return Temporal.Instant.compare(instantFromString(iso), target) >= 0;
 }
 
 function percentile(sorted: readonly number[], p: number): number | null {

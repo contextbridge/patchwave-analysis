@@ -1,21 +1,22 @@
 import type { Clock } from '../Clock.ts';
+import { type Instant, Temporal, instantFromString } from '../time.ts';
 
 export class FakeClock implements Clock {
-  private current: Date;
+  private current: Instant;
 
-  constructor(initial: Date | string = '2026-05-22T00:00:00Z') {
-    this.current = typeof initial === 'string' ? new Date(initial) : new Date(initial);
+  constructor(initial: Instant | string = '2026-05-22T00:00:00Z') {
+    this.current = typeof initial === 'string' ? instantFromString(initial) : initial;
   }
 
-  now(): Date {
-    return new Date(this.current);
+  now(): Instant {
+    return this.current;
   }
 
-  set(next: Date | string): void {
-    this.current = typeof next === 'string' ? new Date(next) : new Date(next);
+  set(next: Instant | string): void {
+    this.current = typeof next === 'string' ? instantFromString(next) : next;
   }
 
   advanceMs(ms: number): void {
-    this.current = new Date(this.current.getTime() + ms);
+    this.current = this.current.add(Temporal.Duration.from({ milliseconds: ms }));
   }
 }

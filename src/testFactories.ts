@@ -1,4 +1,5 @@
 import { Factory } from 'fishery';
+import { instantFromString } from './time.ts';
 import type {
   BranchProtectionSlice,
   CheckSummary,
@@ -123,8 +124,8 @@ export const collectorWarning = Factory.define<CollectorWarning>(() => ({
 export const collectionContext = Factory.define<CollectionContext>(() => ({
   org: 'acme',
   windowDays: 90,
-  windowStartIso: '2026-02-21T00:00:00Z',
-  now: new Date('2026-05-22T00:00:00Z'),
+  windowStart: instantFromString('2026-02-21T00:00:00Z'),
+  now: instantFromString('2026-05-22T00:00:00Z'),
 }));
 
 export const collectedData = Factory.define<CollectedData>(() => ({

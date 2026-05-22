@@ -1,4 +1,5 @@
 import { Factory } from 'fishery';
+import { instantFromString } from '../time.ts';
 import type {
   CveExposure,
   DependabotCoverage,
@@ -15,7 +16,7 @@ import type {
 export const reportMeta = Factory.define<ReportMeta>(() => ({
   org: 'acme',
   windowDays: 90,
-  generatedAt: '2026-05-22T00:00:00Z',
+  generatedAt: instantFromString('2026-05-22T00:00:00Z'),
   totalReposScanned: 24,
 }));
 

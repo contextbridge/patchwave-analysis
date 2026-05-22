@@ -1,9 +1,11 @@
+import { type Instant, nowInstant } from './time.ts';
+
 export interface Clock {
-  now(): Date;
+  now(): Instant;
 }
 
 export class ClockImpl implements Clock {
-  now(): Date {
-    return new Date();
+  now(): Instant {
+    return nowInstant();
   }
 }
