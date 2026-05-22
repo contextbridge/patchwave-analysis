@@ -43,6 +43,12 @@ export const dependabotCoverage = Factory.define<DependabotCoverage>(() => ({
     { manager: 'pnpm', repoCount: 12 },
     { manager: 'yarn', repoCount: 6 },
   ],
+  cadenceBreakdown: [
+    { interval: 'weekly', entryCount: 16 },
+    { interval: 'daily', entryCount: 4 },
+  ],
+  reposUsingGroups: 5,
+  reposWithIgnoreRules: 3,
 }));
 
 export const prBacklog = Factory.define<PrBacklog>(() => ({

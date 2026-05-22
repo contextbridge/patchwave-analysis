@@ -1,6 +1,13 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
 import { type Instant, Temporal, instantFromString } from '../time.ts';
-import type { CollectedData, CveAlert, CveSeverity, DependabotPr, LanguageBytes } from '../types.ts';
+import type {
+  CollectedData,
+  CveAlert,
+  CveSeverity,
+  DependabotConfigSlice,
+  DependabotPr,
+  LanguageBytes,
+} from '../types.ts';
 
 export interface ReportBundle {
   meta: ReportMeta;
@@ -34,6 +41,8 @@ export interface OrgOverview {
   reposWithBranchProtection: number;
 }
 
+export type CadenceLabel = 'daily' | 'weekly' | 'monthly' | 'unspecified';
+
 export interface DependabotCoverage {
   reposWithConfig: number;
   reposWithConfigPercentage: number;
@@ -41,6 +50,9 @@ export interface DependabotCoverage {
   reposWithSecurityUpdatesPercentage: number;
   ecosystemBreakdown: Array<{ ecosystem: string; repoCount: number }>;
   packageManagerSplit: Array<{ manager: string; repoCount: number }>;
+  cadenceBreakdown: Array<{ interval: CadenceLabel; entryCount: number }>;
+  reposUsingGroups: number;
+  reposWithIgnoreRules: number;
 }
 
 export interface PrBacklog {
@@ -97,7 +109,7 @@ export interface Recommendation {
   message: string;
 }
 
-const PR_CAP_THRESHOLD = 5;
+const DEFAULT_PR_CAP = 5;
 
 export interface AggregateOptions {
   minutesPerMergedPr?: number;
@@ -223,6 +235,21 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
     .map(([manager, repoCount]) => ({ manager, repoCount }))
     .sort((a, b) => b.repoCount - a.repoCount);
 
+  const cadenceCounts: Record<CadenceLabel, number> = { daily: 0, weekly: 0, monthly: 0, unspecified: 0 };
+  let reposUsingGroups = 0;
+  let reposWithIgnoreRules = 0;
+  for (const cfg of data.dependabotConfig) {
+    for (const update of cfg.updates) {
+      cadenceCounts[update.interval ?? 'unspecified'] += 1;
+    }
+    if (cfg.updates.some((u) => u.groupCount > 0)) reposUsingGroups += 1;
+    if (cfg.updates.some((u) => u.ignoreCount > 0)) reposWithIgnoreRules += 1;
+  }
+  const cadenceOrder: CadenceLabel[] = ['daily', 'weekly', 'monthly', 'unspecified'];
+  const cadenceBreakdown = cadenceOrder
+    .map((interval) => ({ interval, entryCount: cadenceCounts[interval] }))
+    .filter((c) => c.entryCount > 0);
+
   return {
     reposWithConfig,
     reposWithConfigPercentage: pct(reposWithConfig, liveRepos.length),
@@ -230,6 +257,9 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
     reposWithSecurityUpdatesPercentage: pct(reposWithSecurity, liveRepos.length),
     ecosystemBreakdown,
     packageManagerSplit,
+    cadenceBreakdown,
+    reposUsingGroups,
+    reposWithIgnoreRules,
   };
 }
 
@@ -326,8 +356,12 @@ function buildStalledSignals(data: CollectedData, windowStart: Instant): Stalled
     list.push(pr);
     openByRepo.set(key, list);
   }
+  const configByRepo = new Map<string, DependabotConfigSlice>();
+  for (const cfg of data.dependabotConfig) {
+    configByRepo.set(`${cfg.owner}/${cfg.name}`, cfg);
+  }
   const reposAtPrCap = [...openByRepo.entries()]
-    .filter(([, list]) => list.length >= PR_CAP_THRESHOLD)
+    .filter(([repo, list]) => list.length >= effectivePrCap(configByRepo.get(repo)))
     .map(([repo, list]) => ({ repo, openPrs: list.length }))
     .sort((a, b) => b.openPrs - a.openPrs);
 
@@ -470,7 +504,7 @@ function buildRecommendations(input: {
   if (stalledSignals.reposAtPrCap.length >= 5) {
     recs.push({
       priority: 'high',
-      message: `${stalledSignals.reposAtPrCap.length} repos are sitting at Dependabot's default 5-PR cap. New PRs (including security ones) may not be opening invisibly — CVE exposure could be accumulating.`,
+      message: `${stalledSignals.reposAtPrCap.length} repos are sitting at or above their Dependabot PR cap. New PRs (including security ones) may have stopped opening invisibly — CVE exposure could be accumulating.`,
     });
   }
 
@@ -502,6 +536,11 @@ function buildRecommendations(input: {
 
 function severityScore(rec: { critical: number; high: number; medium: number; low: number }): number {
   return rec.critical * 1000 + rec.high * 100 + rec.medium * 10 + rec.low;
+}
+
+function effectivePrCap(config: DependabotConfigSlice | undefined): number {
+  if (!config || config.updates.length === 0) return DEFAULT_PR_CAP;
+  return config.updates.reduce((sum, u) => sum + u.openPullRequestsLimit, 0);
 }
 
 function pct(numerator: number, denominator: number): number {

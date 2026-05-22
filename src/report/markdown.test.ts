@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 import { renderMarkdown } from './markdown.ts';
-import { cveExposureScopeMissing, recommendation, reportBundle } from './testFactories.ts';
+import { cveExposureScopeMissing, dependabotCoverage, recommendation, reportBundle } from './testFactories.ts';
 
 test('renders headline numbers in the executive snapshot', () => {
   const md = renderMarkdown(reportBundle.build());
@@ -36,6 +36,24 @@ test('includes recommendations when any are present', () => {
   expect(md).toContain('High priority');
   expect(md).toContain('Medium priority');
   expect(md).toContain('95 days old');
+});
+
+test('renders the schedule cadence table and groups/ignore line', () => {
+  const bundle = reportBundle.build({
+    dependabotCoverage: dependabotCoverage.build({
+      cadenceBreakdown: [
+        { interval: 'daily', entryCount: 3 },
+        { interval: 'weekly', entryCount: 12 },
+      ],
+      reposUsingGroups: 4,
+      reposWithIgnoreRules: 2,
+    }),
+  });
+  const md = renderMarkdown(bundle);
+  expect(md).toContain('### Schedule cadence');
+  expect(md).toContain('| daily | 3 |');
+  expect(md).toContain('| weekly | 12 |');
+  expect(md).toContain('**4** repos use grouped updates · **2** repos have `ignore` rules');
 });
 
 test('renders empty recommendations gracefully', () => {

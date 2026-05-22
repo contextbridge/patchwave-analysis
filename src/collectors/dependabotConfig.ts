@@ -1,7 +1,7 @@
-import { ResultAsync, errAsync, okAsync } from 'neverthrow';
+import { Result, ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
-import type { DependabotConfigSlice, RepoRef } from '../types.ts';
+import type { DependabotConfigSlice, DependabotInterval, DependabotUpdateEntry, RepoRef } from '../types.ts';
 
 interface ContentResponse {
   content?: string;
@@ -9,6 +9,8 @@ interface ContentResponse {
 }
 
 const CONFIG_PATHS = ['.github/dependabot.yml', '.github/dependabot.yaml'];
+
+const DEFAULT_OPEN_PR_LIMIT = 5;
 
 type DetectedPackageManager = Exclude<DependabotConfigSlice['packageManager'], null | 'unknown'>;
 
@@ -23,18 +25,25 @@ const LOCKFILE_CANDIDATES: ReadonlyArray<{ pm: DetectedPackageManager; path: str
   { pm: 'npm', path: 'package-lock.json' },
 ];
 
+const safeYamlParse = Result.fromThrowable(
+  (text: string) => Bun.YAML.parse(text),
+  () => null,
+);
+
 export function getDependabotConfig(
   client: GithubClient,
   ref: RepoRef,
 ): ResultAsync<DependabotConfigSlice, GithubError> {
   return fetchFirstAvailable(client, ref, CONFIG_PATHS).andThen((configBody) => {
     const hasConfig = configBody !== null;
-    const ecosystems = configBody === null ? [] : parseEcosystems(configBody);
+    const updates = configBody === null ? [] : parseUpdates(configBody);
+    const ecosystems = [...new Set(updates.map((u) => u.ecosystem))].sort();
     return resolvePackageManager(client, ref).map(
       (pm): DependabotConfigSlice => ({
         ...ref,
         hasConfig,
         ecosystems,
+        updates,
         packageManager: pm,
       }),
     );
@@ -95,11 +104,54 @@ function decodeContent(data: ContentResponse): string | null {
   return Buffer.from(data.content, 'base64').toString('utf8');
 }
 
-function parseEcosystems(yamlText: string): string[] {
-  const matches = yamlText.matchAll(/package-ecosystem:\s*["']?([\w-]+)["']?/g);
-  const ecosystems = new Set<string>();
-  for (const match of matches) {
-    if (match[1]) ecosystems.add(match[1]);
+function parseUpdates(yamlText: string): DependabotUpdateEntry[] {
+  const parsed = safeYamlParse(yamlText).unwrapOr(null);
+  if (!isRecord(parsed)) return [];
+  const rawUpdates = parsed.updates;
+  if (!Array.isArray(rawUpdates)) return [];
+  const entries: DependabotUpdateEntry[] = [];
+  for (const raw of rawUpdates) {
+    const entry = normalizeUpdate(raw);
+    if (entry !== null) entries.push(entry);
   }
-  return [...ecosystems].sort();
+  return entries;
+}
+
+function normalizeUpdate(raw: unknown): DependabotUpdateEntry | null {
+  if (!isRecord(raw)) return null;
+  const ecosystem = typeof raw['package-ecosystem'] === 'string' ? raw['package-ecosystem'] : null;
+  if (ecosystem === null) return null;
+  return {
+    ecosystem,
+    interval: extractInterval(raw.schedule),
+    openPullRequestsLimit: extractOpenPrLimit(raw['open-pull-requests-limit']),
+    groupCount: extractGroupCount(raw.groups),
+    ignoreCount: extractListCount(raw.ignore),
+  };
+}
+
+function extractInterval(schedule: unknown): DependabotInterval | null {
+  if (!isRecord(schedule)) return null;
+  const value = schedule.interval;
+  if (value === 'daily' || value === 'weekly' || value === 'monthly') return value;
+  return null;
+}
+
+function extractOpenPrLimit(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return Math.floor(value);
+  return DEFAULT_OPEN_PR_LIMIT;
+}
+
+function extractGroupCount(value: unknown): number {
+  if (!isRecord(value)) return 0;
+  return Object.keys(value).length;
+}
+
+function extractListCount(value: unknown): number {
+  if (!Array.isArray(value)) return 0;
+  return value.length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

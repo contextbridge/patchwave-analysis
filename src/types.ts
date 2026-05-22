@@ -26,9 +26,20 @@ export interface RepoLanguages extends RepoRef {
 
 export type DependabotEcosystem = string;
 
+export type DependabotInterval = 'daily' | 'weekly' | 'monthly';
+
+export interface DependabotUpdateEntry {
+  ecosystem: DependabotEcosystem;
+  interval: DependabotInterval | null;
+  openPullRequestsLimit: number;
+  groupCount: number;
+  ignoreCount: number;
+}
+
 export interface DependabotConfigSlice extends RepoRef {
   hasConfig: boolean;
   ecosystems: DependabotEcosystem[];
+  updates: DependabotUpdateEntry[];
   packageManager: 'npm' | 'yarn' | 'pnpm' | 'bun' | 'unknown' | null;
 }
 

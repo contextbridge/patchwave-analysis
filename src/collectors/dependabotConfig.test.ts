@@ -14,8 +14,12 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "daily"
       `),
     encoding: 'base64',
   });
@@ -29,7 +33,72 @@ updates:
     hasConfig: true,
     ecosystems: ['github-actions', 'npm'],
     packageManager: 'pnpm',
+    updates: [
+      { ecosystem: 'npm', interval: 'weekly', openPullRequestsLimit: 5, groupCount: 0, ignoreCount: 0 },
+      { ecosystem: 'github-actions', interval: 'daily', openPullRequestsLimit: 5, groupCount: 0, ignoreCount: 0 },
+    ],
   });
+});
+
+test('captures open-pull-requests-limit, groups, and ignore counts per entry', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: '.github/dependabot.yml' }).resolves({
+    content: base64(`
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 20
+    groups:
+      eslint:
+        patterns:
+          - "eslint*"
+      react:
+        patterns:
+          - "react*"
+          - "react-dom"
+    ignore:
+      - dependency-name: "lodash"
+      - dependency-name: "express"
+        versions: ["4.x"]
+      - dependency-name: "react"
+`),
+    encoding: 'base64',
+  });
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'package-lock.json']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
+
+  const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
+  expect(result._unsafeUnwrap().updates).toEqual([
+    {
+      ecosystem: 'npm',
+      interval: 'monthly',
+      openPullRequestsLimit: 20,
+      groupCount: 2,
+      ignoreCount: 3,
+    },
+  ]);
+});
+
+test('defaults openPullRequestsLimit to 5 when not specified', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: '.github/dependabot.yml' }).resolves({
+    content: base64(`updates:\n  - package-ecosystem: bundler\n    schedule:\n      interval: weekly\n`),
+    encoding: 'base64',
+  });
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'package-lock.json']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
+
+  const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
+  expect(result._unsafeUnwrap().updates[0]?.openPullRequestsLimit).toBe(5);
 });
 
 test('falls back to dependabot.yaml when .yml is absent', async () => {
@@ -74,7 +143,28 @@ test('returns hasConfig: false when both paths 404 but the call still succeeds',
   expect(result._unsafeUnwrap()).toMatchObject({
     hasConfig: false,
     ecosystems: [],
+    updates: [],
     packageManager: null,
+  });
+});
+
+test('returns an empty updates list when the YAML is malformed', async () => {
+  const client = new FakeGithubClient();
+  client.onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path: '.github/dependabot.yml' }).resolves({
+    content: base64('this: : is\n: not valid: yaml: [\n'),
+    encoding: 'base64',
+  });
+  for (const path of ['pnpm-lock.yaml', 'yarn.lock', 'bun.lock', 'bun.lockb', 'package-lock.json']) {
+    client
+      .onRequest('GET /repos/{owner}/{repo}/contents/{path}', { path })
+      .fails({ kind: 'not-found', message: 'no lock' });
+  }
+
+  const result = await getDependabotConfig(client, { owner: 'acme', name: 'widgets' });
+  expect(result._unsafeUnwrap()).toMatchObject({
+    hasConfig: true,
+    ecosystems: [],
+    updates: [],
   });
 });
 

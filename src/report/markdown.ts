@@ -75,11 +75,21 @@ function renderDependabotCoverage(c: DependabotCoverage): string {
   lines.push(
     `- **${c.reposWithSecurityUpdates}** repos (${c.reposWithSecurityUpdatesPercentage}%) have Dependabot security updates enabled`,
   );
+  lines.push(
+    `- **${c.reposUsingGroups}** repos use grouped updates · **${c.reposWithIgnoreRules}** repos have \`ignore\` rules`,
+  );
   if (c.ecosystemBreakdown.length > 0) {
     lines.push('', `### Ecosystems configured`, '');
     lines.push('| Ecosystem | Repos |');
     lines.push('|---|---:|');
     for (const e of c.ecosystemBreakdown) lines.push(`| ${e.ecosystem} | ${e.repoCount} |`);
+  }
+  if (c.cadenceBreakdown.length > 0) {
+    lines.push('', `### Schedule cadence`, '', '_Counted per update entry — a single repo may contribute multiple._');
+    lines.push('', '| Interval | Update entries |', '|---|---:|');
+    for (const entry of c.cadenceBreakdown) {
+      lines.push(`| ${entry.interval} | ${entry.entryCount} |`);
+    }
   }
   if (c.packageManagerSplit.length > 0) {
     lines.push('', `### Node package manager split`, '');
@@ -146,10 +156,10 @@ function renderPrBacklog(b: PrBacklog): string {
 function renderStalledSignals(s: StalledSignals): string {
   const lines: string[] = [`## Stalled-PR signals`, ''];
   if (s.reposAtPrCap.length === 0) {
-    lines.push("- No repos sitting at Dependabot's default 5-PR cap.");
+    lines.push('- No repos sitting at their Dependabot PR cap.');
   } else {
     lines.push(
-      `- **${s.reposAtPrCap.length}** repos are at or above Dependabot's default 5-PR cap (Dependabot may have stopped opening new PRs there):`,
+      `- **${s.reposAtPrCap.length}** repos are at or above their Dependabot PR cap (sum of \`open-pull-requests-limit\` across update entries; default 5 per entry — Dependabot may have stopped opening new PRs there):`,
     );
     for (const entry of s.reposAtPrCap.slice(0, 10)) {
       lines.push(`  - \`${entry.repo}\` — ${entry.openPrs} open`);

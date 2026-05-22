@@ -7,6 +7,7 @@ import {
   cveSliceOk,
   dependabotConfigSlice,
   dependabotPr,
+  dependabotUpdateEntry,
   repoMeta,
   revertEvent,
 } from '../testFactories.ts';
@@ -159,6 +160,85 @@ test('counts dependabot reverts via dependabotRevertsInWindow', () => {
   const bundle = aggregate(data);
   expect(bundle.stalledSignals.revertsInWindow).toBe(3);
   expect(bundle.stalledSignals.dependabotRevertsInWindow).toBe(2);
+});
+
+test('cadenceBreakdown counts update entries by schedule interval', () => {
+  const data = collectedData.build({
+    dependabotConfig: [
+      dependabotConfigSlice.build({
+        name: 'a',
+        updates: [
+          dependabotUpdateEntry.build({ ecosystem: 'npm', interval: 'daily' }),
+          dependabotUpdateEntry.build({ ecosystem: 'github-actions', interval: 'weekly' }),
+        ],
+      }),
+      dependabotConfigSlice.build({
+        name: 'b',
+        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', interval: 'weekly' })],
+      }),
+      dependabotConfigSlice.build({
+        name: 'c',
+        updates: [dependabotUpdateEntry.build({ ecosystem: 'docker', interval: null })],
+      }),
+    ],
+  });
+  const bundle = aggregate(data);
+  expect(bundle.dependabotCoverage.cadenceBreakdown).toEqual([
+    { interval: 'daily', entryCount: 1 },
+    { interval: 'weekly', entryCount: 2 },
+    { interval: 'unspecified', entryCount: 1 },
+  ]);
+});
+
+test('reposUsingGroups and reposWithIgnoreRules count repos with any non-zero entry', () => {
+  const data = collectedData.build({
+    dependabotConfig: [
+      dependabotConfigSlice.build({
+        name: 'a',
+        updates: [dependabotUpdateEntry.build({ groupCount: 2, ignoreCount: 0 })],
+      }),
+      dependabotConfigSlice.build({
+        name: 'b',
+        updates: [
+          dependabotUpdateEntry.build({ groupCount: 0, ignoreCount: 0 }),
+          dependabotUpdateEntry.build({ groupCount: 0, ignoreCount: 3 }),
+        ],
+      }),
+      dependabotConfigSlice.build({
+        name: 'c',
+        updates: [dependabotUpdateEntry.build({ groupCount: 1, ignoreCount: 1 })],
+      }),
+    ],
+  });
+  const bundle = aggregate(data);
+  expect(bundle.dependabotCoverage).toMatchObject({
+    reposUsingGroups: 2,
+    reposWithIgnoreRules: 2,
+  });
+});
+
+test("reposAtPrCap uses each repo's effective cap from sum of entry limits", () => {
+  const fiveOpenPrs = (name: string) =>
+    Array.from({ length: 5 }, (_, i) =>
+      dependabotPr.build({ name, number: i + 1, state: 'open', createdAt: '2026-05-01T00:00:00Z' }),
+    );
+  const data = collectedData.build({
+    dependabotConfig: [
+      // repo with a single default-limit entry — cap is 5; 5 open trips it
+      dependabotConfigSlice.build({
+        name: 'capped',
+        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', openPullRequestsLimit: 5 })],
+      }),
+      // repo with a raised limit — cap is 20; 5 open should NOT trip it
+      dependabotConfigSlice.build({
+        name: 'raised',
+        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', openPullRequestsLimit: 20 })],
+      }),
+    ],
+    dependabotPrs: [...fiveOpenPrs('capped'), ...fiveOpenPrs('raised')],
+  });
+  const bundle = aggregate(data);
+  expect(bundle.stalledSignals.reposAtPrCap).toEqual([{ repo: 'acme/capped', openPrs: 5 }]);
 });
 
 test('dependabotCoverage reflects only the live (non-archived) repos', () => {

@@ -11,6 +11,7 @@ import type {
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
+  DependabotUpdateEntry,
   RepoLanguages,
   RepoMeta,
   RepoRef,
@@ -94,11 +95,20 @@ export const contributorSlice = Factory.define<ContributorSlice>(() => ({
   activeHumanLogins: [],
 }));
 
+export const dependabotUpdateEntry = Factory.define<DependabotUpdateEntry>(() => ({
+  ecosystem: 'npm',
+  interval: 'weekly',
+  openPullRequestsLimit: 5,
+  groupCount: 0,
+  ignoreCount: 0,
+}));
+
 export const dependabotConfigSlice = Factory.define<DependabotConfigSlice>(() => ({
   owner: 'acme',
   name: 'widgets',
   hasConfig: true,
   ecosystems: ['npm'],
+  updates: [dependabotUpdateEntry.build()],
   packageManager: 'pnpm',
 }));
 
