@@ -40,7 +40,13 @@ export class GithubClientImpl implements GithubClient {
         debug: noop,
         info: noop,
         warn: noop,
-        error: (msg: string) => logger.error({ source: 'octokit' }, msg),
+        // octokit emits an `error` for every non-2xx response, but most of
+        // those are expected partial failures (404 on a missing
+        // dependabot.yml, 403 on a repo the token can't read alerts for).
+        // The real partial-failure boundary lives in `cli.ts#crawlPerRepo`
+        // and records a warning into the bundle; here we keep the noise out
+        // of the interactive UX unless the user asks for it.
+        error: (msg: string) => logger.debug({ source: 'octokit' }, msg),
       },
       retry: { doNotRetry: [400, 401, 403, 404, 409, 422] },
       throttle: {

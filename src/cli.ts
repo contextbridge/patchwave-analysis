@@ -1,6 +1,5 @@
 import { parseArgs } from 'node:util';
 import { ResultAsync } from 'neverthrow';
-import pkg from '../package.json' with { type: 'json' };
 import { getBranchProtection } from './collectors/branchProtection.ts';
 import { listActiveCommitters } from './collectors/contributors.ts';
 import { getCveAlerts } from './collectors/cve.ts';
@@ -12,6 +11,8 @@ import { mapWithConcurrency } from './concurrency.ts';
 import type { Context } from './context.ts';
 import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
+import { promptForTarget } from './interactive/targetPrompt.ts';
+import { formatPromptError } from './prompt/Prompter.ts';
 import { type ReportBundle, aggregate } from './report/aggregate.ts';
 import { type BundleMeta, buildBundleFiles, zipBundleFiles } from './report/bundle.ts';
 import { renderMarkdown } from './report/markdown.ts';
@@ -31,11 +32,16 @@ import type {
 } from './types.ts';
 
 export interface CliOptions {
-  target: string;
+  /** `null` means the user didn't pass a positional target — `main()` will prompt for one. */
+  target: string | null;
   windowDays: number;
   outBase: string;
   include: string[] | null;
   exclude: string[];
+}
+
+interface ResolvedOptions extends CliOptions {
+  target: string;
 }
 
 export interface OutputPaths {
@@ -47,31 +53,60 @@ export function resolveOutputPaths(outBase: string): OutputPaths {
   return { markdown: `${outBase}.md`, zip: `${outBase}.zip` };
 }
 
-export async function main(ctx: Context, argv: readonly string[]): Promise<number> {
+export interface CompletedRun {
+  readonly target: string;
+  readonly paths: OutputPaths;
+  readonly markdown: string;
+  readonly zipBytes: Uint8Array;
+}
+
+export type MainResult =
+  | { kind: 'usage'; code: number }
+  | { kind: 'failed'; code: number }
+  | { kind: 'completed'; code: 0; run: CompletedRun };
+
+export async function main(ctx: Context, argv: readonly string[]): Promise<MainResult> {
   const parsed = parseCli(argv);
   if (parsed.kind === 'err') {
     if (parsed.message.length > 0) ctx.logger.error(parsed.message);
     // usage text is a multi-line reference document, not a log line — bypass pino.
     ctx.io.writeStderr(`${usage()}\n`);
-    return parsed.message.length > 0 ? 1 : 0;
+    return { kind: 'usage', code: parsed.message.length > 0 ? 1 : 0 };
   }
-  const opts = parsed.value;
+  const flagOpts = parsed.value;
+
+  let opts: ResolvedOptions;
+  if (flagOpts.target === null) {
+    const targetResult = await promptForTarget({ prompter: ctx.prompter, githubClient: ctx.githubClient });
+    if (targetResult.isErr()) {
+      ctx.prompter.error(`couldn't read target: ${formatPromptError(targetResult.error)}`);
+      return { kind: 'failed', code: 1 };
+    }
+    opts = { ...flagOpts, target: targetResult.value };
+  } else {
+    opts = { ...flagOpts, target: flagOpts.target };
+  }
 
   const startedAt = ctx.clock.now();
   ctx.analytics.capture('run_started', {
     window_days: opts.windowDays,
     has_include: opts.include !== null,
     has_exclude: opts.exclude.length > 0,
+    target_prompted: flagOpts.target === null,
   });
+
+  const spinner = ctx.prompter.spinner();
+  spinner.start(`Scanning ${opts.target} (last ${opts.windowDays} days)...`);
 
   const renderResult = await renderReport(ctx, opts);
   if (renderResult.isErr()) {
-    ctx.logger.error(formatGithubError(renderResult.error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(formatGithubError(renderResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: renderResult.error.kind,
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
   const { report, collected, aggregated, stats } = renderResult.value;
@@ -79,28 +114,32 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
 
   const mdResult = await ctx.fs.writeTextFile(paths.markdown, report);
   if (mdResult.isErr()) {
-    ctx.logger.error(formatFsError(mdResult.error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(formatFsError(mdResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
-  const meta = buildBundleMeta(opts, stats, aggregated, collected);
+  const meta = buildBundleMeta(ctx.appVersion, opts, stats, aggregated, collected);
   const files = buildBundleFiles({ meta, collected, aggregated, reportMarkdown: report });
-  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBundleFiles(files));
+  const zipBytes = zipBundleFiles(files);
+  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBytes);
   if (zipResult.isErr()) {
-    ctx.logger.error(formatFsError(zipResult.error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(formatFsError(zipResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
-  ctx.io.writeStdout(`wrote ${paths.markdown}\n`);
-  ctx.io.writeStdout(`wrote ${paths.zip}\n`);
+  spinner.stop(
+    `Scanned ${stats.reposIncluded} of ${stats.reposTotal} repos · ${stats.dependabotPrs} Dependabot PRs in window.`,
+  );
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
     repos_total: stats.reposTotal,
@@ -109,17 +148,22 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
     warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, ctx.clock.now()),
   });
-  return 0;
+  return {
+    kind: 'completed',
+    code: 0,
+    run: { target: opts.target, paths, markdown: report, zipBytes },
+  };
 }
 
 function buildBundleMeta(
-  opts: CliOptions,
+  cliVersion: string,
+  opts: ResolvedOptions,
   stats: ReportStats,
   aggregated: ReportBundle,
   collected: CollectedData,
 ): BundleMeta {
   return {
-    cliVersion: pkg.version,
+    cliVersion,
     generatedAt: aggregated.meta.generatedAt.toString(),
     target: opts.target,
     windowDays: opts.windowDays,
@@ -152,7 +196,7 @@ function elapsedMs(start: Instant, end: Instant): number {
   return Number(end.epochMilliseconds - start.epochMilliseconds);
 }
 
-function renderReport(ctx: Context, opts: CliOptions): ResultAsync<RenderedReport, GithubError> {
+function renderReport(ctx: Context, opts: ResolvedOptions): ResultAsync<RenderedReport, GithubError> {
   ctx.logger.info(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
@@ -318,11 +362,6 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
     return { kind: 'err', message: `failed to parse arguments: ${(e as Error).message}` };
   }
   if (parsed.values.help) return { kind: 'err', message: '' };
-  const positional = parsed.positionals;
-  const target = positional[0];
-  if (target === undefined) {
-    return { kind: 'err', message: 'missing required argument: <org-or-user>' };
-  }
 
   const windowDays = parseWindow(parsed.values.window);
   if (windowDays === null) {
@@ -332,7 +371,7 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
   return {
     kind: 'ok',
     value: {
-      target,
+      target: parsed.positionals[0] ?? null,
       windowDays,
       outBase: normalizeOutBase(parsed.values.out),
       include: parsed.values.include ? splitCsv(parsed.values.include) : null,
@@ -360,7 +399,7 @@ function splitCsv(s: string): string[] {
     .filter((v) => v.length > 0);
 }
 
-function filterRepos(repos: RepoMeta[], opts: CliOptions): RepoMeta[] {
+function filterRepos(repos: RepoMeta[], opts: ResolvedOptions): RepoMeta[] {
   let out = repos.filter((r) => !r.archived);
   const includeSet = opts.include === null ? null : new Set(opts.include);
   const excludeSet = new Set(opts.exclude);
@@ -372,7 +411,9 @@ function filterRepos(repos: RepoMeta[], opts: CliOptions): RepoMeta[] {
 function usage(): string {
   return [
     '',
-    'usage: patchwave-analysis <org-or-user> [options]',
+    'usage: patchwave-analysis [<org-or-user>] [options]',
+    '',
+    'If <org-or-user> is omitted, you will be prompted for it.',
     '',
     'options:',
     '  --window <Nd|Nw>     rolling time window (default 90d)',

@@ -39,6 +39,7 @@
     "typescript-eslint": "^8.59.4"
   },
   "dependencies": {
+    "@clack/prompts": "^1.4.0",
     "@js-temporal/polyfill": "^0.5.1",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.1.0",

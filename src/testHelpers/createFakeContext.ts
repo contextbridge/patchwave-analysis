@@ -6,7 +6,9 @@ import { FakeAnalytics } from './FakeAnalytics.ts';
 import { FakeClock } from './FakeClock.ts';
 import { FakeFileSystem } from './FakeFileSystem.ts';
 import { FakeGithubClient } from './FakeGithubClient.ts';
-import { FakeIo } from './FakeIo.ts';
+import { FakeIo, type FakeIoOptions } from './FakeIo.ts';
+import { FakePrompter } from './FakePrompter.ts';
+import { FakeUploader } from './FakeUploader.ts';
 
 export interface FakeContextHandle {
   readonly ctx: Context;
@@ -16,6 +18,13 @@ export interface FakeContextHandle {
   readonly fs: FakeFileSystem;
   readonly githubClient: FakeGithubClient;
   readonly analytics: FakeAnalytics;
+  readonly prompter: FakePrompter;
+  readonly uploader: FakeUploader;
+}
+
+export interface CreateFakeContextOptions {
+  readonly overrides?: Partial<Context>;
+  readonly io?: FakeIoOptions;
 }
 
 const defaultEnv: Environment = {
@@ -25,12 +34,14 @@ const defaultEnv: Environment = {
   CI: false,
 };
 
-export function createFakeContext(overrides: Partial<Context> = {}): FakeContextHandle {
-  const io = new FakeIo();
+export function createFakeContext(options: CreateFakeContextOptions = {}): FakeContextHandle {
+  const io = new FakeIo(options.io);
   const clock = new FakeClock();
   const fs = new FakeFileSystem();
   const githubClient = new FakeGithubClient();
   const analytics = new FakeAnalytics();
+  const prompter = new FakePrompter();
+  const uploader = new FakeUploader();
 
   // Route fake logger output to FakeIo.stderr (raw pino JSON, no pino-pretty) so
   // tests can substring-match log content via io.stderr.text().
@@ -44,7 +55,10 @@ export function createFakeContext(overrides: Partial<Context> = {}): FakeContext
     fs,
     githubClient,
     analytics,
-    ...overrides,
+    prompter,
+    uploader,
+    appVersion: '0.0.0-test',
+    ...options.overrides,
   };
 
   return {
@@ -55,5 +69,7 @@ export function createFakeContext(overrides: Partial<Context> = {}): FakeContext
     fs: ctx.fs instanceof FakeFileSystem ? ctx.fs : fs,
     githubClient: ctx.githubClient instanceof FakeGithubClient ? ctx.githubClient : githubClient,
     analytics: ctx.analytics instanceof FakeAnalytics ? ctx.analytics : analytics,
+    prompter: ctx.prompter instanceof FakePrompter ? ctx.prompter : prompter,
+    uploader: ctx.uploader instanceof FakeUploader ? ctx.uploader : uploader,
   };
 }
