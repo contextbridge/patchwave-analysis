@@ -71,6 +71,7 @@ if (result.kind === 'completed') {
   await runOpenReportPrompt({ context: ctx, htmlPath: result.run.paths.html });
   await runSharePrompt({
     context: ctx,
+    target: result.run.target,
     htmlPath: result.run.paths.html,
     zipPath: result.run.paths.zip,
     htmlContent: result.run.html,

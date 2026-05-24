@@ -8,6 +8,7 @@ export type ShareChoice = 'html' | 'full' | 'declined';
 
 export interface SharePromptInputs {
   readonly context: Context;
+  readonly target: string;
   readonly htmlPath: string;
   readonly zipPath: string;
   readonly htmlContent: string;
@@ -26,6 +27,7 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
 
   prompter.note(
     [
+      `Scanned:          ${inputs.target}`,
       `HTML report:      ${inputs.htmlPath}`,
       `Raw data bundle:  ${inputs.zipPath}`,
       '',

@@ -8,10 +8,17 @@ export interface FakeWrite {
 
 export class FakeFileSystem implements FileSystem {
   readonly writes: FakeWrite[] = [];
+  readonly tempDirs: string[] = [];
   private failure: FsError | null = null;
+  private tempDirFailure: FsError | null = null;
+  private tempDirCounter = 0;
 
   failNextWriteWith(err: FsError): void {
     this.failure = err;
+  }
+
+  failNextTempDirWith(err: FsError): void {
+    this.tempDirFailure = err;
   }
 
   writeTextFile(path: string, contents: string): ResultAsync<void, FsError> {
@@ -20,6 +27,17 @@ export class FakeFileSystem implements FileSystem {
 
   writeBinaryFile(path: string, contents: Uint8Array): ResultAsync<void, FsError> {
     return this.recordWrite(path, contents);
+  }
+
+  makeTempDir(prefix: string): ResultAsync<string, FsError> {
+    if (this.tempDirFailure) {
+      const err = this.tempDirFailure;
+      this.tempDirFailure = null;
+      return errAsync(err);
+    }
+    const path = `/fake-tmp/${prefix}${this.tempDirCounter++}`;
+    this.tempDirs.push(path);
+    return okAsync(path);
   }
 
   read(path: string): string | undefined {

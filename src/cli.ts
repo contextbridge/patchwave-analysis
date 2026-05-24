@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
 import { getBranchProtection } from './collectors/branchProtection.ts';
@@ -29,17 +30,25 @@ import type {
   RepoMeta,
 } from './types.ts';
 
+// The CLI is intentionally flag-free (besides --help): the rolling window, output
+// location, and repo filtering are fixed for now. These live as constants so the
+// pipeline below — and the bundle metadata format — stays unchanged if we re-add
+// flags later.
+const WINDOW_DAYS = 90;
+const OUTPUT_BASENAME = 'patchwave-report';
+const TEMP_DIR_PREFIX = 'patchwave-analysis-';
+
 export interface CliOptions {
   /** `null` means the user didn't pass a positional target — `main()` will prompt for one. */
-  target: string | null;
-  windowDays: number;
-  outBase: string;
-  include: string[] | null;
-  exclude: string[];
+  readonly target: string | null;
 }
 
-interface ResolvedOptions extends CliOptions {
-  target: string;
+interface ResolvedOptions {
+  readonly target: string;
+  readonly windowDays: number;
+  readonly outBase: string;
+  readonly include: string[] | null;
+  readonly exclude: string[];
 }
 
 export interface OutputPaths {
@@ -72,20 +81,38 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     return { kind: 'usage', code: parsed.message.length > 0 ? 1 : 0 };
   }
   const flagOpts = parsed.value;
+  const startedAt = ctx.clock.now();
 
-  let opts: ResolvedOptions;
+  let target: string;
   if (flagOpts.target === null) {
     const targetResult = await promptForTarget({ prompter: ctx.prompter, githubClient: ctx.githubClient });
     if (targetResult.isErr()) {
       ctx.prompter.error(`couldn't read target: ${formatPromptError(targetResult.error)}`);
       return { kind: 'failed', code: 1 };
     }
-    opts = { ...flagOpts, target: targetResult.value };
+    target = targetResult.value;
   } else {
-    opts = { ...flagOpts, target: flagOpts.target };
+    target = flagOpts.target;
   }
 
-  const startedAt = ctx.clock.now();
+  const tempDirResult = await ctx.fs.makeTempDir(TEMP_DIR_PREFIX);
+  if (tempDirResult.isErr()) {
+    ctx.prompter.error(formatFsError(tempDirResult.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: tempDirResult.error.kind,
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
+    return { kind: 'failed', code: 1 };
+  }
+
+  const opts: ResolvedOptions = {
+    target,
+    windowDays: WINDOW_DAYS,
+    outBase: join(tempDirResult.value, OUTPUT_BASENAME),
+    include: null,
+    exclude: [],
+  };
+
   ctx.analytics.capture('run_started', {
     window_days: opts.windowDays,
     has_include: opts.include !== null,
@@ -137,7 +164,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   }
 
   spinner.stop(
-    `Scanned ${stats.reposIncluded} of ${stats.reposTotal} repos · ${stats.dependabotPrs} Dependabot PRs in window.`,
+    `Scanned ${opts.target}: ${stats.reposIncluded} of ${stats.reposTotal} repos · ${stats.dependabotPrs} Dependabot PRs in window.`,
   );
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
@@ -336,10 +363,6 @@ const safeParseArgs = Result.fromThrowable(
       args: [...argv],
       allowPositionals: true,
       options: {
-        window: { type: 'string', default: '90d' },
-        out: { type: 'string', default: './patchwave-report' },
-        include: { type: 'string' },
-        exclude: { type: 'string' },
         help: { type: 'boolean', default: false },
       },
     }),
@@ -349,45 +372,20 @@ const safeParseArgs = Result.fromThrowable(
 export function parseCli(argv: readonly string[]): ParseCliResult {
   const parseResult = safeParseArgs(argv);
   if (parseResult.isErr()) {
+    // strict parseArgs throws on any unknown --flag; surface it as a usage error.
     return { kind: 'err', message: `failed to parse arguments: ${parseResult.error}` };
   }
   const parsed = parseResult.value;
   if (parsed.values.help) return { kind: 'err', message: '' };
 
-  const windowDays = parseWindow(parsed.values.window);
-  if (windowDays === null) {
-    return { kind: 'err', message: `invalid --window: expected formats like '90d' or '12w'` };
+  if (parsed.positionals.length > 1) {
+    return {
+      kind: 'err',
+      message: `expected a single org or user to scan, but got ${parsed.positionals.length}: ${parsed.positionals.join(' ')}`,
+    };
   }
 
-  return {
-    kind: 'ok',
-    value: {
-      target: parsed.positionals[0] ?? null,
-      windowDays,
-      outBase: normalizeOutBase(parsed.values.out),
-      include: parsed.values.include ? splitCsv(parsed.values.include) : null,
-      exclude: parsed.values.exclude ? splitCsv(parsed.values.exclude) : [],
-    },
-  };
-}
-
-function normalizeOutBase(out: string): string {
-  return out.replace(/\.(html|md|zip)$/i, '');
-}
-
-function parseWindow(s: string): number | null {
-  const match = /^(\d+)([dw])$/.exec(s.trim());
-  if (!match) return null;
-  const n = Number.parseInt(match[1] ?? '', 10);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return match[2] === 'w' ? n * 7 : n;
-}
-
-function splitCsv(s: string): string[] {
-  return s
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0);
+  return { kind: 'ok', value: { target: parsed.positionals[0] ?? null } };
 }
 
 function filterRepos(repos: RepoMeta[], opts: ResolvedOptions): RepoMeta[] {
@@ -402,16 +400,14 @@ function filterRepos(repos: RepoMeta[], opts: ResolvedOptions): RepoMeta[] {
 function usage(): string {
   return [
     '',
-    'usage: patchwave-analysis [<org-or-user>] [options]',
+    'usage: patchwave-analysis [<org-or-user>]',
     '',
     'If <org-or-user> is omitted, you will be prompted for it.',
     '',
+    'The report (a .html file and a .zip data bundle) is written to a temporary',
+    'directory; the paths are printed when the scan finishes.',
+    '',
     'options:',
-    '  --window <Nd|Nw>     rolling time window (default 90d)',
-    '  --out <basename>     output basename; writes <basename>.html and <basename>.zip',
-    '                       (default ./patchwave-report)',
-    '  --include <repos>    comma-separated repo names to include',
-    '  --exclude <repos>    comma-separated repo names to exclude',
     '  --help               show this help',
   ].join('\n');
 }

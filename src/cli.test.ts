@@ -37,11 +37,18 @@ test('cancelling the target prompt returns failed and tells the user why', async
   expect(prompter.errors[0]).toContain('cancelled by user');
 });
 
-test('rejects an invalid --window value', async () => {
+test('rejects unknown flags', async () => {
   const { ctx, io } = createFakeContext();
-  const result = await main(ctx, ['acme', '--window', 'foobar']);
+  const result = await main(ctx, ['acme', '--window', '30d']);
   expect(result).toMatchObject({ kind: 'usage', code: 1 });
-  expect(io.stderr.text()).toContain('invalid --window');
+  expect(io.stderr.text()).toContain('failed to parse arguments');
+});
+
+test('rejects more than one positional argument', async () => {
+  const { ctx, io } = createFakeContext();
+  const result = await main(ctx, ['acme', 'globex']);
+  expect(result).toMatchObject({ kind: 'usage', code: 1 });
+  expect(io.stderr.text()).toContain('expected a single org or user');
 });
 
 test('writes a report when the GitHub calls succeed', async () => {
@@ -74,11 +81,17 @@ test('writes a report when the GitHub calls succeed', async () => {
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
 
-  const result = await main(ctx, ['acme', '--out', '/tmp/report']);
+  const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
+  if (result.kind !== 'completed') return;
   expect(result.code).toBe(0);
 
-  const written = fs.read('/tmp/report.html');
+  // Output lands in a temp dir, not the CWD; locate it via the returned paths.
+  expect(result.run.target).toBe('acme');
+  expect(result.run.paths.html.endsWith('patchwave-report.html')).toBe(true);
+  expect(result.run.paths.zip.endsWith('patchwave-report.zip')).toBe(true);
+
+  const written = fs.read(result.run.paths.html);
   expect(written).toBeDefined();
   expect(written).toContain('<html');
   const match = /<script type="application\/json" id="patchwave-data">([\s\S]*?)<\/script>/.exec(written ?? '');
@@ -86,7 +99,7 @@ test('writes a report when the GitHub calls succeed', async () => {
   const embedded = JSON.parse(match?.[1] ?? '') as { meta: { org: string } };
   expect(embedded.meta.org).toBe('acme');
 
-  const zipBytes = fs.readBinary('/tmp/report.zip');
+  const zipBytes = fs.readBinary(result.run.paths.zip);
   expect(zipBytes).toBeInstanceOf(Uint8Array);
   const entries = unzipSync(zipBytes as Uint8Array);
   expect(Object.keys(entries).sort()).toEqual(
@@ -115,14 +128,10 @@ test('writes a report when the GitHub calls succeed', async () => {
   expect(repos).toHaveLength(1);
   expect(repos[0]?.name).toBe('widgets');
 
-  // The completed run hands the bytes + paths back so the caller (index.ts) can
-  // drive the share prompt without re-reading the filesystem.
-  if (result.kind === 'completed') {
-    expect(result.run.target).toBe('acme');
-    expect(result.run.paths.html).toBe('/tmp/report.html');
-    expect(result.run.zipBytes).toBeInstanceOf(Uint8Array);
-    expect(result.run.html).toContain('<html');
-  }
+  // The completed run hands the bytes back so the caller (index.ts) can drive
+  // the share prompt without re-reading the filesystem.
+  expect(result.run.zipBytes).toBeInstanceOf(Uint8Array);
+  expect(result.run.html).toContain('<html');
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
     window_days: 90,
@@ -160,4 +169,15 @@ test('returns failed when listOrgRepos fails non-recoverably', async () => {
   const result = await main(ctx, ['acme']);
   expect(result).toMatchObject({ kind: 'failed', code: 1 });
   expect(prompter.errors[0]).toContain('403');
+});
+
+test('returns failed when the temp output directory cannot be created', async () => {
+  const { ctx, fs, prompter, analytics } = createFakeContext();
+  fs.failNextTempDirWith({ kind: 'temp-dir-failed', message: 'disk full' });
+
+  const result = await main(ctx, ['acme']);
+
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+  expect(prompter.errors[0]).toContain('temporary output directory');
+  expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({ error_kind: 'temp-dir-failed' });
 });

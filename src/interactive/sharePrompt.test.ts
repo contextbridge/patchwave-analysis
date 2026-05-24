@@ -12,6 +12,7 @@ function makeHandle(): FakeContextHandle {
 function makeInputs(handle: FakeContextHandle, overrides: Partial<SharePromptInputs> = {}): SharePromptInputs {
   return {
     context: handle.ctx,
+    target: 'acme',
     htmlPath: '/tmp/report.html',
     zipPath: '/tmp/report.zip',
     htmlContent: '<!doctype html><html></html>',
@@ -29,6 +30,7 @@ describe('runSharePrompt', () => {
     await runSharePrompt(makeInputs(handle));
 
     const reportReadyNote = handle.prompter.notes.find((n) => n.title === 'Report ready');
+    expect(reportReadyNote?.message).toContain('acme');
     expect(reportReadyNote?.message).toContain('/tmp/report.html');
     expect(reportReadyNote?.message).toContain('/tmp/report.zip');
     expect(handle.prompter.selects[0]?.message).toContain('share this with us');
