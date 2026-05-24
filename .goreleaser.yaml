@@ -1,0 +1,64 @@
+version: 2
+project_name: patchwave-analysis
+
+# The before hook builds the embedded web report into dist/report-web/, so
+# goreleaser can't also own dist/ — it requires its own output dir to be empty
+# after hooks run. Keep goreleaser's artifacts separate.
+dist: dist-release
+
+before:
+  hooks:
+    - bun install --frozen-lockfile
+    # The CLI embeds dist/report-web/index.html via a `with { type: 'text' }`
+    # import, so the web report must be built before the binary is compiled.
+    # `release --clean` wipes dist/ before these hooks run, so the order holds.
+    - bun run build:report-web
+
+builds:
+  - id: patchwave-analysis
+    builder: bun
+    main: ./src/index.ts
+    binary: patchwave-analysis
+    targets:
+      - bun-darwin-arm64
+      - bun-darwin-x64
+      - bun-linux-x64
+    flags:
+      - --compile
+
+# Version-less archive names keep the GitHub `releases/latest/download/<asset>`
+# URLs stable across releases, which is what scripts/analyze.sh fetches.
+archives:
+  - formats: [tar.gz]
+    name_template: 'patchwave-analysis_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  name_template: checksums.txt
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - patchwave-analysis
+      sign:
+        certificate: '{{ .Env.MACOS_SIGN_P12 }}'
+        password: '{{ .Env.MACOS_SIGN_PASSWORD }}'
+        entitlements: ./entitlements.plist
+      notarize:
+        issuer_id: '{{ .Env.MACOS_NOTARY_ISSUER_ID }}'
+        key_id: '{{ .Env.MACOS_NOTARY_KEY_ID }}'
+        key: '{{ .Env.MACOS_NOTARY_KEY }}'
+        wait: true
+        timeout: 20m
+
+# release-please owns the GitHub Release and its changelog body; goreleaser only
+# attaches artifacts to the release release-please already created for the tag.
+changelog:
+  disable: true
+
+release:
+  draft: false
+  prerelease: auto
+  mode: keep-existing
+  extra_files:
+    - glob: ./scripts/analyze.sh

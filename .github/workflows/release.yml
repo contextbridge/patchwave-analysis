@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  test:
+    name: Tests
+    uses: ./.github/workflows/test.yml
+    permissions:
+      contents: read
+
+  release:
+    name: GoReleaser
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create/update the GitHub Release and upload artifacts
+      id-token: write # OIDC: assume the AWS release role for signing secrets
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/bootstrap
+
+      - name: Fetch release secrets
+        uses: ./.github/actions/fetch-release-secrets
+        with:
+          role-to-assume: ${{ secrets.RELEASE_ROLE_ARN }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: ${{ github.ref_name }}

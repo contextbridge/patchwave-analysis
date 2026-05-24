@@ -17,22 +17,28 @@ Given an org or user, the report covers:
 
 ## Run it
 
-You need a GitHub token with `repo` and `read:org` scopes. For CVE metrics, add `security_events`.
+You need a GitHub token with `repo` and `read:org` scopes (add `security_events` for CVE metrics). The CLI resolves it from `GITHUB_TOKEN`, then `GH_TOKEN`, then `gh auth token` — so if you're signed in with the `gh` CLI there's nothing to set.
 
-### With Bun installed
-
-```sh
-bunx patchwave-analysis@latest <your-org>
-```
-
-### With the gh CLI installed
+### One-off run (recommended)
 
 ```sh
-bunx patchwave-analysis@latest <your-org>
-# auth is auto-resolved via `gh auth token`
+bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
 ```
 
-Token resolution order: `GITHUB_TOKEN` env var, then `GH_TOKEN` env var, then `gh auth token`.
+This downloads the signed binary for your platform from the latest release, verifies its checksum, runs the interactive session, and cleans up after itself — nothing is installed. The report is written to your current directory. Pin a specific release with `PW_VERSION`:
+
+```sh
+PW_VERSION=v0.1.0 bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
+```
+
+### Download the binary yourself
+
+Grab the archive for your platform from the [latest release](https://github.com/contextbridge/patchwave-analysis/releases/latest), then:
+
+```sh
+tar -xzf patchwave-analysis_darwin_arm64.tar.gz
+./patchwave-analysis
+```
 
 ### From source
 
@@ -41,7 +47,7 @@ git clone https://github.com/contextbridge/patchwave-analysis
 cd patchwave-analysis
 bun install
 bun run build:report-web
-bun run src/index.ts <your-org>
+bun run src/index.ts
 ```
 
 For local report UI development:

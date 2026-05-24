@@ -1,0 +1,34 @@
+name: Release PR
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      # release-please runs with an app token (not GITHUB_TOKEN) so the tag it
+      # pushes on release triggers the tag-gated release.yml workflow.
+      - name: Generate ContextBridge app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.CB_PR_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.CB_PR_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: contextbridge
+          repositories: patchwave-analysis
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          target-branch: main
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
