@@ -8,8 +8,6 @@ import { type GithubError, toGithubError } from './errors.ts';
 
 const PatchwaveOctokit = Octokit.plugin(retry, throttling);
 
-function noop(): void {}
-
 /**
  * Narrow GitHub API surface the collectors depend on. Each method returns a
  * ResultAsync so callers can chain without try/catch. Production wires this to
@@ -33,15 +31,16 @@ export class GithubClientImpl implements GithubClient {
 
   constructor(options: GithubClientImplOptions) {
     const { token, logger, userAgent = 'patchwave-analysis' } = options;
+    // `@octokit/request` emits endpoint deprecation notices via `request.log.warn`,
+    // which defaults to `console` and so bypasses the top-level `log` below. Pass
+    // our logger as `request.log` on each client too, so that noise lands in pino
+    // (silent by default) instead of the user's terminal. A child tags the source.
+    const log = logger.child({ source: 'octokit' });
     this.rest = new PatchwaveOctokit({
       auth: token,
       userAgent,
-      log: {
-        debug: noop,
-        info: noop,
-        warn: noop,
-        error: (msg: string) => logger.error({ source: 'octokit' }, msg),
-      },
+      log,
+      request: { log },
       retry: { doNotRetry: [400, 401, 403, 404, 409, 422] },
       throttle: {
         onRateLimit: (_retryAfter, _opts, _octokit, retryCount) => retryCount < 2,
@@ -50,6 +49,7 @@ export class GithubClientImpl implements GithubClient {
     });
     this.graphqlClient = graphqlBase.defaults({
       headers: { authorization: `token ${token}` },
+      request: { log },
     });
   }
 
