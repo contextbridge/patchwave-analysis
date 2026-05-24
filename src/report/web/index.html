@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Patchwave diagnostic report</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="antialiased">
+    <noscript>
+      <div
+        style="
+          padding: 2rem;
+          font-family: system-ui, sans-serif;
+          max-width: 40rem;
+          margin: 4rem auto;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          background: white;
+        "
+      >
+        <h1 style="margin-top: 0">This report needs JavaScript</h1>
+        <p>
+          The Patchwave report renders in your browser. Turn JavaScript on and reload, or open the accompanying
+          <code>patchwave-report.zip</code> for the raw JSON data.
+        </p>
+      </div>
+    </noscript>
+    <div id="root"></div>
+    <script type="application/json" id="patchwave-data">
+      __PATCHWAVE_DATA__
+    </script>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>
