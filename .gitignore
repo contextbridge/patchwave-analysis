@@ -6,6 +6,9 @@ out
 dist
 *.tgz
 
+# dev-only fixture for the report web app
+src/report/web/data/fixture.json
+
 # code coverage
 coverage
 *.lcov
