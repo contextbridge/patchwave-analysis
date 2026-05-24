@@ -1,6 +1,6 @@
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
-import pkg from '../package.json' with { type: 'json' };
 import { getBranchProtection } from './collectors/branchProtection.ts';
 import { listActiveCommitters } from './collectors/contributors.ts';
 import { getCveAlerts } from './collectors/cve.ts';
@@ -12,6 +12,8 @@ import type { Context } from './context.ts';
 import { getErrorMessage } from './errors.ts';
 import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
+import { promptForTarget } from './interactive/targetPrompt.ts';
+import { formatPromptError } from './prompt/Prompter.ts';
 import { type ReportBundle, aggregate } from './report/aggregate.ts';
 import { type BundleMeta, buildBundleFiles, zipBundleFiles } from './report/bundle.ts';
 import { type RenderError, renderHtml } from './report/html.ts';
@@ -28,12 +30,25 @@ import type {
   RepoMeta,
 } from './types.ts';
 
+// The CLI is intentionally flag-free (besides --help): the rolling window, output
+// location, and repo filtering are fixed for now. These live as constants so the
+// pipeline below — and the bundle metadata format — stays unchanged if we re-add
+// flags later.
+const WINDOW_DAYS = 90;
+const OUTPUT_BASENAME = 'patchwave-report';
+const TEMP_DIR_PREFIX = 'patchwave-analysis-';
+
 export interface CliOptions {
-  target: string;
-  windowDays: number;
-  outBase: string;
-  include: string[] | null;
-  exclude: string[];
+  /** `null` means the user didn't pass a positional target — `main()` will prompt for one. */
+  readonly target: string | null;
+}
+
+interface ResolvedOptions {
+  readonly target: string;
+  readonly windowDays: number;
+  readonly outBase: string;
+  readonly include: string[] | null;
+  readonly exclude: string[];
 }
 
 export interface OutputPaths {
@@ -45,32 +60,79 @@ export function resolveOutputPaths(outBase: string): OutputPaths {
   return { html: `${outBase}.html`, zip: `${outBase}.zip` };
 }
 
-export async function main(ctx: Context, argv: readonly string[]): Promise<number> {
+export interface CompletedRun {
+  readonly target: string;
+  readonly paths: OutputPaths;
+  readonly html: string;
+  readonly zipBytes: Uint8Array;
+}
+
+export type MainResult =
+  | { kind: 'usage'; code: number }
+  | { kind: 'failed'; code: number }
+  | { kind: 'completed'; code: 0; run: CompletedRun };
+
+export async function main(ctx: Context, argv: readonly string[]): Promise<MainResult> {
   const parsed = parseCli(argv);
   if (parsed.kind === 'err') {
     if (parsed.message.length > 0) ctx.logger.error(parsed.message);
     // usage text is a multi-line reference document, not a log line — bypass pino.
     ctx.io.writeStderr(`${usage()}\n`);
-    return parsed.message.length > 0 ? 1 : 0;
+    return { kind: 'usage', code: parsed.message.length > 0 ? 1 : 0 };
   }
-  const opts = parsed.value;
-
+  const flagOpts = parsed.value;
   const startedAt = ctx.clock.now();
+
+  let target: string;
+  if (flagOpts.target === null) {
+    const targetResult = await promptForTarget({ prompter: ctx.prompter, githubClient: ctx.githubClient });
+    if (targetResult.isErr()) {
+      ctx.prompter.error(`couldn't read target: ${formatPromptError(targetResult.error)}`);
+      return { kind: 'failed', code: 1 };
+    }
+    target = targetResult.value;
+  } else {
+    target = flagOpts.target;
+  }
+
+  const tempDirResult = await ctx.fs.makeTempDir(TEMP_DIR_PREFIX);
+  if (tempDirResult.isErr()) {
+    ctx.prompter.error(formatFsError(tempDirResult.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: tempDirResult.error.kind,
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
+    return { kind: 'failed', code: 1 };
+  }
+
+  const opts: ResolvedOptions = {
+    target,
+    windowDays: WINDOW_DAYS,
+    outBase: join(tempDirResult.value, OUTPUT_BASENAME),
+    include: null,
+    exclude: [],
+  };
+
   ctx.analytics.capture('run_started', {
     window_days: opts.windowDays,
     has_include: opts.include !== null,
     has_exclude: opts.exclude.length > 0,
+    target_prompted: flagOpts.target === null,
   });
+
+  const spinner = ctx.prompter.spinner();
+  spinner.start(`Scanning ${opts.target} (last ${opts.windowDays} days)...`);
 
   const renderResult = await renderReport(ctx, opts);
   if (renderResult.isErr()) {
     const error = renderResult.error;
-    ctx.logger.error(error.kind === 'missing-placeholder' ? error.message : formatGithubError(error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(error.kind === 'missing-placeholder' ? error.message : formatGithubError(error));
     ctx.analytics.capture('run_failed', {
       error_kind: error.kind,
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
   const { report, collected, aggregated, stats } = renderResult.value;
@@ -78,28 +140,32 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
 
   const htmlResult = await ctx.fs.writeTextFile(paths.html, report);
   if (htmlResult.isErr()) {
-    ctx.logger.error(formatFsError(htmlResult.error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(formatFsError(htmlResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
-  const meta = buildBundleMeta(opts, stats, aggregated, collected);
+  const meta = buildBundleMeta(ctx.appVersion, opts, stats, aggregated, collected);
   const files = buildBundleFiles({ meta, collected, aggregated, reportHtml: report });
-  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBundleFiles(files));
+  const zipBytes = zipBundleFiles(files);
+  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBytes);
   if (zipResult.isErr()) {
-    ctx.logger.error(formatFsError(zipResult.error));
+    spinner.stop('Scan failed.');
+    ctx.prompter.error(formatFsError(zipResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
     });
-    return 1;
+    return { kind: 'failed', code: 1 };
   }
 
-  ctx.io.writeStdout(`wrote ${paths.html}\n`);
-  ctx.io.writeStdout(`wrote ${paths.zip}\n`);
+  spinner.stop(
+    `Scanned ${opts.target}: ${stats.reposIncluded} of ${stats.reposTotal} repos · ${stats.dependabotPrs} Dependabot PRs in window.`,
+  );
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
     repos_total: stats.reposTotal,
@@ -108,17 +174,22 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<numbe
     warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, ctx.clock.now()),
   });
-  return 0;
+  return {
+    kind: 'completed',
+    code: 0,
+    run: { target: opts.target, paths, html: report, zipBytes },
+  };
 }
 
 function buildBundleMeta(
-  opts: CliOptions,
+  cliVersion: string,
+  opts: ResolvedOptions,
   stats: ReportStats,
   aggregated: ReportBundle,
   collected: CollectedData,
 ): BundleMeta {
   return {
-    cliVersion: pkg.version,
+    cliVersion,
     generatedAt: aggregated.meta.generatedAt.toString(),
     target: opts.target,
     windowDays: opts.windowDays,
@@ -151,7 +222,7 @@ function elapsedMs(start: Instant, end: Instant): number {
   return Number(end.epochMilliseconds - start.epochMilliseconds);
 }
 
-function renderReport(ctx: Context, opts: CliOptions): ResultAsync<RenderedReport, GithubError | RenderError> {
+function renderReport(ctx: Context, opts: ResolvedOptions): ResultAsync<RenderedReport, GithubError | RenderError> {
   ctx.logger.info(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
@@ -292,10 +363,6 @@ const safeParseArgs = Result.fromThrowable(
       args: [...argv],
       allowPositionals: true,
       options: {
-        window: { type: 'string', default: '90d' },
-        out: { type: 'string', default: './patchwave-report' },
-        include: { type: 'string' },
-        exclude: { type: 'string' },
         help: { type: 'boolean', default: false },
       },
     }),
@@ -305,53 +372,23 @@ const safeParseArgs = Result.fromThrowable(
 export function parseCli(argv: readonly string[]): ParseCliResult {
   const parseResult = safeParseArgs(argv);
   if (parseResult.isErr()) {
+    // strict parseArgs throws on any unknown --flag; surface it as a usage error.
     return { kind: 'err', message: `failed to parse arguments: ${parseResult.error}` };
   }
   const parsed = parseResult.value;
   if (parsed.values.help) return { kind: 'err', message: '' };
-  const positional = parsed.positionals;
-  const target = positional[0];
-  if (target === undefined) {
-    return { kind: 'err', message: 'missing required argument: <org-or-user>' };
+
+  if (parsed.positionals.length > 1) {
+    return {
+      kind: 'err',
+      message: `expected a single org or user to scan, but got ${parsed.positionals.length}: ${parsed.positionals.join(' ')}`,
+    };
   }
 
-  const windowDays = parseWindow(parsed.values.window);
-  if (windowDays === null) {
-    return { kind: 'err', message: `invalid --window: expected formats like '90d' or '12w'` };
-  }
-
-  return {
-    kind: 'ok',
-    value: {
-      target,
-      windowDays,
-      outBase: normalizeOutBase(parsed.values.out),
-      include: parsed.values.include ? splitCsv(parsed.values.include) : null,
-      exclude: parsed.values.exclude ? splitCsv(parsed.values.exclude) : [],
-    },
-  };
+  return { kind: 'ok', value: { target: parsed.positionals[0] ?? null } };
 }
 
-function normalizeOutBase(out: string): string {
-  return out.replace(/\.(html|md|zip)$/i, '');
-}
-
-function parseWindow(s: string): number | null {
-  const match = /^(\d+)([dw])$/.exec(s.trim());
-  if (!match) return null;
-  const n = Number.parseInt(match[1] ?? '', 10);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return match[2] === 'w' ? n * 7 : n;
-}
-
-function splitCsv(s: string): string[] {
-  return s
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v) => v.length > 0);
-}
-
-function filterRepos(repos: RepoMeta[], opts: CliOptions): RepoMeta[] {
+function filterRepos(repos: RepoMeta[], opts: ResolvedOptions): RepoMeta[] {
   let out = repos.filter((r) => !r.archived);
   const includeSet = opts.include === null ? null : new Set(opts.include);
   const excludeSet = new Set(opts.exclude);
@@ -363,14 +400,14 @@ function filterRepos(repos: RepoMeta[], opts: CliOptions): RepoMeta[] {
 function usage(): string {
   return [
     '',
-    'usage: patchwave-analysis <org-or-user> [options]',
+    'usage: patchwave-analysis [<org-or-user>]',
+    '',
+    'If <org-or-user> is omitted, you will be prompted for it.',
+    '',
+    'The report (a .html file and a .zip data bundle) is written to a temporary',
+    'directory; the paths are printed when the scan finishes.',
     '',
     'options:',
-    '  --window <Nd|Nw>     rolling time window (default 90d)',
-    '  --out <basename>     output basename; writes <basename>.html and <basename>.zip',
-    '                       (default ./patchwave-report)',
-    '  --include <repos>    comma-separated repo names to include',
-    '  --exclude <repos>    comma-separated repo names to exclude',
     '  --help               show this help',
   ].join('\n');
 }

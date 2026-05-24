@@ -5,27 +5,54 @@ import { createFakeContext } from './testHelpers/index.ts';
 
 test('prints usage and exits 0 when --help is passed', async () => {
   const { ctx, io } = createFakeContext();
-  const code = await main(ctx, ['--help']);
-  expect(code).toBe(0);
+  const result = await main(ctx, ['--help']);
+  expect(result).toMatchObject({ kind: 'usage', code: 0 });
   expect(io.stderr.text()).toContain('usage: patchwave-analysis');
 });
 
-test('returns 1 and prints the usage when no target is provided', async () => {
-  const { ctx, io } = createFakeContext();
-  const code = await main(ctx, []);
-  expect(code).toBe(1);
-  expect(io.stderr.text()).toContain('missing required argument');
+test('prompts for the target when no positional is provided, picking from the listed orgs', async () => {
+  const { ctx, prompter, githubClient } = createFakeContext();
+  githubClient.onRequest('GET /user').resolves({ login: 'ben' });
+  githubClient.onPaginate('GET /user/orgs').resolves([{ login: 'acme' }]);
+  prompter.scriptSelect('acme');
+  // The chosen org then drives the real run, which fails the listing — we
+  // only care that the select fired and that target_prompted is recorded.
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });
+
+  const result = await main(ctx, []);
+
+  expect(prompter.selects[0]?.choices.map((c) => c.value)).toEqual(['ben', 'acme', '__other__']);
+  expect(result.kind).toBe('failed');
 });
 
-test('rejects an invalid --window value', async () => {
+test('cancelling the target prompt returns failed and tells the user why', async () => {
+  const { ctx, prompter, githubClient } = createFakeContext();
+  githubClient.onRequest('GET /user').resolves({ login: 'ben' });
+  githubClient.onPaginate('GET /user/orgs').resolves([]);
+  prompter.scriptSelect({ kind: 'cancelled' });
+
+  const result = await main(ctx, []);
+
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+  expect(prompter.errors[0]).toContain('cancelled by user');
+});
+
+test('rejects unknown flags', async () => {
   const { ctx, io } = createFakeContext();
-  const code = await main(ctx, ['acme', '--window', 'foobar']);
-  expect(code).toBe(1);
-  expect(io.stderr.text()).toContain('invalid --window');
+  const result = await main(ctx, ['acme', '--window', '30d']);
+  expect(result).toMatchObject({ kind: 'usage', code: 1 });
+  expect(io.stderr.text()).toContain('failed to parse arguments');
+});
+
+test('rejects more than one positional argument', async () => {
+  const { ctx, io } = createFakeContext();
+  const result = await main(ctx, ['acme', 'globex']);
+  expect(result).toMatchObject({ kind: 'usage', code: 1 });
+  expect(io.stderr.text()).toContain('expected a single org or user');
 });
 
 test('writes a report when the GitHub calls succeed', async () => {
-  const { ctx, io, githubClient, fs, analytics } = createFakeContext();
+  const { ctx, githubClient, fs, analytics } = createFakeContext();
 
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
     {
@@ -54,12 +81,17 @@ test('writes a report when the GitHub calls succeed', async () => {
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
 
-  const code = await main(ctx, ['acme', '--out', '/tmp/report']);
-  expect(code).toBe(0);
-  expect(io.stdout.text()).toContain('wrote /tmp/report.html');
-  expect(io.stdout.text()).toContain('wrote /tmp/report.zip');
+  const result = await main(ctx, ['acme']);
+  expect(result.kind).toBe('completed');
+  if (result.kind !== 'completed') return;
+  expect(result.code).toBe(0);
 
-  const written = fs.read('/tmp/report.html');
+  // Output lands in a temp dir, not the CWD; locate it via the returned paths.
+  expect(result.run.target).toBe('acme');
+  expect(result.run.paths.html.endsWith('patchwave-report.html')).toBe(true);
+  expect(result.run.paths.zip.endsWith('patchwave-report.zip')).toBe(true);
+
+  const written = fs.read(result.run.paths.html);
   expect(written).toBeDefined();
   expect(written).toContain('<html');
   const match = /<script type="application\/json" id="patchwave-data">([\s\S]*?)<\/script>/.exec(written ?? '');
@@ -67,7 +99,7 @@ test('writes a report when the GitHub calls succeed', async () => {
   const embedded = JSON.parse(match?.[1] ?? '') as { meta: { org: string } };
   expect(embedded.meta.org).toBe('acme');
 
-  const zipBytes = fs.readBinary('/tmp/report.zip');
+  const zipBytes = fs.readBinary(result.run.paths.zip);
   expect(zipBytes).toBeInstanceOf(Uint8Array);
   const entries = unzipSync(zipBytes as Uint8Array);
   expect(Object.keys(entries).sort()).toEqual(
@@ -96,10 +128,16 @@ test('writes a report when the GitHub calls succeed', async () => {
   expect(repos).toHaveLength(1);
   expect(repos[0]?.name).toBe('widgets');
 
+  // The completed run hands the bytes back so the caller (index.ts) can drive
+  // the share prompt without re-reading the filesystem.
+  expect(result.run.zipBytes).toBeInstanceOf(Uint8Array);
+  expect(result.run.html).toContain('<html');
+
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
     window_days: 90,
     has_include: false,
     has_exclude: false,
+    target_prompted: false,
   });
   const completed = analytics.capturedEvents('run_completed')[0];
   expect(completed?.properties).toMatchObject({
@@ -124,11 +162,22 @@ test('captures run_failed when listOrgRepos fails', async () => {
   expect(failed?.properties).toMatchObject({ error_kind: 'forbidden' });
 });
 
-test('exits 1 when listOrgRepos fails non-recoverably', async () => {
-  const { ctx, io, githubClient } = createFakeContext();
+test('returns failed when listOrgRepos fails non-recoverably', async () => {
+  const { ctx, prompter, githubClient } = createFakeContext();
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });
 
-  const code = await main(ctx, ['acme']);
-  expect(code).toBe(1);
-  expect(io.stderr.text()).toContain('403');
+  const result = await main(ctx, ['acme']);
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+  expect(prompter.errors[0]).toContain('403');
+});
+
+test('returns failed when the temp output directory cannot be created', async () => {
+  const { ctx, fs, prompter, analytics } = createFakeContext();
+  fs.failNextTempDirWith({ kind: 'temp-dir-failed', message: 'disk full' });
+
+  const result = await main(ctx, ['acme']);
+
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+  expect(prompter.errors[0]).toContain('temporary output directory');
+  expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({ error_kind: 'temp-dir-failed' });
 });

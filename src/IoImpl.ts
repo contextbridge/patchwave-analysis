@@ -13,7 +13,8 @@ export class IoImpl extends BaseIo {
     // receives them through ctx.io.
     /* eslint-disable no-restricted-properties */
     const { stdout = process.stdout, stderr = process.stderr } = options;
+    const isTty = Boolean(process.stdin.isTTY && stdout.isTTY);
     /* eslint-enable no-restricted-properties */
-    super({ stdout, stderr });
+    super({ stdout, stderr, isTty });
   }
 }

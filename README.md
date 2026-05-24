@@ -56,23 +56,24 @@ For local report UI development:
 bun run dev:report-web
 ```
 
-## Options
+## Usage
 
 ```text
---window <Nd|Nw>     rolling time window (default 90d, e.g. 30d, 12w)
---out <basename>     output basename; writes <basename>.html and <basename>.zip
-                     (default ./patchwave-report)
---include <repos>    comma-separated repo names to include
---exclude <repos>    comma-separated repo names to exclude
---help               show this help
+patchwave-analysis [<org-or-user>]
+
+If <org-or-user> is omitted, you are prompted for it.
+
+  --help    show this help
 ```
+
+The CLI takes a single optional argument — the org or user to scan. There are no other flags; the time window (90 days) and output location are fixed.
 
 ## Output
 
-Each run writes two siblings next to `--out`:
+Each run writes two files into a fresh temporary directory and prints the full paths when the scan finishes:
 
-- **`<basename>.html`** — the self-contained browser report. Open it locally; it embeds the rolled-up report data in the file.
-- **`<basename>.zip`** — the same HTML report plus every raw data slice behind it, one JSON file per slice. This is the artifact to send back when you want a deeper look from contextbridge.
+- **`patchwave-report.html`** — the self-contained browser report. Open it locally; it embeds the rolled-up report data in the file.
+- **`patchwave-report.zip`** — the same HTML report plus every raw data slice behind it, one JSON file per slice. This is the artifact to send back when you want a deeper look from contextbridge.
 
 The zip contains:
 
@@ -92,11 +93,11 @@ data/contributors.json          — active human committers per repo
 data/warnings.json              — per-collector warnings suppressed during the crawl
 ```
 
-Nothing in the report or bundle leaves your machine unless you choose to share it. The archive does not include tokens, secrets, or repository file contents.
+Nothing in the report or bundle leaves your machine unless you choose to share it. At the end of a run, you can keep everything local, share only the HTML report, or share the HTML report plus the raw-data zip. The archive does not include tokens, secrets, or repository file contents.
 
 ## What it does not do
 
-- It does not upload the report or any GitHub data. It only reads from `api.github.com`. Filesystem writes are limited to the `<basename>.html` / `<basename>.zip` pair under `--out` and a one-time anonymous-id file (see Telemetry).
+- It does not upload the report or any GitHub data unless you choose to share the generated artifacts. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` / `patchwave-report.zip` pair in a temporary directory and a one-time anonymous-id file (see Telemetry).
 - It does not keep a Markdown compatibility report.
 - It does not auto-update.
 
@@ -104,7 +105,7 @@ Nothing in the report or bundle leaves your machine unless you choose to share i
 
 The CLI sends anonymous product analytics (PostHog) to help us understand how it's used. A random UUID is stored at `$XDG_CONFIG_HOME/contextbridge/anonymous_id` or `~/.config/contextbridge/anonymous_id` and shared across contextbridge tools. **Org names, repo names, tokens, and report contents are never sent** — only event counts and timings.
 
-Events captured: `run_started` (window size, whether include/exclude was used), `run_completed` (repo/PR/warning counts and duration), `run_failed` (error kind and duration).
+We capture coarse usage events — when a run starts, finishes, or fails, and the choices you make at the share and open prompts — along with aggregate counts (such as repos, PRs, and warnings), durations, and error kinds.
 
 Opt out by setting any of:
 

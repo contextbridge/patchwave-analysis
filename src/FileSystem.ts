@@ -1,11 +1,18 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { ResultAsync } from 'neverthrow';
 import { toError } from './errors.ts';
 
-export type FsError = { kind: 'write-failed'; path: string; message: string };
+export type FsError =
+  | { kind: 'write-failed'; path: string; message: string }
+  | { kind: 'temp-dir-failed'; message: string };
 
 export interface FileSystem {
   writeTextFile(path: string, contents: string): ResultAsync<void, FsError>;
   writeBinaryFile(path: string, contents: Uint8Array): ResultAsync<void, FsError>;
+  /** Create a fresh, uniquely named directory under the OS temp dir and return its path. */
+  makeTempDir(prefix: string): ResultAsync<string, FsError>;
 }
 
 export class FileSystemImpl implements FileSystem {
@@ -15,6 +22,13 @@ export class FileSystemImpl implements FileSystem {
 
   writeBinaryFile(path: string, contents: Uint8Array): ResultAsync<void, FsError> {
     return this.write(path, contents);
+  }
+
+  makeTempDir(prefix: string): ResultAsync<string, FsError> {
+    return ResultAsync.fromPromise(
+      mkdtemp(join(tmpdir(), prefix)),
+      (e): FsError => ({ kind: 'temp-dir-failed', message: toError(e).message }),
+    );
   }
 
   private write(path: string, contents: string | Uint8Array): ResultAsync<void, FsError> {
@@ -30,5 +44,10 @@ export class FileSystemImpl implements FileSystem {
 }
 
 export function formatFsError(err: FsError): string {
-  return `failed to write ${err.path}: ${err.message}`;
+  switch (err.kind) {
+    case 'write-failed':
+      return `failed to write ${err.path}: ${err.message}`;
+    case 'temp-dir-failed':
+      return `failed to create a temporary output directory: ${err.message}`;
+  }
 }
