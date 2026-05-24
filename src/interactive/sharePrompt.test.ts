@@ -1,33 +1,14 @@
 import { describe, expect, test } from 'bun:test';
-import { type FakeContextHandle, createFakeContext } from '../testHelpers/createFakeContext.ts';
-import { FakeClock } from '../testHelpers/FakeClock.ts';
-import { type SharePromptInputs, runSharePrompt } from './sharePrompt.ts';
-
-function makeHandle(): FakeContextHandle {
-  return createFakeContext({
-    overrides: { clock: new FakeClock('2026-05-22T12:00:00Z'), appVersion: '0.0.1' },
-  });
-}
-
-function makeInputs(handle: FakeContextHandle, overrides: Partial<SharePromptInputs> = {}): SharePromptInputs {
-  return {
-    context: handle.ctx,
-    target: 'acme',
-    htmlPath: '/tmp/report.html',
-    zipPath: '/tmp/report.zip',
-    htmlContent: '<!doctype html><html></html>',
-    zipBytes: new Uint8Array([0x50, 0x4b]),
-    identifier: 'anon-uuid',
-    ...overrides,
-  };
-}
+import { fakeContextHandle } from '../testHelpers/testFactories.ts';
+import { runSharePrompt } from './sharePrompt.ts';
+import { sharePromptInputsFor } from './testFactories.ts';
 
 describe('runSharePrompt', () => {
-  test('shows file paths and a clear share question, defaulting to sharing everything', async () => {
-    const handle = makeHandle();
+  test('shows file paths and a clear share question, defaulting to HTML only', async () => {
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('declined');
 
-    await runSharePrompt(makeInputs(handle));
+    await runSharePrompt(sharePromptInputsFor(handle));
 
     const reportReadyNote = handle.prompter.notes.find((n) => n.title === 'Report ready');
     expect(reportReadyNote?.message).toContain('acme');
@@ -35,14 +16,14 @@ describe('runSharePrompt', () => {
     expect(reportReadyNote?.message).toContain('/tmp/report.zip');
     expect(handle.prompter.selects[0]?.message).toContain('share this with us');
     expect(handle.prompter.selects[0]?.choices.map((c) => c.value)).toEqual(['full', 'html', 'declined']);
-    expect(handle.prompter.selects[0]?.initialValue).toBe('full');
+    expect(handle.prompter.selects[0]?.initialValue).toBe('html');
   });
 
   test("declined: doesn't upload, points to founders + patchwave.ai", async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('declined');
 
-    const outcome = await runSharePrompt(makeInputs(handle));
+    const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
     expect(outcome).toEqual({ kind: 'declined' });
     expect(handle.uploader.calls).toHaveLength(0);
@@ -53,10 +34,10 @@ describe('runSharePrompt', () => {
   });
 
   test('html-only: uploads the raw html bytes with kind:html', async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('html').scriptText('');
 
-    const outcome = await runSharePrompt(makeInputs(handle));
+    const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
     expect(outcome).toMatchObject({ kind: 'shared', choice: 'html', identifier: 'anon-uuid' });
     expect(handle.uploader.calls).toHaveLength(1);
@@ -71,32 +52,32 @@ describe('runSharePrompt', () => {
   });
 
   test('full: uploads the original zip bytes unchanged with kind:zip', async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('full').scriptText('');
     const zipBytes = new Uint8Array([1, 2, 3, 4, 5]);
 
-    await runSharePrompt(makeInputs(handle, { zipBytes }));
+    await runSharePrompt(sharePromptInputsFor(handle, { zipBytes }));
 
     expect(handle.uploader.calls[0]?.kind).toBe('zip');
     expect(handle.uploader.calls[0]?.bytes).toEqual(zipBytes);
   });
 
   test('uses a volunteered email as the identifier', async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('full').scriptText('ben@example.com');
 
-    const outcome = await runSharePrompt(makeInputs(handle));
+    const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
     expect(outcome).toMatchObject({ kind: 'shared', identifier: 'ben@example.com' });
     expect(handle.uploader.calls[0]?.identifier).toBe('ben@example.com');
   });
 
   test('upload failure surfaces the error and leaves files in place', async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('full').scriptText('');
     handle.uploader.fails({ kind: 'presign-bad-status', status: 500, body: 'boom' });
 
-    const outcome = await runSharePrompt(makeInputs(handle));
+    const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
     expect(outcome.kind).toBe('upload-failed');
     if (outcome.kind === 'upload-failed') {
@@ -114,10 +95,10 @@ describe('runSharePrompt', () => {
   });
 
   test('user cancellation at the choice prompt is treated as declined', async () => {
-    const handle = makeHandle();
+    const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect({ kind: 'cancelled' });
 
-    const outcome = await runSharePrompt(makeInputs(handle));
+    const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
     expect(outcome).toEqual({ kind: 'cancelled' });
     expect(handle.uploader.calls).toHaveLength(0);

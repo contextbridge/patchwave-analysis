@@ -2,10 +2,11 @@ import { describe, expect, test } from 'bun:test';
 import { errAsync, okAsync } from 'neverthrow';
 import type { AuthError } from '../github/auth.ts';
 import { FakePrompter } from '../testHelpers/index.ts';
+import { noTokenAuthError } from './testFactories.ts';
 import { interactiveResolveToken } from './tokenWalkthrough.ts';
 
 function noToken(message = 'no token'): AuthError {
-  return { kind: 'no-token', message };
+  return noTokenAuthError.build({ message });
 }
 
 describe('interactiveResolveToken', () => {

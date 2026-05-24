@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'bun:test';
 import { FakeGithubClient, FakePrompter } from '../testHelpers/index.ts';
 import { promptForTarget } from './targetPrompt.ts';
+import { githubOrg, githubViewer } from './testFactories.ts';
 
 function stubViewer(githubClient: FakeGithubClient, login: string): void {
-  githubClient.onRequest('GET /user').resolves({ login });
+  githubClient.onRequest('GET /user').resolves(githubViewer.build({ login }));
 }
 
 function stubOrgs(githubClient: FakeGithubClient, logins: string[]): void {
-  githubClient.onPaginate('GET /user/orgs').resolves(logins.map((login) => ({ login })));
+  githubClient.onPaginate('GET /user/orgs').resolves(logins.map((login) => githubOrg.build({ login })));
 }
 
 describe('promptForTarget', () => {

@@ -16,24 +16,24 @@ export interface Io {
   readonly stderr: Writer;
   writeStdout(chunk: string): void;
   writeStderr(chunk: string): void;
-  isStdoutTty(): boolean;
+  isTty(): boolean;
 }
 
 export interface BaseIoOptions {
   readonly stdout: Writer;
   readonly stderr: Writer;
-  readonly isStdoutTty?: boolean;
+  readonly isTty?: boolean;
 }
 
 export abstract class BaseIo implements Io {
   readonly stdout: Writer;
   readonly stderr: Writer;
-  readonly #isStdoutTty: boolean;
+  readonly #isTty: boolean;
 
   protected constructor(options: BaseIoOptions) {
     this.stdout = options.stdout;
     this.stderr = options.stderr;
-    this.#isStdoutTty = options.isStdoutTty ?? Boolean(options.stdout.isTTY);
+    this.#isTty = options.isTty ?? Boolean(options.stdout.isTTY);
   }
 
   writeStdout(chunk: string): void {
@@ -44,7 +44,7 @@ export abstract class BaseIo implements Io {
     this.stderr.write(chunk);
   }
 
-  isStdoutTty(): boolean {
-    return this.#isStdoutTty;
+  isTty(): boolean {
+    return this.#isTty;
   }
 }

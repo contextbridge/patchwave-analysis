@@ -3,11 +3,11 @@ import { MemoryStream } from './MemoryStream.ts';
 
 export interface FakeIoOptions {
   /**
-   * What `isStdoutTty()` should return. Defaults to `true` so newly written
+   * What `isTty()` should return. Defaults to `true` so newly written
    * tests exercise the interactive path; flip to `false` to assert the
    * "requires a terminal" gate.
    */
-  readonly isStdoutTty?: boolean;
+  readonly isTty?: boolean;
 }
 
 export class FakeIo extends BaseIo {
@@ -18,7 +18,7 @@ export class FakeIo extends BaseIo {
     super({
       stdout: new MemoryStream(),
       stderr: new MemoryStream(),
-      isStdoutTty: options.isStdoutTty ?? true,
+      isTty: options.isTty ?? true,
     });
   }
 }

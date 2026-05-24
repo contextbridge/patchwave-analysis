@@ -40,7 +40,7 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
 
   const choiceResult = await prompter.select<ShareChoice>({
     message: "Would you like to share this with us? We won't share your data with anyone.",
-    initialValue: 'full',
+    initialValue: 'html',
     choices: [
       { value: 'full', label: 'Share the HTML report + raw data', hint: 'the full .zip you saw above' },
       { value: 'html', label: 'Share the HTML report only', hint: 'the .html, no raw data' },
