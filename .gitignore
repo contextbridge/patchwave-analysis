@@ -4,6 +4,7 @@ node_modules
 # output
 out
 dist
+dist-release
 *.tgz
 
 # dev-only fixture for the report web app

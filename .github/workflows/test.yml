@@ -25,6 +25,10 @@ jobs:
         run: bun run lint
       - name: Typecheck
         run: bun run typecheck
+      - name: Shellcheck and test analyze.sh
+        run: |
+          shellcheck scripts/analyze.sh scripts/analyze.test.sh
+          sh scripts/analyze.test.sh
 
   test:
     name: Test
