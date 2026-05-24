@@ -1,6 +1,6 @@
 ---
 description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
+globs: '*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json'
 alwaysApply: false
 ---
 
@@ -109,3 +109,9 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+## Conventions
+
+Team rules under `.claude/rules/` apply to files under `src/`. Read them before editing matching files:
+
+- [Error Handling Neverthrow](.claude/rules/error-handling-neverthrow.md) — no try/catch in business logic; use `Result` / `ResultAsync`
