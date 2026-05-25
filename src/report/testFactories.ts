@@ -12,6 +12,7 @@ import type {
   StalledSignals,
 } from './aggregate.ts';
 import { type EmbeddedReportData, toEmbeddedShape } from './embeddedShape.ts';
+import type { ReportAnalyticsConfig } from './reportAnalyticsConfig.ts';
 
 export const reportMeta = Factory.define<ReportMeta>(() => ({
   org: 'acme',
@@ -137,3 +138,10 @@ export const reportBundle = Factory.define<ReportBundle>(() => ({
 // The web report (App, dev server) consumes the bundle in its embedded shape,
 // with `generatedAt` serialized to a string.
 export const embeddedReportData = Factory.define<EmbeddedReportData>(() => toEmbeddedShape(reportBundle.build()));
+
+export const reportAnalyticsConfig = Factory.define<ReportAnalyticsConfig>(() => ({
+  telemetryDisabled: false,
+  reportId: 'report-1234',
+  generatedByAnonId: 'anon-5678',
+  version: '0.0.1',
+}));

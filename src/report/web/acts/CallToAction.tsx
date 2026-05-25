@@ -1,3 +1,5 @@
+import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
+
 export const callToActionTestIds = {
   section: 'call-to-action-section',
   link: 'call-to-action-link',
@@ -9,6 +11,7 @@ export const callToActionCopy = {
 } as const;
 
 export function CallToAction() {
+  const analytics = useAnalytics();
   return (
     <section data-testid={callToActionTestIds.section} className="border-foreground mt-20 border-t pt-10 no-print">
       <h2 className="text-foreground text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
@@ -21,6 +24,7 @@ export function CallToAction() {
       <a
         data-testid={callToActionTestIds.link}
         href="https://patchwave.ai"
+        onClick={() => analytics.capture('cta_clicked', { which: 'call_to_action' })}
         className="bg-foreground text-background mt-6 inline-flex items-center rounded-md px-5 py-2.5 text-sm font-medium no-underline hover:opacity-90"
       >
         {callToActionCopy.linkLabel}

@@ -1,3 +1,4 @@
+import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 
 interface Props {
@@ -13,6 +14,7 @@ export const assumptionInputTestIds = {
 
 export function AssumptionInput({ variant = 'inline' }: Props) {
   const { assumptions, setHourlyRate, setMinutesPerPr, reset } = useAssumptions();
+  const analytics = useAnalytics();
   const isPanel = variant === 'panel';
   return (
     <div
@@ -30,6 +32,7 @@ export function AssumptionInput({ variant = 'inline' }: Props) {
         suffix="/hr"
         value={assumptions.hourlyRateUsd}
         onChange={setHourlyRate}
+        onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
         min={1}
         max={1000}
         step={5}
@@ -39,6 +42,7 @@ export function AssumptionInput({ variant = 'inline' }: Props) {
         label="Minutes per PR"
         value={assumptions.minutesPerPr}
         onChange={setMinutesPerPr}
+        onCommit={(value) => analytics.capture('assumption_changed', { field: 'minutes_per_pr', value })}
         min={1}
         max={240}
         step={1}
@@ -46,7 +50,10 @@ export function AssumptionInput({ variant = 'inline' }: Props) {
       <button
         data-testid={assumptionInputTestIds.reset}
         type="button"
-        onClick={reset}
+        onClick={() => {
+          reset();
+          analytics.capture('assumptions_reset');
+        }}
         className="text-muted-foreground decoration-border hover:text-foreground text-xs font-medium underline underline-offset-2 no-print"
       >
         reset
@@ -59,6 +66,7 @@ interface FieldProps {
   label: string;
   value: number;
   onChange: (n: number) => void;
+  onCommit?: (n: number) => void;
   prefix?: string;
   suffix?: string;
   min: number;
@@ -67,7 +75,7 @@ interface FieldProps {
   testId: string;
 }
 
-function NumberField({ label, value, onChange, prefix, suffix, min, max, step, testId }: FieldProps) {
+function NumberField({ label, value, onChange, onCommit, prefix, suffix, min, max, step, testId }: FieldProps) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</span>
@@ -82,6 +90,7 @@ function NumberField({ label, value, onChange, prefix, suffix, min, max, step, t
           max={max}
           step={step}
           onChange={(e) => onChange(Number(e.target.value))}
+          onBlur={(e) => onCommit?.(Number(e.target.value))}
         />
         {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
       </span>

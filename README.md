@@ -1,6 +1,6 @@
 # patchwave-analysis
 
-A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. Runs in your environment and writes a self-contained HTML report plus a raw-data zip. No data leaves your network unless you choose to share the generated artifacts.
+A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It writes a self-contained HTML report plus a raw-data zip.
 
 ## What it tells you
 
@@ -86,7 +86,7 @@ data/contributors.json          — active human committers per repo
 data/warnings.json              — per-collector warnings suppressed during the crawl
 ```
 
-Nothing in the report or bundle leaves your machine unless you choose to share it. At the end of a run, you can keep everything local, share only the HTML report, or share the HTML report plus the raw-data zip. The archive does not include tokens, secrets, or repository file contents.
+The report and bundle are not uploaded unless you choose to share them. The archive does not include tokens, secrets, or repository file contents.
 
 ## What it does not do
 
@@ -96,15 +96,9 @@ Nothing in the report or bundle leaves your machine unless you choose to share i
 
 ## Telemetry & privacy
 
-The CLI reports anonymous usage analytics and crash diagnostics so we can improve it. Both share a random UUID stored at `$XDG_CONFIG_HOME/contextbridge/anonymous_id` (or `~/.config/contextbridge/anonymous_id`) and used across contextbridge tools. **Org names, repo names, tokens, report contents, and your machine's hostname are never sent.**
+Official binaries send product analytics and crash diagnostics so we can improve the tool. Builds from source do not include telemetry keys.
 
-**Product analytics (PostHog)** — coarse usage events only: when a run starts, finishes, or fails, and the choices you make at the share and open prompts, along with aggregate counts (repos, PRs, warnings), durations, and error kinds.
-
-**Error reporting (Sentry)** — only when the CLI hits an _unexpected_ crash. It sends the error and stack trace, the release version, the anonymous id, and generic environment context (OS, CPU architecture, runtime version, locale/timezone). To keep the guarantee above, breadcrumbs and request data are dropped and the hostname is stripped before anything is sent. Expected problems — bad arguments, missing GitHub auth, GitHub API errors, or failed writes — are shown to you in the prompt and recorded as anonymous analytics, but are **not** sent to Sentry.
-
-Telemetry keys are baked only into official released binaries, so builds you make yourself from source send nothing.
-
-Both are disabled together by setting any of:
+Disable telemetry with any of:
 
 - `DO_NOT_TRACK=1`
 - `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`

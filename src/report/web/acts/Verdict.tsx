@@ -1,3 +1,4 @@
+import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
@@ -22,6 +23,7 @@ export const verdictCopy = {
 export function Verdict() {
   const data = useEmbeddedData();
   const { derived } = useAssumptions();
+  const analytics = useAnalytics();
 
   const generatedDate = data.meta.generatedAt.slice(0, 10);
   const pr = data.prBacklog;
@@ -57,6 +59,7 @@ export function Verdict() {
       <a
         data-testid={verdictTestIds.primaryCta}
         href="https://patchwave.ai"
+        onClick={() => analytics.capture('cta_clicked', { which: 'verdict_primary' })}
         className="text-primary mt-7 inline-block text-sm font-medium underline underline-offset-4 hover:opacity-80"
       >
         {verdictCopy.primaryCta}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import pkg from '../package.json' with { type: 'json' };
-import { type Analytics, AnalyticsImpl, NoopAnalytics } from './Analytics.ts';
+import { type Analytics, NoopAnalytics } from './Analytics.ts';
 import { getOrCreateAnonymousId } from './anonymousId.ts';
 import { POSTHOG_KEY, SENTRY_DSN } from './buildInfo.ts';
 import { main, parseCli } from './cli.ts';
@@ -13,6 +13,7 @@ import { formatInteractiveTokenError, interactiveResolveToken } from './interact
 import { enforceTty } from './interactive/ttyGate.ts';
 import { IoImpl } from './IoImpl.ts';
 import { createLogger } from './logger.ts';
+import { AnalyticsImpl } from './PostHogAnalytics.ts';
 import { PrompterImpl } from './prompt/Prompter.ts';
 import { NoopTelemetry, type Telemetry, createSentryTelemetry } from './Telemetry.ts';
 import { UploaderImpl } from './upload/Uploader.ts';
@@ -81,6 +82,8 @@ const ctx = createContext({
   analytics,
   prompter,
   uploader: new UploaderImpl(),
+  distinctId,
+  telemetryDisabled,
 });
 
 const result = await main(ctx, argv);
