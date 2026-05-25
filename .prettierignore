@@ -4,3 +4,7 @@ coverage/
 claude-tmp/
 bun.lock
 .husky/_/
+
+# Managed by release-please; its formatting conflicts with prettier
+CHANGELOG.md
+.release-please-manifest.json
