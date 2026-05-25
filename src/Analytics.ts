@@ -1,5 +1,6 @@
 import { ResultAsync, fromThrowable } from 'neverthrow';
 import { PostHog } from 'posthog-node';
+import { POSTHOG_HOST, POSTHOG_KEY } from './buildInfo.ts';
 
 export interface Analytics {
   identify(distinctId: string, properties?: Record<string, unknown>): void;
@@ -10,9 +11,6 @@ export interface Analytics {
 }
 
 export type PostHogClient = Pick<PostHog, 'identify' | 'capture' | 'flush' | 'shutdown'>;
-
-const POSTHOG_KEY = 'phc_nDFXB87pWC9QEJHLjtb38BbjboXaxnzkcTJ8SN3Dr62j';
-const POSTHOG_HOST = 'https://us.i.posthog.com';
 
 export interface AnalyticsImplOptions {
   readonly distinctId: string;

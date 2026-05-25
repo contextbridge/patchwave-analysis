@@ -2,6 +2,7 @@
 import pkg from '../package.json' with { type: 'json' };
 import { type Analytics, AnalyticsImpl, NoopAnalytics } from './Analytics.ts';
 import { getOrCreateAnonymousId } from './anonymousId.ts';
+import { POSTHOG_KEY, SENTRY_DSN } from './buildInfo.ts';
 import { main, parseCli } from './cli.ts';
 import { createContext } from './context.ts';
 import { getEnvironment, isTelemetryDisabled } from './environment.ts';
@@ -13,10 +14,26 @@ import { enforceTty } from './interactive/ttyGate.ts';
 import { IoImpl } from './IoImpl.ts';
 import { createLogger } from './logger.ts';
 import { PrompterImpl } from './prompt/Prompter.ts';
+import { NoopTelemetry, type Telemetry, createSentryTelemetry } from './Telemetry.ts';
 import { UploaderImpl } from './upload/Uploader.ts';
 
 const io = new IoImpl();
 const env = getEnvironment();
+
+const ttyGate = enforceTty(io);
+if (!ttyGate.ok) process.exit(ttyGate.code);
+
+const telemetryDisabled = isTelemetryDisabled(env);
+const distinctId = telemetryDisabled ? '' : getOrCreateAnonymousId(env);
+
+// Sentry.init must run before createLogger so its pinoIntegration subscribes to
+// pino's diagnostics channel first. Sentry primarily captures uncaught
+// exceptions (pino is silent by default below); an empty DSN — local/dev build
+// or telemetry opt-out — disables it via NoopTelemetry.
+const telemetry: Telemetry =
+  telemetryDisabled || SENTRY_DSN === ''
+    ? new NoopTelemetry()
+    : createSentryTelemetry({ dsn: SENTRY_DSN, distinctId, version: pkg.version });
 
 // In interactive mode we let Clack own the visual surface — pino chatter would
 // interleave with prompts and spinners. Default to `silent` unless the user
@@ -25,15 +42,17 @@ const explicitLogLevel = process.env['LOG_LEVEL'] !== undefined;
 const logLevel = explicitLogLevel ? env.LOG_LEVEL : 'silent';
 const logger = createLogger({ level: logLevel, destination: io.stderr });
 
-const ttyGate = enforceTty(io);
-if (!ttyGate.ok) process.exit(ttyGate.code);
+// An empty key means PostHog wasn't built in; skip it so we never initialize the
+// client with ''. Mirrors the Sentry gate above.
+const analytics: Analytics =
+  telemetryDisabled || POSTHOG_KEY === ''
+    ? new NoopAnalytics()
+    : new AnalyticsImpl({ distinctId, version: pkg.version });
+if (!telemetryDisabled && POSTHOG_KEY !== '') analytics.identify(distinctId);
 
-const telemetryDisabled = isTelemetryDisabled(env);
-const distinctId = telemetryDisabled ? '' : getOrCreateAnonymousId(env);
-const analytics: Analytics = telemetryDisabled
-  ? new NoopAnalytics()
-  : new AnalyticsImpl({ distinctId, version: pkg.version });
-if (!telemetryDisabled) analytics.identify(distinctId);
+async function shutdown(): Promise<void> {
+  await Promise.all([analytics.shutdown(), telemetry.flush()]);
+}
 
 const argv = process.argv.slice(2);
 const prompter = new PrompterImpl();
@@ -47,7 +66,7 @@ if (isFullRun) {
   const tokenResult = await interactiveResolveToken({ prompter });
   if (tokenResult.isErr()) {
     prompter.error(formatInteractiveTokenError(tokenResult.error));
-    await analytics.shutdown();
+    await shutdown();
     process.exit(1);
   }
   token = tokenResult.value;
@@ -80,5 +99,5 @@ if (result.kind === 'completed') {
   });
 }
 
-await analytics.shutdown();
+await shutdown();
 process.exit(result.code);

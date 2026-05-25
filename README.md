@@ -97,23 +97,27 @@ Nothing in the report or bundle leaves your machine unless you choose to share i
 
 ## What it does not do
 
-- It does not upload the report or any GitHub data unless you choose to share the generated artifacts. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` / `patchwave-report.zip` pair in a temporary directory and a one-time anonymous-id file (see Telemetry).
+- It does not upload the report or any GitHub data unless you choose to share the generated artifacts. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` / `patchwave-report.zip` pair in a temporary directory and a one-time anonymous-id file (see Telemetry & privacy).
 - It does not keep a Markdown compatibility report.
 - It does not auto-update.
 
-## Telemetry
+## Telemetry & privacy
 
-The CLI sends anonymous product analytics (PostHog) to help us understand how it's used. A random UUID is stored at `$XDG_CONFIG_HOME/contextbridge/anonymous_id` or `~/.config/contextbridge/anonymous_id` and shared across contextbridge tools. **Org names, repo names, tokens, and report contents are never sent** — only event counts and timings.
+The CLI reports anonymous usage analytics and crash diagnostics so we can improve it. Both share a random UUID stored at `$XDG_CONFIG_HOME/contextbridge/anonymous_id` (or `~/.config/contextbridge/anonymous_id`) and used across contextbridge tools. **Org names, repo names, tokens, report contents, and your machine's hostname are never sent.**
 
-We capture coarse usage events — when a run starts, finishes, or fails, and the choices you make at the share and open prompts — along with aggregate counts (such as repos, PRs, and warnings), durations, and error kinds.
+**Product analytics (PostHog)** — coarse usage events only: when a run starts, finishes, or fails, and the choices you make at the share and open prompts, along with aggregate counts (repos, PRs, warnings), durations, and error kinds.
 
-Opt out by setting any of:
+**Error reporting (Sentry)** — only when the CLI hits an _unexpected_ crash. It sends the error and stack trace, the release version, the anonymous id, and generic environment context (OS, CPU architecture, runtime version, locale/timezone). To keep the guarantee above, breadcrumbs and request data are dropped and the hostname is stripped before anything is sent. Expected problems — bad arguments, missing GitHub auth, GitHub API errors, or failed writes — are shown to you in the prompt and recorded as anonymous analytics, but are **not** sent to Sentry.
+
+Telemetry keys are baked only into official released binaries, so builds you make yourself from source send nothing.
+
+Both are disabled together by setting any of:
 
 - `DO_NOT_TRACK=1`
 - `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`
 - `CI=1`
 
-When disabled, no anonymous-id file is created and no events are sent.
+When disabled, no anonymous-id file is created, no analytics events are sent, and Sentry is never initialized.
 
 ## License
 
