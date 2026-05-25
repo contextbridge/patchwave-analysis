@@ -62,6 +62,8 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
     uploader,
     browserOpener,
     appVersion: '0.0.0-test',
+    distinctId: 'fake-anon-id',
+    telemetryDisabled: false,
     ...options.overrides,
   };
 

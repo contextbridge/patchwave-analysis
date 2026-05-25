@@ -17,6 +17,7 @@ import { formatPromptError } from './prompt/Prompter.ts';
 import { type ReportBundle, aggregate } from './report/aggregate.ts';
 import { type BundleMeta, buildBundleFiles, zipBundleFiles } from './report/bundle.ts';
 import { type RenderError, renderHtml } from './report/html.ts';
+import type { ReportAnalyticsConfig } from './report/reportAnalyticsConfig.ts';
 import { type Instant, Temporal } from './time.ts';
 import type {
   BranchProtectionSlice,
@@ -83,6 +84,11 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   const flagOpts = parsed.value;
   const startedAt = ctx.clock.now();
 
+  // One id per run, registered as a super-property so every CLI event carries it and joins to the
+  // report-view events the frontend sends under the same pw_report_id.
+  const reportId = crypto.randomUUID();
+  ctx.analytics.register({ pw_report_id: reportId });
+
   let target: string;
   if (flagOpts.target === null) {
     const targetResult = await promptForTarget({ prompter: ctx.prompter, githubClient: ctx.githubClient });
@@ -123,7 +129,14 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   const spinner = ctx.prompter.spinner();
   spinner.start(`Scanning ${opts.target} (last ${opts.windowDays} days)...`);
 
-  const renderResult = await renderReport(ctx, opts);
+  const analyticsEmbed: ReportAnalyticsConfig = {
+    telemetryDisabled: ctx.telemetryDisabled,
+    reportId,
+    generatedByAnonId: ctx.distinctId,
+    version: ctx.appVersion,
+  };
+
+  const renderResult = await renderReport(ctx, opts, analyticsEmbed);
   if (renderResult.isErr()) {
     const error = renderResult.error;
     spinner.stop('Scan failed.');
@@ -222,7 +235,11 @@ function elapsedMs(start: Instant, end: Instant): number {
   return Number(end.epochMilliseconds - start.epochMilliseconds);
 }
 
-function renderReport(ctx: Context, opts: ResolvedOptions): ResultAsync<RenderedReport, GithubError | RenderError> {
+function renderReport(
+  ctx: Context,
+  opts: ResolvedOptions,
+  analytics: ReportAnalyticsConfig,
+): ResultAsync<RenderedReport, GithubError | RenderError> {
   ctx.logger.info(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
@@ -250,7 +267,7 @@ function renderReport(ctx: Context, opts: ResolvedOptions): ResultAsync<Rendered
         );
       }
       const bundle = aggregate(data);
-      return renderHtml(bundle).map(
+      return renderHtml(bundle, analytics).map(
         (report): RenderedReport => ({
           report,
           collected: data,

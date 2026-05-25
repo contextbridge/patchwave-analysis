@@ -7,14 +7,19 @@ export interface CaptureCall {
 
 export class FakeAnalytics implements Analytics {
   readonly captureCalls: CaptureCall[] = [];
+  readonly registered: Record<string, unknown> = {};
 
   identify(_distinctId: string, _properties?: Record<string, unknown>): void {}
 
   capture(event: string, properties?: Record<string, unknown>): void {
-    this.captureCalls.push({ event, properties });
+    // Mirror AnalyticsImpl: registered super-properties are merged onto every captured event.
+    const merged = Object.keys(this.registered).length > 0 ? { ...this.registered, ...properties } : properties;
+    this.captureCalls.push({ event, properties: merged });
   }
 
-  register(_properties: Record<string, unknown>): void {}
+  register(properties: Record<string, unknown>): void {
+    Object.assign(this.registered, properties);
+  }
 
   flush(): Promise<void> {
     return Promise.resolve();

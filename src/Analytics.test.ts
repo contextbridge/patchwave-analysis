@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { AnalyticsImpl, NoopAnalytics, type PostHogClient } from './Analytics.ts';
+import { NoopAnalytics } from './Analytics.ts';
+import { AnalyticsImpl, type PostHogClient } from './PostHogAnalytics.ts';
 
 interface RecordedIdentify {
   readonly distinctId: string | undefined;
