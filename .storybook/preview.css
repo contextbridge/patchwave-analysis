@@ -1,0 +1,8 @@
+/* The report's stylesheet owns `@import "tailwindcss"`, the design tokens, and
+   fonts; re-import it so Storybook shares the same Tailwind compilation. The
+   @source directive lists the report tree explicitly so Tailwind scans the
+   components and stories for class names regardless of the Vite root. */
+
+@import '../src/report/web/styles.css';
+
+@source '../src/report/web/**/*.{ts,tsx}';

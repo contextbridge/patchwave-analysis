@@ -7,6 +7,9 @@ dist
 dist-release
 *.tgz
 
+# Storybook build output (published to Chromatic in CI)
+storybook-static
+
 # dev-only fixture for the report web app
 src/report/web/data/fixture.json
 
