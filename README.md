@@ -45,15 +45,8 @@ tar -xzf patchwave-analysis_darwin_arm64.tar.gz
 ```sh
 git clone https://github.com/contextbridge/patchwave-analysis
 cd patchwave-analysis
-bun install
-bun run build:report-web
-bun run src/index.ts
-```
-
-For local report UI development:
-
-```sh
-bun run dev:report-web
+just install
+just run
 ```
 
 ## Usage
@@ -118,6 +111,10 @@ Both are disabled together by setting any of:
 - `CI=1`
 
 When disabled, no anonymous-id file is created, no analytics events are sent, and Sentry is never initialized.
+
+## Contributing
+
+Development setup, testing, and release workflow live in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## License
 
