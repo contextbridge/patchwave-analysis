@@ -1,0 +1,50 @@
+name: Chromatic
+
+# Publish the report's Storybook to Chromatic for visual review. Only runs when
+# the report UI (or this workflow / the Storybook config) changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/report/web/**'
+      - '.storybook/**'
+      - '.github/workflows/chromatic.yml'
+  pull_request:
+    paths:
+      - 'src/report/web/**'
+      - '.storybook/**'
+      - '.github/workflows/chromatic.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  chromatic:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0 # Chromatic needs full git history to find baselines
+          persist-credentials: false
+
+      - name: Bootstrap
+        uses: ./.github/actions/bootstrap
+
+      - name: Build Storybook
+        run: bun run build-storybook
+
+      - name: Publish to Chromatic
+        run: |
+          bun run chromatic -- \
+            --project-token="${{ secrets.CHROMATIC_PROJECT_TOKEN }}" \
+            --storybook-build-dir=storybook-static \
+            --only-changed \
+            --exit-zero-on-changes \
+            --auto-accept-changes=main
