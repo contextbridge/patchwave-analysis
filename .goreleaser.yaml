@@ -25,6 +25,15 @@ builds:
       - bun-linux-x64
     flags:
       - --compile
+      # Telemetry credentials, injected at build time from SSM via
+      # fetch-release-secrets. buildInfo.ts reads these and falls back to empty
+      # (disabling telemetry) when they're absent, e.g. local builds.
+      - --define
+      - '__PW_SENTRY_DSN__="{{ .Env.__PW_SENTRY_DSN__ }}"'
+      - --define
+      - '__PW_POSTHOG_KEY__="{{ .Env.__PW_POSTHOG_KEY__ }}"'
+      - --define
+      - '__PW_POSTHOG_HOST__="{{ .Env.__PW_POSTHOG_HOST__ }}"'
 
 # Version-less archive names keep the GitHub `releases/latest/download/<asset>`
 # URLs stable across releases, which is what scripts/analyze.sh fetches.

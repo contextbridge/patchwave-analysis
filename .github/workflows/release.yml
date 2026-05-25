@@ -34,6 +34,19 @@ jobs:
         with:
           role-to-assume: ${{ secrets.RELEASE_ROLE_ARN }}
 
+      - name: Validate telemetry build config
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in __PW_SENTRY_DSN__ __PW_POSTHOG_KEY__ __PW_POSTHOG_HOST__; do
+            value="${!name:-}"
+            if [ -z "$value" ]; then
+              echo "::error::$name is required for release builds" >&2
+              exit 1
+            fi
+            echo "::add-mask::$value"
+          done
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
         with:

@@ -68,6 +68,7 @@
   "dependencies": {
     "@clack/prompts": "^1.4.0",
     "@js-temporal/polyfill": "^0.5.1",
+    "@sentry/bun": "^10.50.0",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
