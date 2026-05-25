@@ -27,5 +27,8 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
+  // `.storybook` is a dot-directory, so the implicit `**/*` include skips it
+  // (which would also hide it from typecheck and the eslint project service).
+  "include": ["**/*", ".storybook/**/*"],
   "exclude": ["node_modules", "dist", "claude-tmp", "out"]
 }

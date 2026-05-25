@@ -49,7 +49,7 @@ const processRestrictedProperties = [
 export default defineConfig(
   ...baseConfig,
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'claude-tmp/**', 'bun.lock'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'storybook-static/**', 'claude-tmp/**', 'bun.lock'],
   },
   {
     rules: {
