@@ -1,5 +1,6 @@
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { ASSUMED_MIN_PER_REVIEW, deriveCostEstimate, derivePersonCosts } from '../../costFormulas.ts';
+import { assumptionFields } from '../assumptionFields.ts';
 import type { EmbeddedReportData } from '../types.ts';
 
 export interface Assumptions {
@@ -12,14 +13,16 @@ export interface DerivedCost {
   monthlyCostUsd: number;
   annualCostUsd: number;
   savingsScenarios: Array<{ autoMergeRate: number; monthlySavingsUsd: number; annualSavingsUsd: number }>;
-  topMergers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
-  topReviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
+  mergers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
+  reviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
 }
+
+type ValueUpdate = number | ((prev: number) => number);
 
 interface ContextValue {
   assumptions: Assumptions;
-  setHourlyRate: (n: number) => void;
-  setMinutesPerPr: (n: number) => void;
+  setHourlyRate: (next: ValueUpdate) => void;
+  setMinutesPerPr: (next: ValueUpdate) => void;
   reset: () => void;
   derived: DerivedCost;
 }
@@ -33,11 +36,27 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
   };
   const [assumptions, setAssumptions] = useState<Assumptions>(defaults);
   const setHourlyRate = useCallback(
-    (n: number) => setAssumptions((prev) => ({ ...prev, hourlyRateUsd: clamp(n, 1, 1000) })),
+    (next: ValueUpdate) =>
+      setAssumptions((prev) => ({
+        ...prev,
+        hourlyRateUsd: clamp(
+          resolve(next, prev.hourlyRateUsd),
+          assumptionFields.hourlyRateUsd.min,
+          assumptionFields.hourlyRateUsd.max,
+        ),
+      })),
     [],
   );
   const setMinutesPerPr = useCallback(
-    (n: number) => setAssumptions((prev) => ({ ...prev, minutesPerPr: clamp(n, 1, 240) })),
+    (next: ValueUpdate) =>
+      setAssumptions((prev) => ({
+        ...prev,
+        minutesPerPr: clamp(
+          resolve(next, prev.minutesPerPr),
+          assumptionFields.minutesPerPr.min,
+          assumptionFields.minutesPerPr.max,
+        ),
+      })),
     [],
   );
   const reset = useCallback(() => setAssumptions(defaults), [defaults.hourlyRateUsd, defaults.minutesPerPr]);
@@ -49,8 +68,8 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
     const cost = deriveCostEstimate(merged, windowDays, assumptions);
     return {
       ...cost,
-      topMergers: derivePersonCosts(data.people.topMergers, windowDays, minutesPerPr, hourlyRateUsd),
-      topReviewers: derivePersonCosts(data.people.topReviewers, windowDays, ASSUMED_MIN_PER_REVIEW, hourlyRateUsd),
+      mergers: derivePersonCosts(data.people.mergers, windowDays, minutesPerPr, hourlyRateUsd),
+      reviewers: derivePersonCosts(data.people.reviewers, windowDays, ASSUMED_MIN_PER_REVIEW, hourlyRateUsd),
     };
   }, [assumptions, data]);
 
@@ -64,6 +83,10 @@ export function useAssumptions(): ContextValue {
     throw new Error('useAssumptions called outside AssumptionsProvider');
   }
   return v;
+}
+
+function resolve(next: ValueUpdate, prev: number): number {
+  return typeof next === 'function' ? next(prev) : next;
 }
 
 function clamp(n: number, min: number, max: number): number {

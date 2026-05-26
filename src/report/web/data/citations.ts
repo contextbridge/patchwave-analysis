@@ -11,8 +11,9 @@ export const CITATIONS = {
     url: 'https://www.mend.io/renovate-enterprise/',
   },
   'rombaut-2024': {
-    label: 'Rombaut et al. 2024, "Studying the Practices of Deploying Machine Learning Projects on Docker"',
-    url: 'https://arxiv.org/abs/2206.00699',
+    label:
+      'Rombaut et al. 2024, "Leveraging the Crowd for Dependency Management: An Empirical Study on the Dependabot Compatibility Score"',
+    url: 'https://arxiv.org/abs/2403.09012',
   },
   'atlassian-dx-2025': {
     label: 'Atlassian State of Developer Experience Report 2025',

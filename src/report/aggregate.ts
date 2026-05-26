@@ -80,9 +80,9 @@ export interface StalledSignals {
 }
 
 export interface People {
-  topMergers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
-  topReviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
-  topCommenters: Array<{ login: string; count: number }>;
+  mergers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
+  reviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
+  commenters: Array<{ login: string; count: number }>;
 }
 
 export interface CostEstimate {
@@ -98,7 +98,7 @@ export interface CostEstimate {
 }
 
 export interface CveExposure {
-  status: 'ok' | 'scope-missing' | 'no-data';
+  status: 'ok' | 'scope-missing';
   requiredScope?: string;
   totalOpenAlerts: number;
   bySeverity: Record<CveSeverity, number>;
@@ -361,24 +361,26 @@ function buildPeople(data: CollectedData, windowDays: number): People {
     for (const r of pr.reviewers) if (!isBotLogin(r)) reviewerCounts.set(r, (reviewerCounts.get(r) ?? 0) + 1);
     for (const c of pr.commenters) if (!isBotLogin(c)) commenterCounts.set(c, (commenterCounts.get(c) ?? 0) + 1);
   }
-  const top = (m: Map<string, number>) =>
-    [...m.entries()]
-      .map(([login, count]) => ({ login, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+  const rankedCounts = (m: Map<string, number>) =>
+    [...m.entries()].map(([login, count]) => ({ login, count })).sort((a, b) => b.count - a.count);
 
-  const topMergers = derivePersonCosts(top(mergerCounts), windowDays, ASSUMED_MIN_PER_PR, ASSUMED_HOURLY_RATE_USD);
-  const topReviewers = derivePersonCosts(
-    top(reviewerCounts),
+  const mergers = derivePersonCosts(
+    rankedCounts(mergerCounts),
+    windowDays,
+    ASSUMED_MIN_PER_PR,
+    ASSUMED_HOURLY_RATE_USD,
+  );
+  const reviewers = derivePersonCosts(
+    rankedCounts(reviewerCounts),
     windowDays,
     ASSUMED_MIN_PER_REVIEW,
     ASSUMED_HOURLY_RATE_USD,
   );
 
   return {
-    topMergers,
-    topReviewers,
-    topCommenters: top(commenterCounts),
+    mergers,
+    reviewers,
+    commenters: rankedCounts(commenterCounts),
   };
 }
 
@@ -437,8 +439,7 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
   }
   const topReposBySeverity = [...byRepo.entries()]
     .map(([repo, counts]) => ({ repo, ...counts }))
-    .sort((a, b) => severityScore(b) - severityScore(a))
-    .slice(0, 5);
+    .sort((a, b) => severityScore(b) - severityScore(a));
 
   const oldest = (sev: CveSeverity): number | null => {
     const filtered = allAlerts.filter((a) => a.severity === sev);

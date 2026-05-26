@@ -94,6 +94,31 @@ test('counts CVE alerts by severity and surfaces oldest critical days', () => {
   }
 });
 
+test('keeps all CVE repos by severity for frontend truncation', () => {
+  const data = collectedData.build({
+    cve: Array.from({ length: 6 }, (_, i) =>
+      cveSliceOk.build({
+        owner: 'acme',
+        name: `repo-${i + 1}`,
+        alerts: [
+          cveAlert.build({
+            owner: 'acme',
+            name: `repo-${i + 1}`,
+            severity: i === 0 ? 'critical' : 'high',
+          }),
+        ],
+      }),
+    ),
+  });
+
+  const bundle = aggregate(data);
+  expect(bundle.cve.status).toBe('ok');
+  if (bundle.cve.status === 'ok') {
+    expect(bundle.cve.topReposBySeverity).toHaveLength(6);
+    expect(bundle.cve.topReposBySeverity.map((r) => r.repo)).toContain('acme/repo-6');
+  }
+});
+
 test('aggregates failing check names across open PRs, sorted by frequency', () => {
   const prA = dependabotPr.build({
     state: 'open',
@@ -162,7 +187,7 @@ test('builds a cost estimate matrix with rate columns and time-per-PR rows', () 
   );
 });
 
-test('topMergers excludes bot logins and surfaces per-person weekly cost', () => {
+test('mergers excludes bot logins and surfaces per-person window cost', () => {
   const data = collectedData.build({
     dependabotPrs: [
       dependabotPr.build({ number: 1, merged: true, mergedAt: '2026-04-01T00:00:00Z', mergedBy: 'alice' }),
@@ -174,8 +199,8 @@ test('topMergers excludes bot logins and surfaces per-person weekly cost', () =>
     ],
   });
   const bundle = aggregate(data);
-  expect(bundle.people.topMergers.map((m) => m.login)).toEqual(['alice', 'bob']);
-  const alice = bundle.people.topMergers.find((m) => m.login === 'alice');
+  expect(bundle.people.mergers.map((m) => m.login)).toEqual(['alice', 'bob']);
+  const alice = bundle.people.mergers.find((m) => m.login === 'alice');
   expect(alice?.count).toBe(2);
   expect(alice?.windowCostUsd).toBeGreaterThan(0);
   expect(alice?.annualCostUsd).toBeGreaterThan(alice?.windowCostUsd ?? 0);

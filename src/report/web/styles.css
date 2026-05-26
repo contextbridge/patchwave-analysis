@@ -1,4 +1,4 @@
-/* Patchwave report — uses the ContextBridge design system (planbridge ui package).
+/* PatchWave report — uses the ContextBridge design system (planbridge ui package).
    OKLCH brand palette, IBM Plex Sans (chrome + prose), IBM Plex Mono (code). */
 
 @import 'tailwindcss';
@@ -96,8 +96,12 @@
   --ring: var(--color-neutral-400);
 }
 
+/* Dark palette. Applies when the OS asks for it (unless a Storybook story forces
+   light with .theme-light) and when .theme-dark is set explicitly. The .theme-*
+   classes exist only so Storybook can force a scheme; the shipped report never
+   sets them. Keep the two blocks below in sync. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.theme-light) {
     --background: var(--color-neutral-990);
     --foreground: var(--color-neutral-50);
     --muted-foreground: var(--color-neutral-400);
@@ -116,6 +120,26 @@
     --input: var(--color-neutral-800);
     --ring: var(--color-neutral-600);
   }
+}
+
+:root.theme-dark {
+  --background: var(--color-neutral-990);
+  --foreground: var(--color-neutral-50);
+  --muted-foreground: var(--color-neutral-400);
+  --border: var(--color-neutral-800);
+
+  --card: var(--color-neutral-975);
+  --card-foreground: var(--foreground);
+  --primary: var(--royal-light);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: var(--color-neutral-900);
+  --secondary-foreground: var(--foreground);
+  --accent: var(--color-neutral-900);
+  --accent-foreground: var(--foreground);
+  --muted: var(--color-neutral-900);
+
+  --input: var(--color-neutral-800);
+  --ring: var(--color-neutral-600);
 }
 
 @theme inline {
