@@ -27,6 +27,8 @@ describe('promptForTarget', () => {
     expect(choices[0]?.hint).toContain('personal');
     expect(choices[1]?.hint).toContain('organization');
     expect(choices.at(-1)?.label).toContain('Other');
+    expect(prompter.spinnerEvents).toContainEqual({ type: 'clear' });
+    expect(prompter.spinnerEvents).not.toContainEqual({ type: 'stop', message: 'Found 3 options.' });
   });
 
   test('"Other" routes to a free-text prompt with login validation', async () => {

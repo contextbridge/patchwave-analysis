@@ -160,9 +160,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     return { kind: 'failed', code: 1 };
   }
 
-  spinner.stop(
-    `Scanned ${opts.target}: ${stats.reposIncluded} of ${stats.reposTotal} repos · ${stats.dependabotPrs} Dependabot PRs in window.`,
-  );
+  spinner.stop(`Scanned ${opts.target}.`);
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
     repos_total: stats.reposTotal,

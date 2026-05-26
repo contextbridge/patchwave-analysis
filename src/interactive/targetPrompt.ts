@@ -26,7 +26,7 @@ export function promptForTarget(deps: TargetPromptDeps): ResultAsync<string, Pro
       spinner.stop("Couldn't list your orgs — type one instead.");
       return promptForTargetText(deps.prompter);
     }
-    spinner.stop(`Found ${options.length} option${options.length === 1 ? '' : 's'}.`);
+    spinner.clear();
     return pickFromOptions(deps.prompter, options);
   });
 }
