@@ -9,6 +9,7 @@ interface RawRepo {
   private: boolean;
   visibility?: string;
   archived: boolean;
+  fork: boolean;
   default_branch: string;
   language: string | null;
   pushed_at: string | null;
@@ -53,6 +54,7 @@ function toRepoMeta(raw: RawRepo): RepoMeta {
     name: raw.name,
     visibility,
     archived: raw.archived,
+    fork: raw.fork,
     defaultBranch: raw.default_branch,
     primaryLanguage: raw.language,
     pushedAt: raw.pushed_at,

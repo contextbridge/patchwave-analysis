@@ -120,6 +120,57 @@ test('writes a report when the GitHub calls succeed', async () => {
   expect(JSON.stringify(analytics.captureCalls)).not.toContain('widgets');
 });
 
+test('excludes forked repos from the crawl', async () => {
+  const { ctx, githubClient, analytics } = createFakeContext();
+
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
+    {
+      name: 'widgets',
+      owner: { login: 'acme' },
+      private: true,
+      visibility: 'private',
+      archived: false,
+      fork: false,
+      default_branch: 'main',
+      language: 'TypeScript',
+      pushed_at: '2026-04-01T00:00:00Z',
+    },
+    {
+      name: 'upstream-fork',
+      owner: { login: 'acme' },
+      private: false,
+      visibility: 'public',
+      archived: false,
+      fork: true,
+      default_branch: 'main',
+      language: 'Go',
+      pushed_at: '2026-04-01T00:00:00Z',
+    },
+  ]);
+  githubClient.onRequest('GET /repos/{owner}/{repo}/languages', {}).resolves({ TypeScript: 1000 });
+  githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
+    content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
+    encoding: 'base64',
+  });
+  githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
+  githubClient
+    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
+    .fails({ kind: 'not-found', message: 'no protection' });
+  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
+  githubClient.onPaginate('GET /repos/{owner}/{repo}/commits', {}).resolves([]);
+  githubClient.onGraphql('DependabotPrs').resolves({
+    search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+  });
+
+  const result = await main(ctx, ['acme']);
+  expect(result.kind).toBe('completed');
+
+  expect(analytics.capturedEvents('run_completed')[0]?.properties).toMatchObject({
+    repos_total: 2,
+    repos_included: 1,
+  });
+});
+
 test('captures run_failed when listOrgRepos fails', async () => {
   const { ctx, githubClient, analytics } = createFakeContext();
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });

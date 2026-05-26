@@ -11,6 +11,7 @@ test('maps raw repo payloads into RepoMeta and infers visibility', async () => {
       private: false,
       visibility: 'public',
       archived: false,
+      fork: false,
       default_branch: 'main',
       language: 'TypeScript',
       pushed_at: '2026-04-01T00:00:00Z',
@@ -22,6 +23,7 @@ test('maps raw repo payloads into RepoMeta and infers visibility', async () => {
       private: true,
       visibility: 'internal',
       archived: true,
+      fork: true,
       default_branch: 'main',
       language: null,
       pushed_at: null,
@@ -38,11 +40,13 @@ test('maps raw repo payloads into RepoMeta and infers visibility', async () => {
       name: 'widgets',
       visibility: 'public',
       archived: false,
+      fork: false,
       dependabotSecurityUpdates: true,
     });
     expect(repos[1]).toMatchObject({
       visibility: 'internal',
       archived: true,
+      fork: true,
       dependabotSecurityUpdates: null,
     });
   }
@@ -58,6 +62,7 @@ test('falls back to the user endpoint when the org endpoint 404s', async () => {
       private: false,
       visibility: 'public',
       archived: false,
+      fork: false,
       default_branch: 'main',
       language: 'TypeScript',
       pushed_at: '2026-04-01T00:00:00Z',

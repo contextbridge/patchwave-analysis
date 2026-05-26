@@ -363,7 +363,7 @@ export function parseCli(argv: readonly string[]): ParseCliResult {
 }
 
 function filterRepos(repos: RepoMeta[], opts: ResolvedOptions): RepoMeta[] {
-  let out = repos.filter((r) => !r.archived);
+  let out = repos.filter((r) => !r.archived && !r.fork);
   const includeSet = opts.include === null ? null : new Set(opts.include);
   const excludeSet = new Set(opts.exclude);
   if (includeSet !== null) out = out.filter((r) => includeSet.has(r.name));

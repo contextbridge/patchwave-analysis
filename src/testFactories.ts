@@ -27,6 +27,7 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   name: 'widgets',
   visibility: 'private',
   archived: false,
+  fork: false,
   defaultBranch: 'main',
   primaryLanguage: 'TypeScript',
   pushedAt: '2026-04-01T00:00:00Z',
