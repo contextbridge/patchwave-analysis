@@ -5,7 +5,8 @@ export const htmlBytes = Factory.define<Uint8Array>(() => new TextEncoder().enco
 
 export const uploadInput = Factory.define<UploadInput>(() => ({
   bytes: htmlBytes.build(),
-  identifier: 'ben@example.com',
+  owner: 'acme',
+  email: 'ben@example.com',
   appVersion: '0.0.1',
   timestamp: '2026-05-22T12:00:00Z',
 }));

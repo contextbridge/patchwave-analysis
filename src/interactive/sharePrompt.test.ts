@@ -35,16 +35,17 @@ describe('runSharePrompt', () => {
     expect(handle.analytics.capturedEvents('share_choice')[0]?.properties).toMatchObject({ choice: 'declined' });
   });
 
-  test('html-only: uploads the raw html bytes with kind:html', async () => {
+  test('html-only: uploads the raw html bytes with owner and email', async () => {
     const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('html').scriptText('ben@example.com');
 
     const outcome = await runSharePrompt(sharePromptInputsFor(handle));
 
-    expect(outcome).toMatchObject({ kind: 'shared', identifier: 'ben@example.com' });
+    expect(outcome).toMatchObject({ kind: 'shared', email: 'ben@example.com' });
     expect(handle.uploader.calls).toHaveLength(1);
     expect(handle.uploader.calls[0]).toMatchObject({
-      identifier: 'ben@example.com',
+      owner: 'acme',
+      email: 'ben@example.com',
       appVersion: '0.0.1',
       timestamp: '2026-05-22T12:00:00Z',
     });

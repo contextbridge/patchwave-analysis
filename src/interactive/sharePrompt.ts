@@ -14,7 +14,7 @@ export interface SharePromptInputs {
 }
 
 export type ShareOutcome =
-  | { kind: 'shared'; uploadId: string; identifier: string }
+  | { kind: 'shared'; uploadId: string; email: string }
   | { kind: 'declined' }
   | { kind: 'cancelled' }
   | { kind: 'upload-failed'; message: string };
@@ -51,18 +51,19 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
     return { kind: 'declined' };
   }
 
-  const identifierResult = await askForEmail(prompter);
-  if (identifierResult.kind === 'cancelled') {
+  const emailResult = await askForEmail(prompter);
+  if (emailResult.kind === 'cancelled') {
     declinedOutro(inputs);
     return { kind: 'cancelled' };
   }
-  const identifier = identifierResult.identifier;
+  const email = emailResult.email;
 
   const spinner = prompter.spinner();
   spinner.start('Uploading...');
   const uploadResult = await uploader.upload({
     bytes: new TextEncoder().encode(inputs.htmlContent),
-    identifier,
+    owner: inputs.target,
+    email,
     appVersion: inputs.context.appVersion,
     timestamp: inputs.context.clock.now().toString(),
   });
@@ -83,9 +84,9 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
   spinner.stop('Uploaded.');
   analytics.capture('upload_succeeded', {});
   prompter.outro(
-    `Thanks — you're on the PatchWave waitlist. We'll use this report to prioritize early access and follow up at ${identifier}.`,
+    `Thanks — you're on the PatchWave waitlist. We'll use this report to prioritize early access and follow up at ${email}.`,
   );
-  return { kind: 'shared', uploadId, identifier };
+  return { kind: 'shared', uploadId, email };
 }
 
 function declinedOutro(inputs: SharePromptInputs): void {
@@ -102,7 +103,7 @@ function declinedOutro(inputs: SharePromptInputs): void {
   prompter.outro('Done.');
 }
 
-async function askForEmail(prompter: Prompter): Promise<{ kind: 'ok'; identifier: string } | { kind: 'cancelled' }> {
+async function askForEmail(prompter: Prompter): Promise<{ kind: 'ok'; email: string } | { kind: 'cancelled' }> {
   const result = await prompter.text({
     message: 'Email:',
     placeholder: 'you@example.com',
@@ -120,5 +121,5 @@ async function askForEmail(prompter: Prompter): Promise<{ kind: 'ok'; identifier
   }
 
   const trimmed = result.value.trim();
-  return { kind: 'ok', identifier: trimmed };
+  return { kind: 'ok', email: trimmed };
 }

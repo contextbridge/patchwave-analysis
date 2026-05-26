@@ -12,7 +12,8 @@ export type UploadError =
 
 export interface UploadInput {
   readonly bytes: Uint8Array;
-  readonly identifier: string;
+  readonly owner: string;
+  readonly email: string;
   readonly appVersion: string;
   readonly timestamp: string;
 }
@@ -55,10 +56,10 @@ export class UploaderImpl implements Uploader {
 
   #requestPresign(input: UploadInput): ResultAsync<PresignResponse, UploadError> {
     const body = JSON.stringify({
-      identifier: input.identifier,
+      owner: input.owner,
+      email: input.email,
       appVersion: input.appVersion,
       timestamp: input.timestamp,
-      kind: 'html',
       sizeBytes: input.bytes.byteLength,
     });
     return ResultAsync.fromPromise(
