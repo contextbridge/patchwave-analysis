@@ -87,9 +87,10 @@ export function AutomatedStory() {
       </div>
 
       <p className="text-muted-foreground mt-7 text-sm leading-relaxed">
-        Most Dependabot PRs arrive with no signal about whether the upgrade is safe. Research found 67% lack any
-        compatibility scoring beyond the version bump
-        <Citation source="rombaut-2024" />.
+        Most Dependabot PRs arrive with no signal that the upgrade is safe. On actively maintained JavaScript projects,
+        43% of security PRs never get merged. Maintainers hold back over compatibility worries, not because the bot is
+        wrong
+        <Citation source="mohayeji-2025" />.
       </p>
     </section>
   );

@@ -92,8 +92,11 @@ export function RiskStory() {
       </h2>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        Not every CVE is exploitable, so treat this as exposure, not breach risk. For triage, age is what matters: how
-        long each alert has sat open.
+        AI made finding vulnerabilities the easy part; fixing them is now the bottleneck
+        <Citation source="glasswing-2026" />. Anthropic's open-source program alone has logged more than 23,000
+        vulnerabilities, and only 97 are patched so far
+        <Citation source="anthropic-cvd-2026" />. As those fixes ship, the security-update PRs landing in your repos
+        will climb.
       </p>
 
       <div data-testid={riskStoryTestIds.severityBar} className="border-border bg-card mt-6 rounded-md border p-5">
@@ -143,11 +146,6 @@ export function RiskStory() {
           in this report.
         </p>
       )}
-
-      <p className="text-muted-foreground mt-7 text-sm leading-relaxed">
-        Just 13% of Dependabot security PRs get merged in open-source JavaScript projects
-        <Citation source="pixee-merge-rates" />, which is why backlogs grow.
-      </p>
     </section>
   );
 }
