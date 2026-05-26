@@ -1,6 +1,6 @@
 # patchwave-analysis
 
-A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It writes a self-contained HTML report plus a raw-data zip.
+A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It writes a self-contained HTML report.
 
 ## What it tells you
 
@@ -63,34 +63,15 @@ The CLI takes a single optional argument — the org or user to scan. There are 
 
 ## Output
 
-Each run writes two files into a fresh temporary directory and prints the full paths when the scan finishes:
+Each run writes a single file into a fresh temporary directory and prints the full path when the scan finishes:
 
-- **`patchwave-report.html`** — the self-contained browser report. Open it locally; it embeds the rolled-up report data in the file.
-- **`patchwave-report.zip`** — the same HTML report plus every raw data slice behind it, one JSON file per slice. This is the artifact to send back when you want a deeper look from contextbridge.
+- **`patchwave-report.html`** — the self-contained browser report. Open it locally; it embeds the rolled-up data that drives every metric. This is the artifact to send back when you want a deeper look from contextbridge.
 
-The zip contains:
-
-```text
-patchwave-report.html           — interactive HTML report
-README.txt                      — what's in the bundle
-data/meta.json                  — CLI version, target, window, run options, top-level counts
-data/aggregated.json            — rolled-up metrics that drive the report
-data/repos.json                 — repo metadata
-data/languages.json             — per-repo language byte counts
-data/dependabot-config.json     — per-repo Dependabot config and ecosystems
-data/dependabot-prs.json        — Dependabot PRs in the window (state, checks, reviewers)
-data/cve.json                   — Dependabot security alert slices
-data/reverts.json               — revert commits detected in the window
-data/branch-protection.json     — default-branch protection slices
-data/contributors.json          — active human committers per repo
-data/warnings.json              — per-collector warnings suppressed during the crawl
-```
-
-The report and bundle are not uploaded unless you choose to share them. The archive does not include tokens, secrets, or repository file contents.
+The report is not uploaded unless you choose to share it. It does not include tokens, secrets, or repository file contents.
 
 ## What it does not do
 
-- It does not upload the report or any GitHub data unless you choose to share the generated artifacts. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` / `patchwave-report.zip` pair in a temporary directory and a one-time anonymous-id file (see Telemetry & privacy).
+- It does not upload the report or any GitHub data unless you choose to share it. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` file in a temporary directory and a one-time anonymous-id file (see Telemetry & privacy).
 - It does not keep a Markdown compatibility report.
 - It does not auto-update.
 

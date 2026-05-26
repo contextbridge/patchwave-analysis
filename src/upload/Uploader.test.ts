@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { htmlBytes, presignResponseBody, uploadInput, zipBytes } from './testFactories.ts';
+import { htmlBytes, presignResponseBody, uploadInput } from './testFactories.ts';
 import { type FetchFn, UploaderImpl } from './Uploader.ts';
 
 const ENDPOINT = 'https://api.test/v1/uploads/analysis-bundle';
@@ -26,9 +26,9 @@ function presignResponse() {
 }
 
 describe('UploaderImpl', () => {
-  test("zip kind: posts kind:'zip' and PUTs with application/zip", async () => {
+  test("html kind: posts kind:'html' and PUTs raw bytes with text/html", async () => {
     const { fetch, calls } = recordFetch([presignResponse(), new Response('', { status: 200 })]);
-    const bytes = zipBytes.build();
+    const bytes = htmlBytes.build();
 
     const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch }).upload(uploadInput.build({ bytes }));
 
@@ -42,28 +42,13 @@ describe('UploaderImpl', () => {
       identifier: 'ben@example.com',
       appVersion: '0.0.1',
       timestamp: '2026-05-22T12:00:00Z',
-      kind: 'zip',
+      kind: 'html',
       sizeBytes: bytes.byteLength,
     });
     expect(postBody).not.toHaveProperty('contentType');
 
     expect(calls[1]?.url).toBe(presignResponseBody.build().presignedUrl);
     expect(calls[1]?.init?.method).toBe('PUT');
-    expect(calls[1]?.init?.body).toBe(bytes as BodyInit);
-    expect((calls[1]?.init?.headers as Record<string, string>)['content-type']).toBe('application/zip');
-  });
-
-  test("html kind: posts kind:'html' and PUTs raw bytes with text/html", async () => {
-    const { fetch, calls } = recordFetch([presignResponse(), new Response('', { status: 200 })]);
-    const bytes = htmlBytes.build();
-
-    const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch }).upload(
-      uploadInput.build({ bytes, kind: 'html' }),
-    );
-
-    expect(result.isOk()).toBe(true);
-    const postBody = JSON.parse(calls[0]?.init?.body as string) as Record<string, unknown>;
-    expect(postBody).toMatchObject({ kind: 'html', sizeBytes: bytes.byteLength });
     expect(calls[1]?.init?.body).toBe(bytes as BodyInit);
     expect((calls[1]?.init?.headers as Record<string, string>)['content-type']).toBe('text/html');
   });

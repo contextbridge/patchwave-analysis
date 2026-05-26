@@ -10,9 +10,7 @@ export const sharePromptInputs = Factory.define<SharePromptInputs>(() => {
     context: handle.ctx,
     target: 'acme',
     htmlPath: '/tmp/report.html',
-    zipPath: '/tmp/report.zip',
     htmlContent: '<!doctype html><html></html>',
-    zipBytes: new Uint8Array([0x50, 0x4b]),
     identifier: 'anon-uuid',
   };
 });

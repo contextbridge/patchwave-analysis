@@ -14,8 +14,7 @@ import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
 import { promptForTarget } from './interactive/targetPrompt.ts';
 import { formatPromptError } from './prompt/Prompter.ts';
-import { type ReportBundle, aggregate } from './report/aggregate.ts';
-import { type BundleMeta, buildBundleFiles, zipBundleFiles } from './report/bundle.ts';
+import { aggregate } from './report/aggregate.ts';
 import { type RenderError, renderHtml } from './report/html.ts';
 import type { ReportAnalyticsConfig } from './report/reportAnalyticsConfig.ts';
 import { type Instant, Temporal } from './time.ts';
@@ -33,8 +32,7 @@ import type {
 
 // The CLI is intentionally flag-free (besides --help): the rolling window, output
 // location, and repo filtering are fixed for now. These live as constants so the
-// pipeline below — and the bundle metadata format — stays unchanged if we re-add
-// flags later.
+// pipeline below stays unchanged if we re-add flags later.
 const WINDOW_DAYS = 90;
 const OUTPUT_BASENAME = 'patchwave-report';
 const TEMP_DIR_PREFIX = 'patchwave-analysis-';
@@ -54,18 +52,18 @@ interface ResolvedOptions {
 
 export interface OutputPaths {
   readonly html: string;
-  readonly zip: string;
 }
 
 export function resolveOutputPaths(outBase: string): OutputPaths {
-  return { html: `${outBase}.html`, zip: `${outBase}.zip` };
+  return {
+    html: `${outBase}.html`,
+  };
 }
 
 export interface CompletedRun {
   readonly target: string;
   readonly paths: OutputPaths;
   readonly html: string;
-  readonly zipBytes: Uint8Array;
 }
 
 export type MainResult =
@@ -136,6 +134,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     version: ctx.appVersion,
   };
 
+  const paths = resolveOutputPaths(opts.outBase);
   const renderResult = await renderReport(ctx, opts, analyticsEmbed);
   if (renderResult.isErr()) {
     const error = renderResult.error;
@@ -148,27 +147,12 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     return { kind: 'failed', code: 1 };
   }
 
-  const { report, collected, aggregated, stats } = renderResult.value;
-  const paths = resolveOutputPaths(opts.outBase);
+  const { report, stats } = renderResult.value;
 
   const htmlResult = await ctx.fs.writeTextFile(paths.html, report);
   if (htmlResult.isErr()) {
     spinner.stop('Scan failed.');
     ctx.prompter.error(formatFsError(htmlResult.error));
-    ctx.analytics.capture('run_failed', {
-      error_kind: 'write-failed',
-      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
-    });
-    return { kind: 'failed', code: 1 };
-  }
-
-  const meta = buildBundleMeta(ctx.appVersion, opts, stats, aggregated, collected);
-  const files = buildBundleFiles({ meta, collected, aggregated, reportHtml: report });
-  const zipBytes = zipBundleFiles(files);
-  const zipResult = await ctx.fs.writeBinaryFile(paths.zip, zipBytes);
-  if (zipResult.isErr()) {
-    spinner.stop('Scan failed.');
-    ctx.prompter.error(formatFsError(zipResult.error));
     ctx.analytics.capture('run_failed', {
       error_kind: 'write-failed',
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
@@ -190,30 +174,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   return {
     kind: 'completed',
     code: 0,
-    run: { target: opts.target, paths, html: report, zipBytes },
-  };
-}
-
-function buildBundleMeta(
-  cliVersion: string,
-  opts: ResolvedOptions,
-  stats: ReportStats,
-  aggregated: ReportBundle,
-  collected: CollectedData,
-): BundleMeta {
-  return {
-    cliVersion,
-    generatedAt: aggregated.meta.generatedAt.toString(),
-    target: opts.target,
-    windowDays: opts.windowDays,
-    windowStart: collected.ctx.windowStart.toString(),
-    options: { include: opts.include, exclude: opts.exclude },
-    counts: {
-      reposTotal: stats.reposTotal,
-      reposIncluded: stats.reposIncluded,
-      dependabotPrs: stats.dependabotPrs,
-      warnings: stats.warnings,
-    },
+    run: { target: opts.target, paths, html: report },
   };
 }
 
@@ -226,8 +187,6 @@ interface ReportStats {
 
 interface RenderedReport {
   readonly report: string;
-  readonly collected: CollectedData;
-  readonly aggregated: ReportBundle;
   readonly stats: ReportStats;
 }
 
@@ -270,8 +229,6 @@ function renderReport(
       return renderHtml(bundle, analytics).map(
         (report): RenderedReport => ({
           report,
-          collected: data,
-          aggregated: bundle,
           stats: {
             reposTotal: repos.length,
             reposIncluded: filtered.length,

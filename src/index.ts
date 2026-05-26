@@ -95,9 +95,7 @@ if (result.kind === 'completed') {
     context: ctx,
     target: result.run.target,
     htmlPath: result.run.paths.html,
-    zipPath: result.run.paths.zip,
     htmlContent: result.run.html,
-    zipBytes: result.run.zipBytes,
     identifier,
   });
 }

@@ -1,37 +1,34 @@
 import type { Context } from '../context.ts';
 import { type Prompter, formatPromptError } from '../prompt/Prompter.ts';
-import { type BundleKind, formatUploadError } from '../upload/Uploader.ts';
+import { formatUploadError } from '../upload/Uploader.ts';
 
 const SUPPORT_LINE = 'Reach us at founders@contextbridge.ai — or learn more at https://patchwave.ai';
 
-export type ShareChoice = 'html' | 'full' | 'declined';
+export type ShareChoice = 'html' | 'declined';
 
 export interface SharePromptInputs {
   readonly context: Context;
   readonly target: string;
   readonly htmlPath: string;
-  readonly zipPath: string;
   readonly htmlContent: string;
-  readonly zipBytes: Uint8Array;
   readonly identifier: string;
 }
 
 export type ShareOutcome =
-  | { kind: 'shared'; choice: 'html' | 'full'; uploadId: string; identifier: string }
+  | { kind: 'shared'; uploadId: string; identifier: string }
   | { kind: 'declined' }
   | { kind: 'cancelled' }
-  | { kind: 'upload-failed'; choice: 'html' | 'full'; message: string };
+  | { kind: 'upload-failed'; message: string };
 
 export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOutcome> {
   const { prompter, analytics, uploader } = inputs.context;
 
   prompter.note(
     [
-      `Scanned:          ${inputs.target}`,
-      `HTML report:      ${inputs.htmlPath}`,
-      `Raw data bundle:  ${inputs.zipPath}`,
+      `Scanned:      ${inputs.target}`,
+      `HTML report:  ${inputs.htmlPath}`,
       '',
-      "Open either file to see what would be sent — we'll upload exactly what's on disk.",
+      "Open it to see what would be sent — we'll upload exactly what's on disk.",
     ].join('\n'),
     'Report ready',
   );
@@ -42,8 +39,7 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
     message: "Would you like to share this with us? We won't share your data with anyone.",
     initialValue: 'html',
     choices: [
-      { value: 'full', label: 'Share the HTML report + raw data', hint: 'the full .zip you saw above' },
-      { value: 'html', label: 'Share the HTML report only', hint: 'the .html, no raw data' },
+      { value: 'html', label: 'Share the HTML report', hint: 'the .html you saw above' },
       { value: 'declined', label: 'No thanks — keep it local', hint: 'nothing leaves your machine' },
     ],
   });
@@ -70,14 +66,10 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
   }
   const identifier = identifierResult.identifier;
 
-  const kind: BundleKind = choice === 'html' ? 'html' : 'zip';
-  const bytes = choice === 'html' ? new TextEncoder().encode(inputs.htmlContent) : inputs.zipBytes;
-
   const spinner = prompter.spinner();
   spinner.start('Uploading...');
   const uploadResult = await uploader.upload({
-    bytes,
-    kind,
+    bytes: new TextEncoder().encode(inputs.htmlContent),
     identifier,
     appVersion: inputs.context.appVersion,
     timestamp: inputs.context.clock.now().toString(),
@@ -86,20 +78,20 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
   if (uploadResult.isErr()) {
     const message = formatUploadError(uploadResult.error);
     spinner.stop('Upload failed.');
-    analytics.capture('upload_failed', { mode: choice, error_kind: uploadResult.error.kind });
+    analytics.capture('upload_failed', { error_kind: uploadResult.error.kind });
     prompter.error(message);
     prompter.note(
-      [`Your local files are unchanged:`, `  ${inputs.htmlPath}`, `  ${inputs.zipPath}`, '', SUPPORT_LINE].join('\n'),
+      [`Your local report is unchanged:`, `  ${inputs.htmlPath}`, '', SUPPORT_LINE].join('\n'),
       "We couldn't upload",
     );
-    return { kind: 'upload-failed', choice, message };
+    return { kind: 'upload-failed', message };
   }
 
   const { uploadId } = uploadResult.value;
   spinner.stop('Uploaded.');
-  analytics.capture('upload_succeeded', { mode: choice });
+  analytics.capture('upload_succeeded', {});
   prompter.outro(`Thanks for sharing! Upload id: ${uploadId}. We'll be in touch if anything jumps out.`);
-  return { kind: 'shared', choice, uploadId, identifier };
+  return { kind: 'shared', uploadId, identifier };
 }
 
 function declinedOutro(inputs: SharePromptInputs): void {
@@ -108,7 +100,6 @@ function declinedOutro(inputs: SharePromptInputs): void {
     [
       `No worries — nothing was uploaded. Your report lives here:`,
       `  ${inputs.htmlPath}`,
-      `  ${inputs.zipPath}`,
       '',
       `Want help cutting your Dependabot burden? ${SUPPORT_LINE}`,
     ].join('\n'),
