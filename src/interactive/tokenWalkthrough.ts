@@ -61,19 +61,23 @@ function defaultHasGhCli(): boolean {
 
 function ghInstructions(): string {
   return [
-    "We need a GitHub token to read your org's Dependabot data.",
+    "We need a GitHub token to read your org's Dependabot data. The CLI only reads; it never writes.",
     '',
     'I see the gh CLI installed. In another terminal, run:',
     '',
     '    gh auth login --scopes "repo,read:org,security_events"',
     '',
     'Pick GitHub.com → HTTPS → "Login with a web browser" and follow the prompts.',
+    '',
+    'Want least privilege? A read-only fine-grained token works too. Grant these',
+    'repository permissions, all Read-only: Contents, Pull requests, Administration,',
+    'and Dependabot alerts, then export GITHUB_TOKEN.',
   ].join('\n');
 }
 
 function patInstructions(): string {
   return [
-    "We need a GitHub token to read your org's Dependabot data.",
+    "We need a GitHub token to read your org's Dependabot data. The CLI only reads; it never writes.",
     '',
     '1. Open https://github.com/settings/tokens/new',
     "   (You'll be asked to confirm your password.)",
@@ -97,6 +101,11 @@ function patInstructions(): string {
     '   Copy it, then in this terminal run:',
     '',
     '       export GITHUB_TOKEN=ghp_...',
+    '',
+    'Prefer least privilege? A read-only fine-grained token works too, at',
+    'https://github.com/settings/personal-access-tokens/new — grant these repository',
+    'permissions, all Read-only: Contents, Pull requests, Administration, and',
+    'Dependabot alerts. Your org must allow fine-grained tokens.',
   ].join('\n');
 }
 

@@ -7,8 +7,8 @@
 #
 # Downloads the patchwave-analysis binary for your platform from the latest
 # GitHub release into a temp dir, verifies its checksum, runs it, then deletes
-# it. The binary runs an interactive session and writes its report to your
-# current directory. Nothing is installed.
+# it. The binary runs an interactive session and writes its report into a
+# temporary directory, printing the path when it finishes. Nothing is installed.
 #
 # Use the `bash -c "$(curl ...)"` form rather than `curl ... | bash`: the
 # command-substitution form leaves your terminal on stdin so the prompts work.

@@ -1,96 +1,89 @@
-# patchwave-analysis
+# [PatchWave](https://patchwave.ai) Analysis
 
-A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It writes a self-contained HTML report.
-
-## What it tells you
-
-Given an org or user, the report covers:
-
-- **Org overview** — repo count, public/private split, language mix, branch-protection coverage, active human committers
-- **Dependabot coverage** — percent of repos with config, security-updates status, ecosystems, Node package manager split
-- **PR backlog** — open vs merged vs closed in window, age buckets, bump-type split, time-to-merge p50/p90, CI status mix, dev-only-dep share
-- **Stalled-PR signals** — repos at Dependabot's PR cap, repos with config but no recent PRs, reverts in window
-- **People** — top human mergers and reviewers
-- **Toil cost** — annualized engineer-time cost with browser-adjustable assumptions
-- **CVE exposure** — open Dependabot security alerts by severity, oldest open Critical/High
-- **Automation upside** — projected savings for common auto-merge rates
+PatchWave Analysis is a free diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It reads from the GitHub API and writes a self-contained HTML report you can use on its own, no PatchWave account needed.
 
 ## Run it
-
-You need a GitHub token with `repo` and `read:org` scopes (add `security_events` for CVE metrics). The CLI resolves it from `GITHUB_TOKEN`, then `GH_TOKEN`, then `gh auth token` — so if you're signed in with the `gh` CLI there's nothing to set.
-
-### One-off run (recommended)
 
 ```sh
 bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
 ```
 
-This downloads the signed binary for your platform from the latest release, verifies its checksum, runs the interactive session, and cleans up after itself — nothing is installed. The report is written to your current directory. Pin a specific release with `PW_VERSION`:
+This grabs the latest signed binary for your platform, verifies its checksum, runs the interactive session, then deletes the binary.
 
-```sh
-PW_VERSION=v0.1.0 bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
-```
+### Or grab the binary yourself
 
-### Download the binary yourself
-
-Grab the archive for your platform from the [latest release](https://github.com/contextbridge/patchwave-analysis/releases/latest), then:
+Download the archive for your platform from the [latest release](https://github.com/contextbridge/patchwave-analysis/releases/latest), then unpack and run it:
 
 ```sh
 tar -xzf patchwave-analysis_darwin_arm64.tar.gz
 ./patchwave-analysis
 ```
 
-### From source
+## Setup
+
+Easiest path: run `gh auth login` (via [GitHub CLI](https://cli.github.com)) and you're done. The CLI also reads `GITHUB_TOKEN` and `GH_TOKEN`, so you can pass a token directly instead.
+
+Prefer a custom token? Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) instead and set these repository permissions to read:
+
+- **Contents:** commit history and the `dependabot.yml` config
+- **Pull requests:** the Dependabot PR backlog
+- **Administration:** branch-protection and ruleset coverage
+- **Dependabot alerts:** the CVE numbers
+
+Then export it and run:
 
 ```sh
-git clone https://github.com/contextbridge/patchwave-analysis
-cd patchwave-analysis
-just install
-just run
+export GITHUB_TOKEN=github_pat_...
+bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
 ```
 
-## Usage
+Your org has to allow fine-grained tokens for this to reach its repos.
 
-```text
-patchwave-analysis [<org-or-user>]
+Whichever you pick, the CLI only reads from the API. It never writes.
 
-If <org-or-user> is omitted, you are prompted for it.
+## What it tells you
 
-  --help    show this help
-```
+The report covers:
 
-The CLI takes a single optional argument — the org or user to scan. There are no other flags; the time window (90 days) and output location are fixed.
+- **Dependabot coverage:** which repos have config, whether security updates are on, and for which ecosystems
+- **PR backlog:** open vs. merged vs. closed, age buckets, time-to-merge, CI statuses
+- **Stalled signals:** repos sitting at Dependabot's PR cap, or configured but quiet
+- **CVE exposure:** open security alerts by severity, plus the oldest unpatched Critical/High
+- **Toil cost:** annualized engineer-time, with assumptions you can adjust right in the browser
+- **Automation upside:** projected savings with [PatchWave](https://patchwave.ai)
+
+## What it reads from GitHub
+
+Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
+
+- The repo list, visibility, and language breakdown
+- Dependabot PRs in the window, including state, timing, reviews, and CI status
+- Open Dependabot security alerts (needs the `security_events` scope)
+- Each repo's `.github/dependabot.yml`
+- Branch-protection and ruleset settings on the default branch
+- Commit authors in the window, to count active humans
+
+All calls are read only. It writes nothing back to GitHub and pulls no file contents beyond the Dependabot config.
 
 ## Output
 
-Each run writes a single file into a fresh temporary directory and prints the full path when the scan finishes:
+When the scan finishes, the CLI writes `patchwave-report.html` to a fresh temporary directory and offers to open it in your default browser.
 
-- **`patchwave-report.html`** — the self-contained browser report. Open it locally; it embeds the rolled-up data that drives every metric. This is the artifact to send back when you want a deeper look from contextbridge.
-
-The report is not uploaded unless you choose to share it. It does not include tokens, secrets, or repository file contents.
-
-## What it does not do
-
-- It does not upload the report or any GitHub data unless you choose to share it. It reads from `api.github.com`. Filesystem writes are limited to the `patchwave-report.html` file in a temporary directory and a one-time anonymous-id file (see Telemetry & privacy).
-- It does not keep a Markdown compatibility report.
-- It does not auto-update.
+The report is one self-contained file with every metric baked in. It carries no tokens or source code, just the rolled-up numbers.
 
 ## Telemetry & privacy
 
-Official binaries send product analytics and crash diagnostics so we can improve the tool. Builds from source do not include telemetry keys.
+We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. Builds from source send nothing.
 
-Disable telemetry with any of:
+To turn it off, set any of these:
 
 - `DO_NOT_TRACK=1`
 - `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`
-- `CI=1`
-
-When disabled, no anonymous-id file is created, no analytics events are sent, and Sentry is never initialized.
 
 ## Contributing
 
-Development setup, testing, and release workflow live in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Development setup, testing, and the release workflow live in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ## License
 
-MIT.
+MIT
