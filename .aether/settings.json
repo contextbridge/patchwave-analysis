@@ -1,0 +1,35 @@
+{
+  "prompts": [".aether/SYSTEM.md", "AGENTS.md"],
+  "mcps": [".aether/mcp.json", { "type": "file", "path": ".mcp.json", "proxy": true }],
+  "agents": [
+    {
+      "name": "Planner",
+      "description": "Codex GPT-5.5 with xhigh reasoning",
+      "model": "codex:gpt-5.5",
+      "reasoningEffort": "xhigh",
+      "userInvocable": true
+    },
+    {
+      "name": "Implementor",
+      "description": "Codex GPT-5.5 with medium reasoning",
+      "model": "codex:gpt-5.5",
+      "reasoningEffort": "medium",
+      "userInvocable": true
+    },
+    {
+      "name": "Cheap",
+      "description": "ZAI GLM-5 with high reasoning",
+      "model": "zai:glm-5.1",
+      "reasoningEffort": "high",
+      "userInvocable": true
+    },
+    {
+      "name": "Explorer",
+      "description": "Explores codebases to find relevant files, patterns, and integration points",
+      "model": "codex:gpt-5.4-mini",
+      "agentInvocable": true,
+      "prompts": [".aether/agents/codebase-explorer/AGENTS.md"],
+      "mcps": [".aether/agents/codebase-explorer/mcp.json"]
+    }
+  ]
+}
