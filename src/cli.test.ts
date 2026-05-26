@@ -1,5 +1,4 @@
 import { expect, test } from 'bun:test';
-import { strFromU8, unzipSync } from 'fflate';
 import { main } from './cli.ts';
 import { createFakeContext } from './testHelpers/index.ts';
 
@@ -89,7 +88,6 @@ test('writes a report when the GitHub calls succeed', async () => {
   // Output lands in a temp dir, not the CWD; locate it via the returned paths.
   expect(result.run.target).toBe('acme');
   expect(result.run.paths.html.endsWith('patchwave-report.html')).toBe(true);
-  expect(result.run.paths.zip.endsWith('patchwave-report.zip')).toBe(true);
 
   const written = fs.read(result.run.paths.html);
   expect(written).toBeDefined();
@@ -99,38 +97,8 @@ test('writes a report when the GitHub calls succeed', async () => {
   const embedded = JSON.parse(match?.[1] ?? '') as { meta: { org: string } };
   expect(embedded.meta.org).toBe('acme');
 
-  const zipBytes = fs.readBinary(result.run.paths.zip);
-  expect(zipBytes).toBeInstanceOf(Uint8Array);
-  const entries = unzipSync(zipBytes as Uint8Array);
-  expect(Object.keys(entries).sort()).toEqual(
-    [
-      'README.txt',
-      'data/aggregated.json',
-      'data/branch-protection.json',
-      'data/contributors.json',
-      'data/cve.json',
-      'data/dependabot-config.json',
-      'data/dependabot-prs.json',
-      'data/languages.json',
-      'data/meta.json',
-      'data/repos.json',
-      'data/warnings.json',
-      'patchwave-report.html',
-    ].sort(),
-  );
-  const meta = JSON.parse(strFromU8(entries['data/meta.json'] as Uint8Array)) as Record<string, unknown>;
-  expect(meta).toMatchObject({
-    target: 'acme',
-    windowDays: 90,
-    counts: { reposTotal: 1, reposIncluded: 1, dependabotPrs: 0, warnings: 0 },
-  });
-  const repos = JSON.parse(strFromU8(entries['data/repos.json'] as Uint8Array)) as Array<{ name: string }>;
-  expect(repos).toHaveLength(1);
-  expect(repos[0]?.name).toBe('widgets');
-
-  // The completed run hands the bytes back so the caller (index.ts) can drive
+  // The completed run hands the html back so the caller (index.ts) can drive
   // the share prompt without re-reading the filesystem.
-  expect(result.run.zipBytes).toBeInstanceOf(Uint8Array);
   expect(result.run.html).toContain('<html');
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({

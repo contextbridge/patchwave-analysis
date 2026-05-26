@@ -1,13 +1,10 @@
 import { Factory } from 'fishery';
 import type { UploadInput } from './Uploader.ts';
 
-export const zipBytes = Factory.define<Uint8Array>(() => new Uint8Array([0x50, 0x4b, 0x03, 0x04]));
-
 export const htmlBytes = Factory.define<Uint8Array>(() => new TextEncoder().encode('<!doctype html><html></html>'));
 
 export const uploadInput = Factory.define<UploadInput>(() => ({
-  bytes: zipBytes.build(),
-  kind: 'zip',
+  bytes: htmlBytes.build(),
   identifier: 'ben@example.com',
   appVersion: '0.0.1',
   timestamp: '2026-05-22T12:00:00Z',

@@ -1,9 +1,8 @@
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
+import { assumptionFields } from '../assumptionFields.ts';
+import { Button } from '../components/ui/button.tsx';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
-
-interface Props {
-  variant?: 'inline' | 'panel';
-}
+import { NumberStepper } from './NumberStepper.tsx';
 
 export const assumptionInputTestIds = {
   container: 'assumption-input-container',
@@ -12,88 +11,40 @@ export const assumptionInputTestIds = {
   reset: 'assumption-input-reset',
 } as const;
 
-export function AssumptionInput({ variant = 'inline' }: Props) {
+export function AssumptionInput() {
   const { assumptions, setHourlyRate, setMinutesPerPr, reset } = useAssumptions();
   const analytics = useAnalytics();
-  const isPanel = variant === 'panel';
   return (
     <div
       data-testid={assumptionInputTestIds.container}
-      className={
-        isPanel
-          ? 'border-border bg-muted rounded-md border p-4'
-          : 'bg-muted flex flex-wrap items-end gap-4 rounded-md px-4 py-3 text-sm'
-      }
+      className="border-border bg-muted flex flex-wrap items-end gap-4 rounded-md border p-4"
     >
-      <NumberField
+      <NumberStepper
         testId={assumptionInputTestIds.hourlyRate}
-        label="Loaded hourly rate"
-        prefix="$"
-        suffix="/hr"
         value={assumptions.hourlyRateUsd}
         onChange={setHourlyRate}
         onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
-        min={1}
-        max={1000}
-        step={5}
+        {...assumptionFields.hourlyRateUsd}
       />
-      <NumberField
+      <NumberStepper
         testId={assumptionInputTestIds.minutesPerPr}
-        label="Minutes per PR"
         value={assumptions.minutesPerPr}
         onChange={setMinutesPerPr}
         onCommit={(value) => analytics.capture('assumption_changed', { field: 'minutes_per_pr', value })}
-        min={1}
-        max={240}
-        step={1}
+        {...assumptionFields.minutesPerPr}
       />
-      <button
+      <Button
         data-testid={assumptionInputTestIds.reset}
         type="button"
+        variant="link"
         onClick={() => {
           reset();
           analytics.capture('assumptions_reset');
         }}
-        className="text-muted-foreground decoration-border hover:text-foreground text-xs font-medium underline underline-offset-2 no-print"
+        className="text-muted-foreground hover:text-foreground mb-1 h-auto p-0 text-xs no-print"
       >
         reset
-      </button>
+      </Button>
     </div>
-  );
-}
-
-interface FieldProps {
-  label: string;
-  value: number;
-  onChange: (n: number) => void;
-  onCommit?: (n: number) => void;
-  prefix?: string;
-  suffix?: string;
-  min: number;
-  max: number;
-  step: number;
-  testId: string;
-}
-
-function NumberField({ label, value, onChange, onCommit, prefix, suffix, min, max, step, testId }: FieldProps) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</span>
-      <span className="border-input bg-background focus-within:border-ring focus-within:ring-ring/40 inline-flex items-center rounded border px-2 py-1.5 text-sm focus-within:ring-2">
-        {prefix && <span className="text-muted-foreground mr-1">{prefix}</span>}
-        <input
-          data-testid={testId}
-          type="number"
-          className="text-foreground w-20 bg-transparent text-right tabular-nums focus:outline-none"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          onChange={(e) => onChange(Number(e.target.value))}
-          onBlur={(e) => onCommit?.(Number(e.target.value))}
-        />
-        {suffix && <span className="text-muted-foreground ml-1">{suffix}</span>}
-      </span>
-    </label>
   );
 }

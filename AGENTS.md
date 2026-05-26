@@ -2,9 +2,9 @@
 
 ## Project: patchwave-analysis
 
-A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It runs in the user's environment, crawls `api.github.com`, and writes a self-contained HTML report plus a raw-data zip to a temporary directory. No data leaves the user's network unless they choose to share the generated artifacts.
+A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It runs in the user's environment, crawls `api.github.com`, and writes a self-contained HTML report to a temporary directory. No data leaves the user's network unless they choose to share the generated report.
 
-The single entrypoint is `patchwave-analysis [<org-or-user>]` — an interactive session that prompts for the target if omitted, then for what to share when the scan finishes. There are no other flags; the time window (90 days) is fixed.
+The single entrypoint is `patchwave-analysis [<org-or-user>]` — an interactive session that prompts for the target if omitted, then whether to share the report when the scan finishes. There are no other flags; the time window (90 days) is fixed.
 
 ## Stack
 
@@ -68,6 +68,7 @@ Beyond the rules:
 - **In Zod string schemas, prefer `.nonempty()` over `.min(1)`** (`.trim().nonempty()` when surrounding whitespace should not count).
 - **Destructured defaults over `??` fallbacks.** Apply defaults in a single destructuring assignment — `const { version = '0.0.1' } = input;`, not per-field `??`.
 - **Helpers at the bottom of files.** Primary exports come first; module-local helpers and factories sit below them. In test files they live after all `describe()` blocks.
+- **The product is always "PatchWave" in prose and UI copy** — capital P and W, one word. Never "patchwave", "Patchwave", or "patch wave". The only lowercase forms are literal identifiers that must match their real-world spelling: the `patchwave-analysis` CLI/binary name, the `patchwave-report.html` artifact, and the `patchwave.ai` domain.
 
 ### File naming
 

@@ -78,12 +78,12 @@ export const stalledSignals = Factory.define<StalledSignals>(() => ({
 }));
 
 export const people = Factory.define<People>(() => ({
-  topMergers: [
+  mergers: [
     { login: 'alice', count: 90, windowCostUsd: 1125, annualCostUsd: 4563 },
     { login: 'bob', count: 60, windowCostUsd: 750, annualCostUsd: 3042 },
   ],
-  topReviewers: [{ login: 'alice', count: 12, windowCostUsd: 90, annualCostUsd: 365 }],
-  topCommenters: [],
+  reviewers: [{ login: 'alice', count: 12, windowCostUsd: 90, annualCostUsd: 365 }],
+  commenters: [],
 }));
 
 export const costEstimate = Factory.define<CostEstimate>(() => ({

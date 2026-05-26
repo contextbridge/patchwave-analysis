@@ -3,16 +3,6 @@ import { toError } from '../errors.ts';
 
 export const DEFAULT_UPLOAD_ENDPOINT = 'https://api.patchwave.ai/v1/uploads/analysis-bundle';
 
-export type BundleKind = 'zip' | 'html';
-
-// The server keys off `kind` and rejects requests whose PUT content-type doesn't
-// match — `content-type` is part of the signed headers — so the canonical
-// mapping lives here, not on the client's choice of MIME string.
-const BUNDLE_CONTENT_TYPES: Record<BundleKind, string> = {
-  zip: 'application/zip',
-  html: 'text/html',
-};
-
 export type UploadError =
   | { kind: 'presign-request-failed'; message: string }
   | { kind: 'presign-bad-status'; status: number; body: string }
@@ -22,7 +12,6 @@ export type UploadError =
 
 export interface UploadInput {
   readonly bytes: Uint8Array;
-  readonly kind: BundleKind;
   readonly identifier: string;
   readonly appVersion: string;
   readonly timestamp: string;
@@ -60,7 +49,7 @@ export class UploaderImpl implements Uploader {
 
   upload(input: UploadInput): ResultAsync<UploadResult, UploadError> {
     return this.#requestPresign(input).andThen((presign) =>
-      this.#putToS3(presign.presignedUrl, input.kind, input.bytes).map(() => ({ uploadId: presign.uploadId })),
+      this.#putToS3(presign.presignedUrl, input.bytes).map(() => ({ uploadId: presign.uploadId })),
     );
   }
 
@@ -69,7 +58,7 @@ export class UploaderImpl implements Uploader {
       identifier: input.identifier,
       appVersion: input.appVersion,
       timestamp: input.timestamp,
-      kind: input.kind,
+      kind: 'html',
       sizeBytes: input.bytes.byteLength,
     });
     return ResultAsync.fromPromise(
@@ -92,11 +81,11 @@ export class UploaderImpl implements Uploader {
     });
   }
 
-  #putToS3(url: string, kind: BundleKind, bytes: Uint8Array): ResultAsync<void, UploadError> {
+  #putToS3(url: string, bytes: Uint8Array): ResultAsync<void, UploadError> {
     return ResultAsync.fromPromise(
       this.#fetch(url, {
         method: 'PUT',
-        headers: { 'content-type': BUNDLE_CONTENT_TYPES[kind] },
+        headers: { 'content-type': 'text/html' },
         // The DOM lib's `BodyInit` narrows `BufferSource` to `Uint8Array<ArrayBuffer>`,
         // but our bytes are `Uint8Array<ArrayBufferLike>`. fetch accepts them at runtime.
         body: bytes as BodyInit,

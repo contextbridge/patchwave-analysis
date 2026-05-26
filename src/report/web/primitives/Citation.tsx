@@ -1,4 +1,5 @@
 import { CITATIONS, type CitationKey } from '../data/citations.ts';
+import { FootnoteBodyLink, FootnoteReference } from './FootnoteReference.tsx';
 
 interface Props {
   source: CitationKey;
@@ -7,14 +8,11 @@ interface Props {
 export function Citation({ source }: Props) {
   const c = CITATIONS[source];
   return (
-    <a
-      href={c.url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <FootnoteReference
+      id={`source-${source}`}
       title={c.label}
-      className="text-primary ml-0.5 inline-block align-super text-[0.7em] font-medium hover:underline"
-    >
-      [src]
-    </a>
+      body={<FootnoteBodyLink href={c.url}>{c.url}</FootnoteBodyLink>}
+      titleText={`${c.label} — view source note`}
+    />
   );
 }

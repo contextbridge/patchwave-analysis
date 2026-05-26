@@ -6,7 +6,7 @@ import { ResultAsync } from 'neverthrow';
 import type { Logger } from '../logger.ts';
 import { type GithubError, toGithubError } from './errors.ts';
 
-const PatchwaveOctokit = Octokit.plugin(retry, throttling);
+const PatchWaveOctokit = Octokit.plugin(retry, throttling);
 
 /**
  * Narrow GitHub API surface the collectors depend on. Each method returns a
@@ -26,7 +26,7 @@ export interface GithubClientImplOptions {
 }
 
 export class GithubClientImpl implements GithubClient {
-  private readonly rest: InstanceType<typeof PatchwaveOctokit>;
+  private readonly rest: InstanceType<typeof PatchWaveOctokit>;
   private readonly graphqlClient: typeof graphqlBase;
 
   constructor(options: GithubClientImplOptions) {
@@ -36,7 +36,7 @@ export class GithubClientImpl implements GithubClient {
     // our logger as `request.log` on each client too, so that noise lands in pino
     // (silent by default) instead of the user's terminal. A child tags the source.
     const log = logger.child({ source: 'octokit' });
-    this.rest = new PatchwaveOctokit({
+    this.rest = new PatchWaveOctokit({
       auth: token,
       userAgent,
       log,

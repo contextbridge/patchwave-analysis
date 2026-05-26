@@ -1,9 +1,8 @@
+import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtDaysShort } from '../format/days.ts';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
-import { AssumptionInput } from '../primitives/AssumptionInput.tsx';
-import { BarChart } from '../primitives/BarChart.tsx';
+import { AssumptionsFootnote } from '../primitives/AssumptionsFootnote.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
@@ -13,12 +12,14 @@ export const costStoryTestIds = {
   monthlyCost: 'cost-story-monthly-cost',
   annualCost: 'cost-story-annual-cost',
   peopleTable: 'cost-story-people-table',
+  peopleToggle: 'cost-story-people-toggle',
 } as const;
+
+const INITIAL_PEOPLE_COUNT = 5;
 
 export const costStoryCopy = {
   eyebrow: 'Cost of dependency toil',
   heading: 'How that number is built',
-  ageHeading: 'Open PRs by age',
 } as const;
 
 export function CostStory() {
@@ -26,7 +27,6 @@ export function CostStory() {
   const { assumptions, derived } = useAssumptions();
 
   const merged = data.costEstimate.mergedInWindow;
-  const ttm = data.prBacklog;
 
   return (
     <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -39,10 +39,11 @@ export function CostStory() {
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
         Your team merged <span className="font-semibold tabular-nums">{merged.toLocaleString()}</span> Dependabot PRs in
-        the last {data.meta.windowDays} days. At{' '}
-        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR for triage and
-        review and a <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> loaded engineer
-        rate, that comes out to:
+        the last {data.meta.windowDays} days. Using adjustable
+        <AssumptionsFootnote from="cost-story" /> defaults of{' '}
+        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR and{' '}
+        <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> engineer cost, that comes
+        out to:
       </p>
 
       <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
@@ -64,33 +65,15 @@ export function CostStory() {
         />
       </div>
 
-      <div className="mt-6">
-        <AssumptionInput variant="inline" />
-      </div>
+      <PeopleTable windowDays={data.meta.windowDays} />
 
-      <p className="text-muted-foreground mt-5 text-sm leading-relaxed">
-        The 5 min/PR default sits at the low end of Mend's published 15&ndash;60 min/week per developer range for
-        Dependabot triage
-        <Citation source="mend-renovate-roi" />. Time-to-merge in your data: p50{' '}
-        <span className="text-foreground font-semibold tabular-nums">{fmtDaysShort(ttm.timeToMergeP50Days)}</span>, p90{' '}
-        <span className="text-foreground font-semibold tabular-nums">{fmtDaysShort(ttm.timeToMergeP90Days)}</span>.
-      </p>
-
-      <PeopleTable />
-
-      <h3 className="text-foreground mt-12 text-sm font-semibold tracking-[0.14em] uppercase">
-        {costStoryCopy.ageHeading}
-      </h3>
-      <div className="mt-4">
-        <BarChart
-          data={data.prBacklog.openAgeBuckets.map((b) => ({ label: b.label, value: b.count }))}
-          emptyLabel="No open Dependabot PRs."
-        />
-      </div>
-
-      <p className="text-muted-foreground mt-7 text-sm leading-relaxed">
-        Volume is trending up, not down. GitHub-published CVEs rose 476% year-to-date in 2026
-        <Citation source="vulncheck-2026" />, and every new CVE in your stack eventually becomes a Dependabot PR.
+      <p className="text-muted-foreground mt-6 text-sm leading-relaxed">
+        The adjustable
+        <AssumptionsFootnote from="cost-story-mend" /> 5 min/PR default sits at the low end of Mend's published
+        15&ndash;60 min/week per developer range for Dependabot triage
+        <span className="whitespace-nowrap">
+          <Citation source="mend-renovate-roi" />.
+        </span>
       </p>
     </section>
   );
@@ -117,9 +100,13 @@ function CostCell({
   );
 }
 
-function PeopleTable() {
+function PeopleTable({ windowDays }: { windowDays: number }) {
   const { derived } = useAssumptions();
-  const hasAny = derived.topMergers.length + derived.topReviewers.length > 0;
+  const [expanded, setExpanded] = useState(false);
+  const people = combinedPeopleRows(derived.mergers, derived.reviewers);
+  const visiblePeople = expanded ? people : people.slice(0, INITIAL_PEOPLE_COUNT);
+  const hiddenCount = people.length - visiblePeople.length;
+  const hasAny = people.length > 0;
   if (!hasAny) {
     return (
       <div className="border-border text-muted-foreground mt-10 rounded-md border border-dashed px-4 py-6 text-sm">
@@ -130,9 +117,6 @@ function PeopleTable() {
   return (
     <div className="mt-12">
       <h3 className="text-foreground text-sm font-semibold tracking-[0.14em] uppercase">Who's bearing this cost</h3>
-      <p className="text-muted-foreground mt-1.5 text-xs">
-        Bot accounts excluded. Annualized = cost projected to a full year.
-      </p>
       <div
         data-testid={costStoryTestIds.peopleTable}
         className="border-border bg-card mt-4 overflow-hidden rounded-md border"
@@ -142,34 +126,84 @@ function PeopleTable() {
             <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
-              <th className="px-3 py-2.5 text-right">Cost in window</th>
+              <th className="px-3 py-2.5 text-right">Cost over last {windowDays} days</th>
               <th className="px-3 py-2.5 text-right">Annualized</th>
             </tr>
           </thead>
           <tbody>
-            {derived.topMergers.map((m) => (
+            {visiblePeople.map((r) => (
               <PersonRow
-                key={`m-${m.login}`}
-                login={m.login}
-                count={m.count}
-                countLabel="merged"
-                windowCostUsd={m.windowCostUsd}
-                annualCostUsd={m.annualCostUsd}
-              />
-            ))}
-            {derived.topReviewers.map((r) => (
-              <PersonRow
-                key={`r-${r.login}`}
+                key={r.login}
                 login={r.login}
-                count={r.count}
-                countLabel="reviewed"
+                mergedCount={r.mergedCount}
+                reviewedCount={r.reviewedCount}
                 windowCostUsd={r.windowCostUsd}
                 annualCostUsd={r.annualCostUsd}
               />
             ))}
+            {hiddenCount > 0 || expanded ? (
+              <tr className="border-border border-t">
+                <td colSpan={4} className="px-3 py-2.5 text-center">
+                  <button
+                    type="button"
+                    data-testid={costStoryTestIds.peopleToggle}
+                    onClick={() => setExpanded((open) => !open)}
+                    className="text-muted-foreground hover:text-foreground text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {expanded ? 'Show top 5' : `Show ${hiddenCount.toLocaleString()} more`}
+                  </button>
+                </td>
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+interface ActivityCost {
+  login: string;
+  count: number;
+  windowCostUsd: number;
+  annualCostUsd: number;
+}
+
+interface CombinedPersonRow {
+  login: string;
+  mergedCount: number;
+  reviewedCount: number;
+  windowCostUsd: number;
+  annualCostUsd: number;
+}
+
+function combinedPeopleRows(mergers: readonly ActivityCost[], reviewers: readonly ActivityCost[]): CombinedPersonRow[] {
+  const rows = new Map<string, CombinedPersonRow>();
+  for (const m of mergers) {
+    rows.set(m.login, {
+      login: m.login,
+      mergedCount: m.count,
+      reviewedCount: 0,
+      windowCostUsd: m.windowCostUsd,
+      annualCostUsd: m.annualCostUsd,
+    });
+  }
+  for (const r of reviewers) {
+    const row =
+      rows.get(r.login) ??
+      ({
+        login: r.login,
+        mergedCount: 0,
+        reviewedCount: 0,
+        windowCostUsd: 0,
+        annualCostUsd: 0,
+      } satisfies CombinedPersonRow);
+    row.reviewedCount += r.count;
+    row.windowCostUsd += r.windowCostUsd;
+    row.annualCostUsd += r.annualCostUsd;
+    rows.set(r.login, row);
+  }
+  return [...rows.values()].sort(
+    (a, b) => b.annualCostUsd - a.annualCostUsd || b.windowCostUsd - a.windowCostUsd || a.login.localeCompare(b.login),
   );
 }
