@@ -1,4 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button.tsx';
 import { Input } from '../components/ui/input.tsx';
 import { cn } from '../lib/utils.ts';
@@ -37,8 +38,27 @@ export function NumberStepper({
   incrementTestId,
   onCommit,
 }: Props) {
+  const [draft, setDraft] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) setDraft(String(value));
+  }, [isEditing, value]);
+
   const lower = label.toLowerCase();
-  const commit = (n: number) => onCommit?.(Math.max(min, Math.min(max, n)));
+  const normalize = (n: number) => Math.max(min, Math.min(max, Math.round(n)));
+  const commit = (n: number) => {
+    const normalized = normalize(n);
+    onChange(normalized);
+    onCommit?.(normalized);
+    setDraft(String(normalized));
+  };
+  const commitDraft = () => {
+    const parsed = Number(draft);
+    commit(Number.isFinite(parsed) ? parsed : value);
+    setIsEditing(false);
+  };
+  const displayValue = isEditing ? draft : String(value);
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</span>
@@ -50,8 +70,10 @@ export function NumberStepper({
           aria-label={`Decrease ${lower}`}
           disabled={value <= min}
           onClick={() => {
+            const next = normalize(value - step);
             onChange((prev) => prev - step);
-            commit(value - step);
+            onCommit?.(next);
+            setDraft(String(next));
           }}
           data-testid={decrementTestId}
         >
@@ -67,9 +89,18 @@ export function NumberStepper({
             data-testid={testId}
             inputMode="numeric"
             aria-label={label}
-            value={value}
-            onChange={(e) => onChange(Number(e.target.value.replace(/[^0-9]/g, '')))}
-            onBlur={(e) => commit(Number(e.target.value.replace(/[^0-9]/g, '')))}
+            value={displayValue}
+            onFocus={() => setIsEditing(true)}
+            onChange={(e) => {
+              const next = e.target.value.replace(/[^0-9]/g, '');
+              setDraft(next);
+              const parsed = Number(next);
+              if (next !== '' && Number.isFinite(parsed)) onChange(parsed);
+            }}
+            onBlur={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur();
+            }}
             className={cn('w-28 text-center tabular-nums', prefix && 'pl-7', suffix && 'pr-9')}
           />
           {suffix && (
@@ -85,8 +116,10 @@ export function NumberStepper({
           aria-label={`Increase ${lower}`}
           disabled={value >= max}
           onClick={() => {
+            const next = normalize(value + step);
             onChange((prev) => prev + step);
-            commit(value + step);
+            onCommit?.(next);
+            setDraft(String(next));
           }}
           data-testid={incrementTestId}
         >

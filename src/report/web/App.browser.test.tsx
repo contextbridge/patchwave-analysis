@@ -44,6 +44,22 @@ describe('App report shell', () => {
     expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$17,995/yr');
   });
 
+  it('allows replacing an assumption value by clearing and typing', () => {
+    renderReport();
+    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
+    const hourlyRateInput = within(assumptions).getByTestId(assumptionInputTestIds.hourlyRate);
+
+    fireEvent.focus(hourlyRateInput);
+    fireEvent.change(hourlyRateInput, { target: { value: '' } });
+    expect(hourlyRateInput).toHaveValue('');
+
+    fireEvent.change(hourlyRateInput, { target: { value: '275' } });
+    fireEvent.blur(hourlyRateInput);
+
+    expect(hourlyRateInput).toHaveValue('275');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$25,368/year');
+  });
+
   it('recalculates the PatchWave savings card when the auto-merge share changes', () => {
     renderReport();
 
