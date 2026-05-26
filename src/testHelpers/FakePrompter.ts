@@ -21,7 +21,7 @@ type TextAnswer = ScriptedAnswer<'text', string>;
 type Answer = ConfirmAnswer | SelectAnswer | TextAnswer;
 
 export interface SpinnerEvent {
-  readonly type: 'start' | 'stop';
+  readonly type: 'start' | 'stop' | 'clear';
   readonly message?: string;
 }
 
@@ -106,6 +106,9 @@ export class FakePrompter implements Prompter {
       },
       stop: (message?: string) => {
         this.spinnerEvents.push({ type: 'stop', message });
+      },
+      clear: () => {
+        this.spinnerEvents.push({ type: 'clear' });
       },
     };
   }

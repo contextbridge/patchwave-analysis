@@ -32,6 +32,7 @@ export interface TextOptions {
 export interface PromptSpinner {
   start(msg?: string): void;
   stop(msg?: string): void;
+  clear(): void;
 }
 
 export interface Prompter {
@@ -105,7 +106,7 @@ export class PrompterImpl implements Prompter {
 
   spinner(): PromptSpinner {
     const s = clack.spinner();
-    return { start: (m) => s.start(m), stop: (m) => s.stop(m) };
+    return { start: (m) => s.start(m), stop: (m) => s.stop(m), clear: () => s.clear() };
   }
 }
 

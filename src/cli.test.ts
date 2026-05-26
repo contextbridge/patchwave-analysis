@@ -51,7 +51,7 @@ test('rejects more than one positional argument', async () => {
 });
 
 test('writes a report when the GitHub calls succeed', async () => {
-  const { ctx, githubClient, fs, analytics } = createFakeContext();
+  const { ctx, githubClient, fs, analytics, prompter } = createFakeContext();
 
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
     {
@@ -100,6 +100,7 @@ test('writes a report when the GitHub calls succeed', async () => {
   // The completed run hands the html back so the caller (index.ts) can drive
   // the share prompt without re-reading the filesystem.
   expect(result.run.html).toContain('<html');
+  expect(prompter.spinnerEvents).toContainEqual({ type: 'stop', message: 'Scanned acme.' });
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
     window_days: 90,

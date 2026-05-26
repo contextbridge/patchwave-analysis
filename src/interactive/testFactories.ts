@@ -11,7 +11,6 @@ export const sharePromptInputs = Factory.define<SharePromptInputs>(() => {
     target: 'acme',
     htmlPath: '/tmp/report.html',
     htmlContent: '<!doctype html><html></html>',
-    identifier: 'anon-uuid',
   };
 });
 

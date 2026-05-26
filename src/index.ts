@@ -89,14 +89,12 @@ const ctx = createContext({
 const result = await main(ctx, argv);
 
 if (result.kind === 'completed') {
-  const identifier = distinctId.length > 0 ? distinctId : 'anonymous';
   await runOpenReportPrompt({ context: ctx, htmlPath: result.run.paths.html });
   await runSharePrompt({
     context: ctx,
     target: result.run.target,
     htmlPath: result.run.paths.html,
     htmlContent: result.run.html,
-    identifier,
   });
 }
 
