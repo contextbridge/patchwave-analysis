@@ -26,7 +26,7 @@ function presignResponse() {
 }
 
 describe('UploaderImpl', () => {
-  test("html kind: posts kind:'html' and PUTs raw bytes with text/html", async () => {
+  test('posts owner/email metadata and PUTs raw html bytes with text/html', async () => {
     const { fetch, calls } = recordFetch([presignResponse(), new Response('', { status: 200 })]);
     const bytes = htmlBytes.build();
 
@@ -39,13 +39,12 @@ describe('UploaderImpl', () => {
     expect(calls[0]?.init?.method).toBe('POST');
     const postBody = JSON.parse(calls[0]?.init?.body as string) as Record<string, unknown>;
     expect(postBody).toMatchObject({
-      identifier: 'ben@example.com',
+      owner: 'acme',
+      email: 'ben@example.com',
       appVersion: '0.0.1',
       timestamp: '2026-05-22T12:00:00Z',
-      kind: 'html',
       sizeBytes: bytes.byteLength,
     });
-    expect(postBody).not.toHaveProperty('contentType');
 
     expect(calls[1]?.url).toBe(presignResponseBody.build().presignedUrl);
     expect(calls[1]?.init?.method).toBe('PUT');
