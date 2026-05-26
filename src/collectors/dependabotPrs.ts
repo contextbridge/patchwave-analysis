@@ -10,6 +10,14 @@ interface GraphqlSearchResponse {
   };
 }
 
+// GitHub's GraphQL Actor interface. `__typename` is the source of truth for
+// whether an actor is a bot: GitHub App accounts (e.g. greptile-apps) surface
+// here as `Bot` and — unlike the REST API — carry no `[bot]` login suffix.
+export interface RawActor {
+  __typename: string;
+  login: string;
+}
+
 export interface RawPullRequest {
   number: number;
   title: string;
@@ -20,11 +28,11 @@ export interface RawPullRequest {
   url: string;
   baseRefName: string;
   headRefName: string;
-  mergedBy: { login: string } | null;
+  mergedBy: RawActor | null;
   autoMergeRequest: { enabledAt: string | null } | null;
   repository: { owner: { login: string }; name: string };
-  reviews: { nodes: Array<{ author: { login: string } | null } | null> };
-  comments: { nodes: Array<{ author: { login: string } | null } | null> };
+  reviews: { nodes: Array<{ author: RawActor | null } | null> };
+  comments: { nodes: Array<{ author: RawActor | null } | null> };
   commits: {
     nodes: Array<{
       commit: {
@@ -61,6 +69,7 @@ const SEARCH_QUERY = /* GraphQL */ `
           baseRefName
           headRefName
           mergedBy {
+            __typename
             login
           }
           autoMergeRequest {
@@ -75,6 +84,7 @@ const SEARCH_QUERY = /* GraphQL */ `
           reviews(first: 50) {
             nodes {
               author {
+                __typename
                 login
               }
             }
@@ -82,6 +92,7 @@ const SEARCH_QUERY = /* GraphQL */ `
           comments(first: 50) {
             nodes {
               author {
+                __typename
                 login
               }
             }
@@ -145,8 +156,8 @@ function pageThrough(
 function toDependabotPr(raw: RawPullRequest): DependabotPr {
   const state: PrState = raw.state === 'OPEN' ? 'open' : 'closed';
   const merged = raw.state === 'MERGED';
-  const reviewers = uniqueLogins(raw.reviews.nodes.map((n) => n?.author?.login));
-  const commenters = uniqueLogins(raw.comments.nodes.map((n) => n?.author?.login));
+  const reviewers = uniqueLogins(raw.reviews.nodes);
+  const commenters = uniqueLogins(raw.comments.nodes);
   return {
     owner: raw.repository.owner.login,
     name: raw.repository.name,
@@ -157,7 +168,7 @@ function toDependabotPr(raw: RawPullRequest): DependabotPr {
     createdAt: raw.createdAt,
     closedAt: raw.closedAt,
     mergedAt: raw.mergedAt,
-    mergedBy: raw.mergedBy?.login ?? null,
+    mergedBy: raw.mergedBy && !isBotActor(raw.mergedBy) ? raw.mergedBy.login : null,
     headRef: raw.headRefName,
     baseRef: raw.baseRefName,
     htmlUrl: raw.url,
@@ -204,12 +215,16 @@ function summarizeChecks(raw: RawPullRequest): CheckSummary {
   return summary;
 }
 
-function uniqueLogins(values: Array<string | null | undefined>): string[] {
+function uniqueLogins(nodes: Array<{ author: RawActor | null } | null>): string[] {
   const seen = new Set<string>();
-  for (const v of values) {
-    if (!v) continue;
-    if (v.endsWith('[bot]')) continue;
-    seen.add(v);
+  for (const node of nodes) {
+    const author = node?.author;
+    if (!author || isBotActor(author)) continue;
+    seen.add(author.login);
   }
   return [...seen].sort();
+}
+
+function isBotActor(actor: RawActor): boolean {
+  return actor.__typename === 'Bot' || actor.login.endsWith('[bot]');
 }

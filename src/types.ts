@@ -10,6 +10,7 @@ export interface RepoRef {
 export interface RepoMeta extends RepoRef {
   visibility: Visibility;
   archived: boolean;
+  fork: boolean;
   defaultBranch: string;
   primaryLanguage: string | null;
   pushedAt: string | null;
