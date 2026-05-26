@@ -93,12 +93,11 @@ describe('App report shell', () => {
 
     const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
     expect(sources).toHaveTextContent('1. Adjustable cost assumptions.');
-    expect(sources).toHaveTextContent('2. Mend Renovate Enterprise ROI calculator.');
-    expect(sources).toHaveTextContent('3. VulnCheck, May 2026');
-    expect(sources).toHaveTextContent('4. Pixee: Why Developers Ignore 85% of Security PRs.');
-    expect(sources).toHaveTextContent('5. Rombaut et al. 2024');
-    expect(sources).toHaveTextContent('6. Cortex State of Developer Productivity Report 2024.');
-    expect(sources).toHaveTextContent('7. Atlassian State of Developer Experience Report 2025.');
+    expect(sources).toHaveTextContent('2. VulnCheck, May 2026');
+    expect(sources).toHaveTextContent('3. Anthropic, "Project Glasswing');
+    expect(sources).toHaveTextContent('4. Anthropic, Coordinated Vulnerability Disclosure dashboard');
+    expect(sources).toHaveTextContent('5. Mohayeji et al. 2025');
+    expect(sources).toHaveTextContent('6. Atlassian State of Developer Experience Report 2025.');
   });
 
   it('opens the appendix source note instead of navigating directly when a citation is clicked', () => {
@@ -112,10 +111,10 @@ describe('App report shell', () => {
     restore();
 
     expect(details).toHaveAttribute('open');
-    expect(screen.getByTestId(methodologyAppendixTestIds.sources)).toHaveTextContent(
-      'Mend Renovate Enterprise ROI calculator',
-    );
-    expect(screen.getByRole('link', { name: 'https://www.mend.io/renovate-enterprise/' })).toBeInTheDocument();
+    expect(screen.getByTestId(methodologyAppendixTestIds.sources)).toHaveTextContent('VulnCheck, May 2026');
+    expect(
+      screen.getByRole('link', { name: 'https://www.vulncheck.com/blog/ai-assisted-vulnerability-discovery' }),
+    ).toBeInTheDocument();
   });
 
   it('renders the ok CVE state with severity counts', () => {

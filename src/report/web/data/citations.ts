@@ -6,26 +6,22 @@ export interface Citation {
 // Sources cited inline throughout the report. The labels appear in tooltips; the URLs
 // open in a new tab when a citation marker is clicked.
 export const CITATIONS = {
-  'mend-renovate-roi': {
-    label: 'Mend Renovate Enterprise ROI calculator',
-    url: 'https://www.mend.io/renovate-enterprise/',
-  },
-  'rombaut-2024': {
+  'mohayeji-2025': {
     label:
-      'Rombaut et al. 2024, "Leveraging the Crowd for Dependency Management: An Empirical Study on the Dependabot Compatibility Score"',
-    url: 'https://arxiv.org/abs/2403.09012',
+      'Mohayeji et al. 2025, "Securing dependencies: A comprehensive study of Dependabot\'s impact on vulnerability mitigation," Empirical Software Engineering',
+    url: 'https://link.springer.com/article/10.1007/s10664-025-10638-w',
+  },
+  'glasswing-2026': {
+    label: 'Anthropic, "Project Glasswing: An initial update" (May 2026)',
+    url: 'https://www.anthropic.com/research/glasswing-initial-update',
+  },
+  'anthropic-cvd-2026': {
+    label: 'Anthropic, Coordinated Vulnerability Disclosure dashboard (May 2026)',
+    url: 'https://red.anthropic.com/2026/cvd/',
   },
   'atlassian-dx-2025': {
     label: 'Atlassian State of Developer Experience Report 2025',
     url: 'https://www.atlassian.com/blog/devops/developer-experience-report-2025',
-  },
-  'cortex-2024': {
-    label: 'Cortex State of Developer Productivity Report 2024',
-    url: 'https://www.cortex.io/post/state-of-developer-productivity-report-2024',
-  },
-  'pixee-merge-rates': {
-    label: 'Pixee: Why Developers Ignore 85% of Security PRs',
-    url: 'https://pixee.ai/blog/why-developers-ignore-85-of-security-prs',
   },
   'vulncheck-2026': {
     label: 'VulnCheck, May 2026 — AI-assisted vulnerability discovery',

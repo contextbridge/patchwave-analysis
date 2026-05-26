@@ -3,7 +3,6 @@ import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { AssumptionsFootnote } from '../primitives/AssumptionsFootnote.tsx';
-import { Citation } from '../primitives/Citation.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
 export const costStoryTestIds = {
@@ -68,12 +67,7 @@ export function CostStory() {
       <PeopleTable windowDays={data.meta.windowDays} />
 
       <p className="text-muted-foreground mt-6 text-sm leading-relaxed">
-        The adjustable
-        <AssumptionsFootnote from="cost-story-mend" /> 5 min/PR default sits at the low end of Mend's published
-        15&ndash;60 min/week per developer range for Dependabot triage
-        <span className="whitespace-nowrap">
-          <Citation source="mend-renovate-roi" />.
-        </span>
+        The 5 min/PR default is deliberately low, so these totals lean conservative.
       </p>
     </section>
   );
