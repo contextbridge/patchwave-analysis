@@ -8,13 +8,7 @@ import type {
   DependabotPr,
   LanguageBytes,
 } from '../types.ts';
-import {
-  ASSUMED_HOURLY_RATE_USD,
-  ASSUMED_MIN_PER_PR,
-  ASSUMED_MIN_PER_REVIEW,
-  deriveCostEstimate,
-  derivePersonCosts,
-} from './costFormulas.ts';
+import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 
 export interface ReportBundle {
   meta: ReportMeta;
@@ -86,7 +80,8 @@ export interface People {
 }
 
 export interface CostEstimate {
-  mergedInWindow: number;
+  humanMergeCount: number;
+  humanReviewCount: number;
   openCount: number;
   windowDays: number;
   hourlyRateUsd: number;
@@ -125,7 +120,7 @@ export function aggregate(data: CollectedData): ReportBundle {
   const prBacklog = buildPrBacklog(data, now, windowStart);
   const stalledSignals = buildStalledSignals(data, windowStart);
   const people = buildPeople(data, data.ctx.windowDays);
-  const costEstimate = buildCostEstimate(prBacklog, data.ctx.windowDays);
+  const costEstimate = buildCostEstimate(people, prBacklog.openCount, data.ctx.windowDays);
   const cve = buildCveExposure(data, now);
 
   return {
@@ -358,41 +353,40 @@ function buildPeople(data: CollectedData, windowDays: number): People {
     if (pr.mergedBy && !isBotLogin(pr.mergedBy)) {
       mergerCounts.set(pr.mergedBy, (mergerCounts.get(pr.mergedBy) ?? 0) + 1);
     }
-    for (const r of pr.reviewers) if (!isBotLogin(r)) reviewerCounts.set(r, (reviewerCounts.get(r) ?? 0) + 1);
+    for (const r of pr.reviewers) {
+      // A reviewer who also merged this PR is counted once, as the merger — don't
+      // double-charge the same person for one PR. Two charges only when someone else merged.
+      if (isBotLogin(r) || r === pr.mergedBy) continue;
+      reviewerCounts.set(r, (reviewerCounts.get(r) ?? 0) + 1);
+    }
     for (const c of pr.commenters) if (!isBotLogin(c)) commenterCounts.set(c, (commenterCounts.get(c) ?? 0) + 1);
   }
   const rankedCounts = (m: Map<string, number>) =>
     [...m.entries()].map(([login, count]) => ({ login, count })).sort((a, b) => b.count - a.count);
-
-  const mergers = derivePersonCosts(
-    rankedCounts(mergerCounts),
-    windowDays,
-    ASSUMED_MIN_PER_PR,
-    ASSUMED_HOURLY_RATE_USD,
-  );
-  const reviewers = derivePersonCosts(
-    rankedCounts(reviewerCounts),
-    windowDays,
-    ASSUMED_MIN_PER_REVIEW,
-    ASSUMED_HOURLY_RATE_USD,
-  );
+  const personCosts = (m: Map<string, number>) =>
+    derivePersonCosts(rankedCounts(m), windowDays, ASSUMED_MIN_PER_PR, ASSUMED_HOURLY_RATE_USD);
 
   return {
-    mergers,
-    reviewers,
+    mergers: personCosts(mergerCounts),
+    reviewers: personCosts(reviewerCounts),
     commenters: rankedCounts(commenterCounts),
   };
 }
 
-function buildCostEstimate(prBacklog: PrBacklog, windowDays: number): CostEstimate {
-  const merged = prBacklog.mergedInWindowCount;
-  const derived = deriveCostEstimate(merged, windowDays, {
+// Cost reflects human work only: a human merging a PR, plus each human who reviewed a PR
+// they did not merge. Bot/auto-merged PRs contribute nothing. By summing the same per-person
+// counts the People table shows, the headline equals the sum of that table by construction.
+function buildCostEstimate(people: People, openCount: number, windowDays: number): CostEstimate {
+  const humanMergeCount = people.mergers.reduce((sum, m) => sum + m.count, 0);
+  const humanReviewCount = people.reviewers.reduce((sum, r) => sum + r.count, 0);
+  const derived = deriveCostEstimate(humanMergeCount + humanReviewCount, windowDays, {
     hourlyRateUsd: ASSUMED_HOURLY_RATE_USD,
     minutesPerPr: ASSUMED_MIN_PER_PR,
   });
   return {
-    mergedInWindow: merged,
-    openCount: prBacklog.openCount,
+    humanMergeCount,
+    humanReviewCount,
+    openCount,
     windowDays,
     hourlyRateUsd: ASSUMED_HOURLY_RATE_USD,
     minutesPerPr: ASSUMED_MIN_PER_PR,

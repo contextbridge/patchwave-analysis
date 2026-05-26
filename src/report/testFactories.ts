@@ -87,19 +87,20 @@ export const people = Factory.define<People>(() => ({
 }));
 
 export const costEstimate = Factory.define<CostEstimate>(() => ({
-  mergedInWindow: 273,
+  humanMergeCount: 150,
+  humanReviewCount: 12,
   openCount: 102,
   windowDays: 90,
   hourlyRateUsd: 150,
   minutesPerPr: 5,
-  windowCostUsd: 3413,
-  monthlyCostUsd: 1154,
-  annualCostUsd: 13848,
+  windowCostUsd: 2025,
+  monthlyCostUsd: 684,
+  annualCostUsd: 8208,
   savingsScenarios: [
-    { autoMergeRate: 0.5, monthlySavingsUsd: 577, annualSavingsUsd: 6924 },
-    { autoMergeRate: 0.6, monthlySavingsUsd: 692, annualSavingsUsd: 8304 },
-    { autoMergeRate: 0.7, monthlySavingsUsd: 808, annualSavingsUsd: 9696 },
-    { autoMergeRate: 0.8, monthlySavingsUsd: 923, annualSavingsUsd: 11076 },
+    { autoMergeRate: 0.5, monthlySavingsUsd: 342, annualSavingsUsd: 4104 },
+    { autoMergeRate: 0.6, monthlySavingsUsd: 410, annualSavingsUsd: 4920 },
+    { autoMergeRate: 0.7, monthlySavingsUsd: 479, annualSavingsUsd: 5748 },
+    { autoMergeRate: 0.8, monthlySavingsUsd: 547, annualSavingsUsd: 6564 },
   ],
 }));
 

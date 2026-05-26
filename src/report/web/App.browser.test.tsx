@@ -24,7 +24,7 @@ describe('App report shell', () => {
   it('renders the headline annual cost from the embedded data', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$13,836/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$8,208/year');
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
   });
@@ -37,11 +37,11 @@ describe('App report shell', () => {
       target: { value: '300' },
     });
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$27,684/year');
-    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$27,684/yr');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$16,428/year');
+    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$16,428/yr');
     // "Today" mirrors the headline; "PatchWave savings" is the recovered cost at the default 65% share.
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$27,684/yr');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$17,995/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$16,428/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$10,678/yr');
   });
 
   it('allows replacing an assumption value by clearing and typing', () => {
@@ -57,7 +57,7 @@ describe('App report shell', () => {
     fireEvent.blur(hourlyRateInput);
 
     expect(hourlyRateInput).toHaveValue('275');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$25,368/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$15,060/year');
   });
 
   it('recalculates the PatchWave savings card when the auto-merge share changes', () => {
@@ -65,12 +65,12 @@ describe('App report shell', () => {
 
     // Default 65% share starts in the middle of the modeled range.
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$8,993/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$5,335/yr');
 
     fireEvent.change(screen.getByTestId(automatedStoryTestIds.shareSlider), { target: { value: '50' } });
 
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('50%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$6,918/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$4,104/yr');
   });
 
   it('reveals the methodology assumptions panel when an estimate footnote is clicked', () => {
@@ -273,6 +273,51 @@ describe('App report shell', () => {
     fireEvent.click(screen.getByTestId(costStoryTestIds.peopleToggle));
 
     expect(within(table).getByText('person-6')).toBeInTheDocument();
+  });
+
+  it('reworks per-person review costs when the minutes-per-PR assumption changes', () => {
+    renderReport({
+      people: {
+        mergers: [],
+        reviewers: [{ login: 'carol', count: 10, windowCostUsd: 0, annualCostUsd: 0 }],
+        commenters: [],
+      },
+    });
+
+    const table = screen.getByTestId(costStoryTestIds.peopleTable);
+    // 10 reviews x 5 min x $150/hr / 60 = $125 in window at the defaults.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$125');
+
+    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
+    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
+      target: { value: '10' },
+    });
+
+    // Reviews ride the same minutes-per-PR slider as merges, so doubling it doubles the cost.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$250');
+  });
+
+  it('reworks the raw-data per-person costs when an assumption changes', () => {
+    renderReport({
+      people: {
+        mergers: [],
+        reviewers: [{ login: 'carol', count: 10, windowCostUsd: 0, annualCostUsd: 0 }],
+        commenters: [],
+      },
+    });
+
+    // The input lives on the Calculation tab and unmounts on Raw data, so adjust before navigating.
+    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
+    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
+      target: { value: '10' },
+    });
+
+    fireEvent.click(screen.getByText('How this report was calculated'));
+    fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
+
+    // 10 reviews x 10 min x $150/hr / 60 = $250 window, annualized to $1,014/yr.
+    const rawData = screen.getByTestId(methodologyAppendixTestIds.rawData);
+    expect(within(rawData).getByText('carol').closest('li')).toHaveTextContent('$1,014/yr');
   });
 
   it('renders the open PR age buckets as a separate section with count-only rows', () => {
