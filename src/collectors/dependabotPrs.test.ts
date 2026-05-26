@@ -12,9 +12,14 @@ test('maps a single page of search results to DependabotPr', async () => {
         rawPullRequest.build({
           state: 'MERGED',
           mergedAt: '2026-04-05T00:00:00Z',
-          mergedBy: { login: 'alice' },
-          reviews: { nodes: [{ author: { login: 'bob' } }, { author: { login: 'alice' } }] },
-          comments: { nodes: [{ author: { login: 'alice' } }] },
+          mergedBy: { __typename: 'User', login: 'alice' },
+          reviews: {
+            nodes: [
+              { author: { __typename: 'User', login: 'bob' } },
+              { author: { __typename: 'User', login: 'alice' } },
+            ],
+          },
+          comments: { nodes: [{ author: { __typename: 'User', login: 'alice' } }] },
         }),
       ],
     },
@@ -32,6 +37,38 @@ test('maps a single page of search results to DependabotPr', async () => {
     mergedBy: 'alice',
     reviewers: ['alice', 'bob'],
     commenters: ['alice'],
+  });
+});
+
+test('drops bot actors from mergers, reviewers, and commenters', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('DependabotPrs').resolves({
+    search: {
+      pageInfo: { hasNextPage: false, endCursor: null },
+      nodes: [
+        rawPullRequest.build({
+          state: 'MERGED',
+          mergedAt: '2026-04-05T00:00:00Z',
+          // A GitHub App that merged the PR: Bot typename, no [bot] suffix.
+          mergedBy: { __typename: 'Bot', login: 'auto-merge-app' },
+          reviews: {
+            nodes: [
+              { author: { __typename: 'Bot', login: 'greptile-apps' } },
+              { author: { __typename: 'User', login: 'carol' } },
+            ],
+          },
+          comments: { nodes: [{ author: { __typename: 'Bot', login: 'dependabot' } }] },
+        }),
+      ],
+    },
+  });
+
+  const result = await listDependabotPrs(client, 'acme', '2026-01-01T00:00:00Z');
+  const prs = result.unwrapOr([]);
+  expect(prs[0]).toMatchObject({
+    mergedBy: null,
+    reviewers: ['carol'],
+    commenters: [],
   });
 });
 
