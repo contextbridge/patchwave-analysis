@@ -128,15 +128,13 @@ export function MethodologyAppendix() {
                   </div>
                   <p className="text-muted-foreground mt-4 leading-relaxed">
                     The adjustable
-                    <AssumptionsFootnote from="methodology-minutes-default" /> 5 min/PR default sits at the low end of
-                    Mend's published 15&ndash;60 min/week per developer range
-                    <Citation source="mend-renovate-roi" />. The adjustable
+                    <AssumptionsFootnote from="methodology-minutes-default" /> 5 min/PR default is deliberately low. The
+                    adjustable
                     <AssumptionsFootnote from="methodology-rate-default" /> $150/hr default reflects a $300k engineer
                     cost divided by 2,000 working hours.
                   </p>
                   <p className="text-muted-foreground mt-2 leading-relaxed">
                     Estimates only; real savings vary by team. The defaults are intentionally conservative
-                    <Citation source="cortex-2024" />
                     <Citation source="atlassian-dx-2025" />.
                   </p>
                 </section>
