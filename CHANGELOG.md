@@ -1,0 +1,25 @@
+# Changelog
+
+## [0.1.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.0.1...v0.1.0) (2026-05-26)
+
+
+### Features
+
+* add interactive prompts and report sharing ([#4](https://github.com/contextbridge/patchwave-analysis/issues/4)) ([23e8543](https://github.com/contextbridge/patchwave-analysis/commit/23e8543b9bd066d9eb780ea6aa11c93a561c281c))
+* bootstrap repo ([57653df](https://github.com/contextbridge/patchwave-analysis/commit/57653dfa6d6eac2737eb2f6eca64b9ba908e565a))
+* CLI entrypoint and project docs ([073dccb](https://github.com/contextbridge/patchwave-analysis/commit/073dccbd70c5d7356b5c72118bf7a498c37bb728))
+* core infrastructure — Context, IO, GitHub client, analytics ([edd14ac](https://github.com/contextbridge/patchwave-analysis/commit/edd14ac49cf3326653188bfd65bd6c828c55b476))
+* data collectors and dependency-bump heuristics ([2ef4ad3](https://github.com/contextbridge/patchwave-analysis/commit/2ef4ad35ec0f8f18750886a0e28417a17e948480))
+* React report web UI and build script ([00dd2ec](https://github.com/contextbridge/patchwave-analysis/commit/00dd2ec77abfa72291903067ac105cf97349f18b))
+* refocus the report on engineer toil and polish the UI ([#9](https://github.com/contextbridge/patchwave-analysis/issues/9)) ([ae6853f](https://github.com/contextbridge/patchwave-analysis/commit/ae6853f51063ca1d24e0af035299c5959bd7793d))
+* report aggregation, cost model, bundling, and HTML render ([376adb8](https://github.com/contextbridge/patchwave-analysis/commit/376adb8f85169e23b2dfc7253bd08daf0c8a189b))
+* waitlist via upload ([#12](https://github.com/contextbridge/patchwave-analysis/issues/12)) ([b2050e3](https://github.com/contextbridge/patchwave-analysis/commit/b2050e355350eb42b7fa1daee8d745da3c2f99f6))
+
+
+### Bug Fixes
+
+* allow setting numberstepper directly ([367beb8](https://github.com/contextbridge/patchwave-analysis/commit/367beb80bc90d83473c37648b52024b6ca10dc52))
+* double counting reviewers and mergers ([2cfa24e](https://github.com/contextbridge/patchwave-analysis/commit/2cfa24ecb68df236bc215979a79a68064ed96e72))
+* exclude bot actors from the cost table and forked repos from the analysis ([#10](https://github.com/contextbridge/patchwave-analysis/issues/10)) ([7ce42f0](https://github.com/contextbridge/patchwave-analysis/commit/7ce42f0270e853ff02ab604497a00f27829e9245))
+* improved sources ([#13](https://github.com/contextbridge/patchwave-analysis/issues/13)) ([010a11a](https://github.com/contextbridge/patchwave-analysis/commit/010a11a7e1fa15eea9bc89b3edd090c5efb8dc1c))
+* streamline CLI share prompts ([#11](https://github.com/contextbridge/patchwave-analysis/issues/11)) ([066465c](https://github.com/contextbridge/patchwave-analysis/commit/066465c6836ca660c37d04e3224fbcc03e3a4887))
