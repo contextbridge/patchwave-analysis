@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.1.1...v0.2.0) (2026-05-27)
+
+
+### Features
+
+* **report:** lead with the solution and apply review feedback ([#17](https://github.com/contextbridge/patchwave-analysis/issues/17)) ([dbad8d8](https://github.com/contextbridge/patchwave-analysis/commit/dbad8d8da55fa5d3f6d44b54ee2ca513b209528c))
+
 ## [0.1.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.1.0...v0.1.1) (2026-05-27)
 
 
