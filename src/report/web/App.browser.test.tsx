@@ -112,22 +112,26 @@ describe('App report shell', () => {
     expect(screen.getByTestId(riskStoryTestIds.severityBar)).toBeInTheDocument();
   });
 
-  it('summarizes repos with security alerts disabled and lists them in the source note', () => {
+  it('summarizes repos with security alerts disabled and links to the appendix table', () => {
     renderReport({ cve: cveExposureOk.build({ reposWithSecurityAlertsDisabled: ['acme/a', 'acme/b'] }) });
 
     const warning = screen.getByTestId(riskStoryTestIds.disabledAlertsWarning);
     expect(warning).toHaveTextContent(
       'Did you know: 2 of your 24 repos do not have Dependabot security alerts enabled',
     );
-    expect(warning).not.toHaveTextContent('*');
+
+    const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
+    expect(details).not.toHaveAttribute('open');
 
     const restore = suppressNavigation();
-    fireEvent.click(within(warning).getByTestId(footnoteReferenceTestId));
+    fireEvent.click(within(warning).getByTestId(riskStoryTestIds.disabledAlertsLink));
     restore();
 
-    const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
-    expect(sources).toHaveTextContent('Repos without security alerts enabled');
-    expect(sources).toHaveTextContent('acme/a, acme/b');
+    // The link opens the collapsed appendix on the Calculation tab, where the repos render as a table.
+    expect(details).toHaveAttribute('open');
+    const table = screen.getByTestId(methodologyAppendixTestIds.disabledAlertsRepos);
+    expect(table).toHaveTextContent('acme/a');
+    expect(table).toHaveTextContent('acme/b');
   });
 
   it('limits the top repos by severity table to the top five with an optional expansion', () => {
