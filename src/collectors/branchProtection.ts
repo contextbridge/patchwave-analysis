@@ -1,23 +1,11 @@
+import type { Endpoints } from '@octokit/types';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { BranchProtectionSlice, BranchProtectionSource, RepoRef } from '../types.ts';
 
-interface ClassicProtectionResponse {
-  required_pull_request_reviews?: {
-    required_approving_review_count?: number;
-  };
-  required_status_checks?: {
-    contexts?: string[];
-  } | null;
-}
-
-interface RulesetRule {
-  type: string;
-  parameters?: {
-    required_approving_review_count?: number;
-  };
-}
+type BranchRule = Endpoints['GET /repos/{owner}/{repo}/rules/branches/{branch}']['response']['data'][number];
+type PullRequestRule = Extract<BranchRule, { type: 'pull_request' }>;
 
 interface PartialProtection {
   source: BranchProtectionSource;
@@ -42,11 +30,7 @@ function getClassicProtection(
   branch: string,
 ): ResultAsync<PartialProtection | null, GithubError> {
   return client
-    .request<ClassicProtectionResponse>('GET /repos/{owner}/{repo}/branches/{branch}/protection', {
-      owner: ref.owner,
-      repo: ref.name,
-      branch,
-    })
+    .request('GET /repos/{owner}/{repo}/branches/{branch}/protection', { owner: ref.owner, repo: ref.name, branch })
     .map(
       (data): PartialProtection => ({
         source: 'classic',
@@ -70,14 +54,10 @@ function getRulesetProtection(
   // to a branch from any active ruleset (repo-level or inherited). It does NOT
   // include classic branch protection — that's still a separate endpoint.
   return client
-    .request<RulesetRule[]>('GET /repos/{owner}/{repo}/rules/branches/{branch}', {
-      owner: ref.owner,
-      repo: ref.name,
-      branch,
-    })
+    .request('GET /repos/{owner}/{repo}/rules/branches/{branch}', { owner: ref.owner, repo: ref.name, branch })
     .map((rules): PartialProtection | null => {
       if (rules.length === 0) return null;
-      const prRule = rules.find((r) => r.type === 'pull_request');
+      const prRule = rules.find((r): r is PullRequestRule => r.type === 'pull_request');
       const statusRule = rules.find((r) => r.type === 'required_status_checks');
       const reviewCount = prRule?.parameters?.required_approving_review_count;
       return {

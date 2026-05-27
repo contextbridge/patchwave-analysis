@@ -1,6 +1,12 @@
+import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
+import type { PaginatingEndpoints } from '@octokit/plugin-paginate-rest';
+import type { Endpoints } from '@octokit/types';
+import { print } from 'graphql';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
+import type { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
-import type { GithubClient } from '../github/GithubClient.ts';
+import type { GithubClient, PaginatedItem } from '../github/GithubClient.ts';
+import { validateItems } from '../github/validateItems.ts';
 
 export type GithubCall =
   | { kind: 'paginate'; route: string; params: Record<string, unknown> }
@@ -55,17 +61,33 @@ export class FakeGithubClient implements GithubClient {
     };
   }
 
-  paginate<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T[], GithubError> {
-    this.calls.push({ kind: 'paginate', route, params });
-    return this.respond<T[]>(this.paginateResponders, 'paginate', route, params);
+  paginate<R extends keyof PaginatingEndpoints, T = PaginatedItem<R>>(
+    route: R,
+    params?: PaginatingEndpoints[R]['parameters'],
+    schema?: z.ZodType<T>,
+  ): ResultAsync<T[], GithubError> {
+    const p = (params ?? {}) as Record<string, unknown>;
+    this.calls.push({ kind: 'paginate', route, params: p });
+    // Exercise production validation; logging stays in the real client.
+    return this.respond<unknown[]>(this.paginateResponders, 'paginate', route, p).map((items) =>
+      schema ? validateItems(items, schema, () => {}) : (items as T[]),
+    );
   }
 
-  request<T>(route: string, params: Record<string, unknown> = {}): ResultAsync<T, GithubError> {
-    this.calls.push({ kind: 'request', route, params });
-    return this.respond<T>(this.requestResponders, 'request', route, params);
+  request<R extends keyof Endpoints>(
+    route: R,
+    params?: Endpoints[R]['parameters'],
+  ): ResultAsync<Endpoints[R]['response']['data'], GithubError> {
+    const p = (params ?? {}) as Record<string, unknown>;
+    this.calls.push({ kind: 'request', route, params: p });
+    return this.respond<Endpoints[R]['response']['data']>(this.requestResponders, 'request', route, p);
   }
 
-  graphql<T>(query: string, variables: Record<string, unknown> = {}): ResultAsync<T, GithubError> {
+  graphql<TResult, TVariables extends Record<string, unknown>>(
+    document: TypedDocumentNode<TResult, TVariables>,
+    variables: TVariables,
+  ): ResultAsync<TResult, GithubError> {
+    const query = print(document);
     this.calls.push({ kind: 'graphql', query, variables });
     const responder = this.graphqlResponders.findLast((r) => r.match(query, variables));
     if (!responder) {
@@ -75,7 +97,9 @@ export class FakeGithubClient implements GithubClient {
         )}`,
       );
     }
-    return responder.outcome.kind === 'ok' ? okAsync(responder.outcome.value as T) : errAsync(responder.outcome.error);
+    return responder.outcome.kind === 'ok'
+      ? okAsync(responder.outcome.value as TResult)
+      : errAsync(responder.outcome.error);
   }
 
   callsTo(kind: GithubCall['kind']): GithubCall[] {

@@ -10,9 +10,10 @@ before:
   hooks:
     - bun install --frozen-lockfile
     # The CLI embeds dist/report-web/index.html via a `with { type: 'text' }`
-    # import, so the web report must be built before the binary is compiled.
+    # import and the collectors import generated GraphQL types, so both must be
+    # built before the binary is compiled. `build:assets` does both.
     # `release --clean` wipes dist/ before these hooks run, so the order holds.
-    - bun run build:report-web
+    - bun run build:assets
 
 builds:
   - id: patchwave-analysis

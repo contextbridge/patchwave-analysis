@@ -1,128 +1,19 @@
 import { ResultAsync, okAsync } from 'neverthrow';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
+import { DependabotPrsDocument, type DependabotPrsQuery } from '../github/graphql/generated.ts';
 import type { CheckSummary, DependabotPr, PrState } from '../types.ts';
 
-interface GraphqlSearchResponse {
-  search: {
-    pageInfo: { hasNextPage: boolean; endCursor: string | null };
-    nodes: Array<RawPullRequest | null>;
-  };
-}
+// `search(type: ISSUE)` returns a union; nodes that aren't pull requests come
+// back as empty objects, so a real PR node is the arm carrying `number`.
+type SearchNode = NonNullable<DependabotPrsQuery['search']['nodes']>[number];
+export type PrNode = Extract<SearchNode, { number: number }>;
 
 // GitHub's GraphQL Actor interface. `__typename` is the source of truth for
 // whether an actor is a bot: GitHub App accounts (e.g. greptile-apps) surface
 // here as `Bot` and — unlike the REST API — carry no `[bot]` login suffix.
-export interface RawActor {
-  __typename: string;
-  login: string;
-}
-
-export interface RawPullRequest {
-  number: number;
-  title: string;
-  state: 'OPEN' | 'CLOSED' | 'MERGED';
-  createdAt: string;
-  closedAt: string | null;
-  mergedAt: string | null;
-  url: string;
-  baseRefName: string;
-  headRefName: string;
-  mergedBy: RawActor | null;
-  autoMergeRequest: { enabledAt: string | null } | null;
-  repository: { owner: { login: string }; name: string };
-  reviews: { nodes: Array<{ author: RawActor | null } | null> };
-  comments: { nodes: Array<{ author: RawActor | null } | null> };
-  commits: {
-    nodes: Array<{
-      commit: {
-        statusCheckRollup: {
-          contexts: {
-            nodes: Array<
-              | { __typename: 'CheckRun'; name: string; conclusion: string | null }
-              | { __typename: 'StatusContext'; context: string; state: string }
-              | null
-            >;
-          };
-        } | null;
-      };
-    } | null>;
-  };
-}
-
-const SEARCH_QUERY = /* GraphQL */ `
-  query DependabotPrs($searchQuery: String!, $cursor: String) {
-    search(query: $searchQuery, type: ISSUE, first: 50, after: $cursor) {
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-      nodes {
-        ... on PullRequest {
-          number
-          title
-          state
-          createdAt
-          closedAt
-          mergedAt
-          url
-          baseRefName
-          headRefName
-          mergedBy {
-            __typename
-            login
-          }
-          autoMergeRequest {
-            enabledAt
-          }
-          repository {
-            owner {
-              login
-            }
-            name
-          }
-          reviews(first: 50) {
-            nodes {
-              author {
-                __typename
-                login
-              }
-            }
-          }
-          comments(first: 50) {
-            nodes {
-              author {
-                __typename
-                login
-              }
-            }
-          }
-          commits(last: 1) {
-            nodes {
-              commit {
-                statusCheckRollup {
-                  contexts(first: 100) {
-                    nodes {
-                      __typename
-                      ... on CheckRun {
-                        name
-                        conclusion
-                      }
-                      ... on StatusContext {
-                        context
-                        state
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-`;
+type Actor = NonNullable<PrNode['mergedBy']>;
+type AuthoredNode = { author: Actor | null } | null;
 
 export function listDependabotPrs(
   client: GithubClient,
@@ -141,10 +32,9 @@ function pageThrough(
   cursor: string | null,
   acc: DependabotPr[],
 ): ResultAsync<DependabotPr[], GithubError> {
-  return client.graphql<GraphqlSearchResponse>(SEARCH_QUERY, { searchQuery, cursor }).andThen((res) => {
-    for (const node of res.search.nodes) {
-      if (node === null) continue;
-      acc.push(toDependabotPr(node));
+  return client.graphql(DependabotPrsDocument, { searchQuery, cursor }).andThen((res) => {
+    for (const node of res.search.nodes ?? []) {
+      if (isPrNode(node)) acc.push(toDependabotPr(node));
     }
     if (res.search.pageInfo.hasNextPage && res.search.pageInfo.endCursor) {
       return pageThrough(client, searchQuery, res.search.pageInfo.endCursor, acc);
@@ -153,11 +43,13 @@ function pageThrough(
   });
 }
 
-function toDependabotPr(raw: RawPullRequest): DependabotPr {
+function isPrNode(node: SearchNode): node is PrNode {
+  return node !== null && 'number' in node;
+}
+
+function toDependabotPr(raw: PrNode): DependabotPr {
   const state: PrState = raw.state === 'OPEN' ? 'open' : 'closed';
   const merged = raw.state === 'MERGED';
-  const reviewers = uniqueLogins(raw.reviews.nodes);
-  const commenters = uniqueLogins(raw.comments.nodes);
   return {
     owner: raw.repository.owner.login,
     name: raw.repository.name,
@@ -172,14 +64,14 @@ function toDependabotPr(raw: RawPullRequest): DependabotPr {
     headRef: raw.headRefName,
     baseRef: raw.baseRefName,
     htmlUrl: raw.url,
-    reviewers,
-    commenters,
+    reviewers: uniqueLogins(raw.reviews?.nodes),
+    commenters: uniqueLogins(raw.comments?.nodes),
     autoMergeEnabled: raw.autoMergeRequest !== null,
     checks: summarizeChecks(raw),
   };
 }
 
-function summarizeChecks(raw: RawPullRequest): CheckSummary {
+function summarizeChecks(raw: PrNode): CheckSummary {
   const summary: CheckSummary = {
     total: 0,
     success: 0,
@@ -187,10 +79,10 @@ function summarizeChecks(raw: RawPullRequest): CheckSummary {
     pending: 0,
     failedCheckNames: [],
   };
-  const commitNode = raw.commits.nodes[0];
+  const commitNode = raw.commits.nodes?.[0];
   const rollup = commitNode?.commit.statusCheckRollup;
   if (!rollup) return summary;
-  for (const ctx of rollup.contexts.nodes) {
+  for (const ctx of rollup.contexts.nodes ?? []) {
     if (ctx === null) continue;
     summary.total += 1;
     if (ctx.__typename === 'CheckRun') {
@@ -215,9 +107,9 @@ function summarizeChecks(raw: RawPullRequest): CheckSummary {
   return summary;
 }
 
-function uniqueLogins(nodes: Array<{ author: RawActor | null } | null>): string[] {
+function uniqueLogins(nodes: ReadonlyArray<AuthoredNode> | null | undefined): string[] {
   const seen = new Set<string>();
-  for (const node of nodes) {
+  for (const node of nodes ?? []) {
     const author = node?.author;
     if (!author || isBotActor(author)) continue;
     seen.add(author.login);
@@ -225,6 +117,6 @@ function uniqueLogins(nodes: Array<{ author: RawActor | null } | null>): string[
   return [...seen].sort();
 }
 
-function isBotActor(actor: RawActor): boolean {
+function isBotActor(actor: Actor): boolean {
   return actor.__typename === 'Bot' || actor.login.endsWith('[bot]');
 }
