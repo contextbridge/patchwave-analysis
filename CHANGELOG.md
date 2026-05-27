@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.1...v0.2.2) (2026-05-27)
+
+
+### Bug Fixes
+
+* guard against commit author with no login ([#21](https://github.com/contextbridge/patchwave-analysis/issues/21)) ([75097bf](https://github.com/contextbridge/patchwave-analysis/commit/75097bfe5523ec79b0de9a4d7db40cd0a149bf80))
+
 ## [0.2.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.0...v0.2.1) (2026-05-27)
 
 
