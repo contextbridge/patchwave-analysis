@@ -1,5 +1,5 @@
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { ASSUMED_MIN_PER_REVIEW, deriveCostEstimate, derivePersonCosts } from '../../costFormulas.ts';
+import { deriveCostEstimate, derivePersonCosts } from '../../costFormulas.ts';
 import { assumptionFields } from '../assumptionFields.ts';
 import type { EmbeddedReportData } from '../types.ts';
 
@@ -63,13 +63,13 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
 
   const derived = useMemo<DerivedCost>(() => {
     const { hourlyRateUsd, minutesPerPr } = assumptions;
-    const merged = data.costEstimate.mergedInWindow;
+    const totalActions = data.costEstimate.humanMergeCount + data.costEstimate.humanReviewCount;
     const windowDays = data.costEstimate.windowDays;
-    const cost = deriveCostEstimate(merged, windowDays, assumptions);
+    const cost = deriveCostEstimate(totalActions, windowDays, assumptions);
     return {
       ...cost,
       mergers: derivePersonCosts(data.people.mergers, windowDays, minutesPerPr, hourlyRateUsd),
-      reviewers: derivePersonCosts(data.people.reviewers, windowDays, ASSUMED_MIN_PER_REVIEW, hourlyRateUsd),
+      reviewers: derivePersonCosts(data.people.reviewers, windowDays, minutesPerPr, hourlyRateUsd),
     };
   }, [assumptions, data]);
 

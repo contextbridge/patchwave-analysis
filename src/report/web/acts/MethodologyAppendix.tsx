@@ -26,7 +26,7 @@ const appendixTabs: Array<{ id: MethodologyTab; label: string }> = [
 
 export function MethodologyAppendix() {
   const data = useEmbeddedData();
-  const { assumptions } = useAssumptions();
+  const { assumptions, derived } = useAssumptions();
   const { open, setOpen, activeTab, setActiveTab } = useAssumptionsDisclosure();
   const org = data.orgOverview;
   const cov = data.dependabotCoverage;
@@ -98,11 +98,11 @@ export function MethodologyAppendix() {
                           label="Cost in window"
                           value={
                             <>
-                              Merged PRs &times; minutes per PR &divide; 60 &times; hourly rate. Currently using
-                              adjustable
+                              (Human merges + reviews) &times; minutes per PR &divide; 60 &times; hourly rate.
+                              Bot-merged PRs are excluded. Currently using adjustable
                               <AssumptionsFootnote from="methodology-formula" /> assumptions:{' '}
-                              {data.costEstimate.mergedInWindow} PRs &times; {assumptions.minutesPerPr} min &divide; 60
-                              &times; ${assumptions.hourlyRateUsd}
+                              {data.costEstimate.humanMergeCount + data.costEstimate.humanReviewCount} actions &times;{' '}
+                              {assumptions.minutesPerPr} min &divide; 60 &times; ${assumptions.hourlyRateUsd}
                               /hr.
                             </>
                           }
@@ -251,8 +251,8 @@ export function MethodologyAppendix() {
                   </DataPanel>
 
                   <DataPanel title="People signals">
-                    <PeopleList label="Mergers" rows={data.people.mergers} countLabel="merged" />
-                    <PeopleList label="Reviewers" rows={data.people.reviewers} countLabel="reviewed" />
+                    <PeopleList label="Mergers" rows={derived.mergers} countLabel="merged" />
+                    <PeopleList label="Reviewers" rows={derived.reviewers} countLabel="reviewed" />
                     <PeopleList label="Commenters" rows={data.people.commenters} countLabel="commented" />
                   </DataPanel>
 

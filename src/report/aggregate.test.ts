@@ -159,23 +159,30 @@ test('aggregates failing check names across open PRs, sorted by frequency', () =
   ]);
 });
 
-test('builds a cost estimate matrix with rate columns and time-per-PR rows', () => {
+test('builds a cost estimate from human merges and reviews, excluding bot merges', () => {
   const data = collectedData.build({
-    dependabotPrs: Array.from({ length: 100 }, (_, i) =>
-      dependabotPr.build({
-        number: i + 1,
-        state: 'closed',
-        merged: true,
-        mergedAt: '2026-04-01T00:00:00Z',
-        createdAt: '2026-03-30T00:00:00Z',
-      }),
-    ),
+    dependabotPrs: [
+      ...Array.from({ length: 100 }, (_, i) =>
+        dependabotPr.build({
+          number: i + 1,
+          state: 'closed',
+          merged: true,
+          mergedAt: '2026-04-01T00:00:00Z',
+          createdAt: '2026-03-30T00:00:00Z',
+          mergedBy: i % 2 === 0 ? 'alice' : 'bob',
+        }),
+      ),
+      // Bot-merged PRs cost a human nothing — they must not add to the estimate.
+      dependabotPr.build({ number: 201, merged: true, mergedAt: '2026-04-02T00:00:00Z', mergedBy: 'dependabot' }),
+      dependabotPr.build({ number: 202, merged: true, mergedAt: '2026-04-02T00:00:00Z', mergedBy: 'github-actions' }),
+    ],
   });
   const bundle = aggregate(data);
-  expect(bundle.costEstimate.mergedInWindow).toBe(100);
+  expect(bundle.costEstimate.humanMergeCount).toBe(100);
+  expect(bundle.costEstimate.humanReviewCount).toBe(0);
   expect(bundle.costEstimate.hourlyRateUsd).toBe(150);
   expect(bundle.costEstimate.minutesPerPr).toBe(5);
-  // 100 PRs × 5 min × $150/hr / 60 = $1250 in window
+  // 100 actions × 5 min × $150/hr / 60 = $1250 in window
   expect(bundle.costEstimate.windowCostUsd).toBe(1250);
   // ~$423/month over 90 days (window × 30.44/90)
   expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(400);
@@ -185,6 +192,48 @@ test('builds a cost estimate matrix with rate columns and time-per-PR rows', () 
   expect(bundle.costEstimate.savingsScenarios[0]?.annualSavingsUsd).toBe(
     (bundle.costEstimate.savingsScenarios[0]?.monthlySavingsUsd ?? 0) * 12,
   );
+});
+
+test('counts a reviewer who also merged the PR once, but credits a review when someone else merged', () => {
+  const data = collectedData.build({
+    dependabotPrs: [
+      // alice reviewed and merged her own PR → counts once, as the merge
+      dependabotPr.build({
+        number: 1,
+        merged: true,
+        mergedAt: '2026-04-01T00:00:00Z',
+        mergedBy: 'alice',
+        reviewers: ['alice'],
+      }),
+      // alice reviewed, bob merged → both are credited
+      dependabotPr.build({
+        number: 2,
+        merged: true,
+        mergedAt: '2026-04-02T00:00:00Z',
+        mergedBy: 'bob',
+        reviewers: ['alice'],
+      }),
+      // carol reviewed an auto-merged PR (no human merger) → her review still counts
+      dependabotPr.build({
+        number: 3,
+        merged: true,
+        mergedAt: '2026-04-03T00:00:00Z',
+        mergedBy: null,
+        reviewers: ['carol'],
+      }),
+    ],
+  });
+  const bundle = aggregate(data);
+
+  expect(bundle.people.mergers.find((m) => m.login === 'alice')?.count).toBe(1);
+  expect(bundle.people.mergers.find((m) => m.login === 'bob')?.count).toBe(1);
+  // alice is credited only for PR #2 (bob merged), not her self-merged PR #1
+  expect(bundle.people.reviewers.find((r) => r.login === 'alice')?.count).toBe(1);
+  expect(bundle.people.reviewers.find((r) => r.login === 'carol')?.count).toBe(1);
+
+  // 2 human merges (alice, bob) + 2 reviews (alice on #2, carol on #3) = 4 actions
+  expect(bundle.costEstimate.humanMergeCount).toBe(2);
+  expect(bundle.costEstimate.humanReviewCount).toBe(2);
 });
 
 test('mergers excludes bot logins and surfaces per-person window cost', () => {

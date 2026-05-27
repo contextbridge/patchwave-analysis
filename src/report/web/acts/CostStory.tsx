@@ -25,7 +25,7 @@ export function CostStory() {
   const data = useEmbeddedData();
   const { assumptions, derived } = useAssumptions();
 
-  const merged = data.costEstimate.mergedInWindow;
+  const { humanMergeCount } = data.costEstimate;
 
   return (
     <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -37,12 +37,12 @@ export function CostStory() {
       </h2>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        Your team merged <span className="font-semibold tabular-nums">{merged.toLocaleString()}</span> Dependabot PRs in
-        the last {data.meta.windowDays} days. Using adjustable
+        In the last {data.meta.windowDays} days, your team merged{' '}
+        <span className="font-semibold tabular-nums">{humanMergeCount.toLocaleString()}</span> Dependabot PRs by hand.
+        Anything a bot auto-merged is left out. At adjustable
         <AssumptionsFootnote from="cost-story" /> defaults of{' '}
         <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR and{' '}
-        <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> engineer cost, that comes
-        out to:
+        <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>, that comes out to:
       </p>
 
       <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
