@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.2...v0.2.3) (2026-05-27)
+
+
+### Bug Fixes
+
+* open the report automatically instead of prompting ([#24](https://github.com/contextbridge/patchwave-analysis/issues/24)) ([ba580d9](https://github.com/contextbridge/patchwave-analysis/commit/ba580d982d31e068c0782fdf3187dbe3e3c5ddaa))
+* type and validate GitHub responses against real schemas ([#23](https://github.com/contextbridge/patchwave-analysis/issues/23)) ([b00cde7](https://github.com/contextbridge/patchwave-analysis/commit/b00cde74ccadf202586f381f79c4750efee85293))
+
 ## [0.2.2](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.1...v0.2.2) (2026-05-27)
 
 
