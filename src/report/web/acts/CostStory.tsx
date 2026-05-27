@@ -65,7 +65,8 @@ export function CostStory() {
       <PeopleTable windowDays={data.meta.windowDays} />
 
       <p className="text-muted-foreground mt-6 text-sm leading-relaxed">
-        The 5 min/PR default is deliberately low, so these totals lean conservative.
+        The 12 min/PR default covers the context switch, review, and merge for a single PR. Anything a bot merged is
+        left out, so these totals only count human effort.
       </p>
     </section>
   );

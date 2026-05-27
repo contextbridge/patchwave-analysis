@@ -81,7 +81,6 @@ export function MethodologyAppendix() {
                   <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">
                     Every cost and time figure in this report is modeled from two inputs: a loaded hourly rate and the
                     minutes spent per PR. Adjust them at the top of the report and the numbers throughout recalculate.
-                    The defaults are intentionally conservative.
                   </p>
                   <p className="text-foreground mt-3 text-sm">
                     Currently <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> and{' '}
@@ -126,8 +125,9 @@ export function MethodologyAppendix() {
                     </table>
                   </div>
                   <p className="text-muted-foreground mt-4 leading-relaxed">
-                    The adjustable 5 min/PR default is deliberately low. The adjustable $150/hr default reflects a $300k
-                    engineer cost divided by 2,000 working hours.
+                    The adjustable 12 min/PR default covers the context switch, review, and merge for a single PR. The
+                    adjustable $200/hr default reflects a $400k fully-loaded engineer cost divided by 2,000 working
+                    hours.
                   </p>
                   <p className="text-muted-foreground mt-2 leading-relaxed">
                     Estimates only; real savings vary by team. The defaults are intentionally conservative

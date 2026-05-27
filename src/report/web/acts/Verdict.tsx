@@ -30,9 +30,7 @@ export function Verdict() {
         ~{fmtUsd(derived.annualCostUsd)}
         <span className="text-muted-foreground text-2xl font-normal sm:text-3xl">/year</span>
       </h1>
-      <p className="text-foreground mt-2 max-w-2xl text-lg leading-snug">
-        {verdictCopy.costTrailer}, based on adjustable assumptions
-      </p>
+      <p className="text-foreground mt-2 max-w-2xl text-lg leading-snug">{verdictCopy.costTrailer}</p>
 
       <div className="mt-7">
         <HeroAssumptions />
