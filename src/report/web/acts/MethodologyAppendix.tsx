@@ -138,6 +138,10 @@ export function MethodologyAppendix() {
                     <Citation source="atlassian-dx-2025" />.
                   </p>
                 </section>
+
+                {cve.reposWithSecurityAlertsDisabled.length > 0 && (
+                  <ReposWithoutAlertsTable repos={cve.reposWithSecurityAlertsDisabled} />
+                )}
               </div>
             )}
 
@@ -240,13 +244,6 @@ export function MethodologyAppendix() {
                         ['Oldest high', cve.oldestHighDays === null ? 'n/a' : `${cve.oldestHighDays} days`],
                       ]}
                     />
-                    <RepoList
-                      id={reposWithoutSecurityAlertsId}
-                      testId={methodologyAppendixTestIds.disabledAlertsRepos}
-                      label="Repos without security alerts enabled"
-                      empty="No scanned repos reported security alerts as disabled."
-                      repos={cve.reposWithSecurityAlertsDisabled}
-                    />
                     <SeverityTable repos={cve.topReposBySeverity} />
                   </DataPanel>
 
@@ -319,6 +316,28 @@ function FormulaRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function ReposWithoutAlertsTable({ repos }: { repos: readonly string[] }) {
+  return (
+    <section id={reposWithoutSecurityAlertsId} className="scroll-mt-16">
+      <SectionHeading>Repos without security alerts enabled</SectionHeading>
+      <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">
+        New CVEs in {repos.length === 1 ? 'this repo' : 'these repos'} will not appear in this report.
+      </p>
+      <div className="border-border mt-3 overflow-hidden rounded-md border">
+        <table data-testid={methodologyAppendixTestIds.disabledAlertsRepos} className="w-full text-left text-sm">
+          <tbody className="divide-border divide-y">
+            {repos.map((repo) => (
+              <tr key={repo}>
+                <td className="text-foreground px-3 py-2.5 font-mono text-xs">{repo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function DataPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="border-border bg-card rounded-md border p-4">
@@ -383,21 +402,9 @@ function SourcesAndNotes() {
   );
 }
 
-function RepoList({
-  id,
-  testId,
-  label,
-  empty,
-  repos,
-}: {
-  id?: string;
-  testId?: string;
-  label: string;
-  empty: string;
-  repos: readonly string[];
-}) {
+function RepoList({ label, empty, repos }: { label: string; empty: string; repos: readonly string[] }) {
   return (
-    <div id={id} data-testid={testId} className="scroll-mt-16">
+    <div>
       <div className="text-muted-foreground mb-1 text-xs font-medium tracking-[0.12em] uppercase">{label}</div>
       {repos.length === 0 ? (
         <p className="text-muted-foreground">{empty}</p>

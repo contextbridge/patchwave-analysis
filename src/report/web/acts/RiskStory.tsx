@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { repoShortName } from '../format/repo.ts';
+import { useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { Citation } from '../primitives/Citation.tsx';
-import { FootnoteReference } from '../primitives/FootnoteReference.tsx';
 import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
 
 export const riskStoryTestIds = {
@@ -12,6 +13,7 @@ export const riskStoryTestIds = {
   topReposTable: 'risk-story-top-repos-table',
   topReposToggle: 'risk-story-top-repos-toggle',
   disabledAlertsWarning: 'risk-story-disabled-alerts-warning',
+  disabledAlertsLink: 'risk-story-disabled-alerts-link',
 } as const;
 
 export const riskStoryCopy = {
@@ -25,10 +27,7 @@ export const reposWithoutSecurityAlertsId = 'repos-without-security-alerts';
 
 export function RiskStory() {
   const { cve, orgOverview } = useEmbeddedData();
-  const disabledAlertsNote =
-    cve.reposWithSecurityAlertsDisabled.length > 0
-      ? `Repos without security alerts enabled: ${cve.reposWithSecurityAlertsDisabled.join(', ')}. New CVEs in these repos will not appear in this report.`
-      : 'These repos returned a not-enabled response for Dependabot security alerts, so new CVEs in them will not appear in this report.';
+  const { reveal } = useAssumptionsDisclosure();
 
   if (cve.status === 'scope-missing') {
     return (
@@ -136,14 +135,18 @@ export function RiskStory() {
             {cve.reposWithSecurityAlertsDisabled.length}
           </span>{' '}
           of your <span className="text-foreground font-semibold tabular-nums">{orgOverview.repoCount}</span> repos{' '}
-          {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'does' : 'do'} not have Dependabot security alerts enabled
-          <FootnoteReference
-            id="security-alerts-disabled"
-            title="Repos without security alerts enabled"
-            body={disabledAlertsNote}
-          />
-          . New CVEs in {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'that repo' : 'those repos'} will not appear
-          in this report.
+          {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'does' : 'do'} not have Dependabot security alerts
+          enabled. New CVEs in {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'that repo' : 'those repos'} will not
+          appear in this report.{' '}
+          <a
+            href={`#${reposWithoutSecurityAlertsId}`}
+            data-testid={riskStoryTestIds.disabledAlertsLink}
+            onClick={() => reveal('calculation')}
+            className="text-primary underline underline-offset-4"
+          >
+            {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'See the repo' : 'See the full list'}
+          </a>
+          .
         </p>
       )}
     </section>
@@ -191,7 +194,7 @@ function RepoSeverityBar({ repo, maxTotal }: { repo: RepoSeverityRow; maxTotal: 
   return (
     <div className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-sm">
       <div className="text-foreground truncate font-mono text-xs" title={repo.repo}>
-        {repo.repo}
+        {repoShortName(repo.repo)}
       </div>
       <div className="bg-muted h-3.5 overflow-hidden rounded-full">
         <div className="flex h-full" style={{ width: `${(total / maxTotal) * 100}%` }}>
