@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { repoShortName } from '../format/repo.ts';
 import { useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
@@ -193,7 +194,7 @@ function RepoSeverityBar({ repo, maxTotal }: { repo: RepoSeverityRow; maxTotal: 
   return (
     <div className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-sm">
       <div className="text-foreground truncate font-mono text-xs" title={repo.repo}>
-        {repo.repo}
+        {repoShortName(repo.repo)}
       </div>
       <div className="bg-muted h-3.5 overflow-hidden rounded-full">
         <div className="flex h-full" style={{ width: `${(total / maxTotal) * 100}%` }}>

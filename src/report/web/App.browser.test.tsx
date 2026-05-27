@@ -148,12 +148,12 @@ describe('App report shell', () => {
     });
 
     const table = screen.getByTestId(riskStoryTestIds.topReposTable);
-    expect(within(table).getByText('acme/repo-5')).toBeInTheDocument();
-    expect(within(table).queryByText('acme/repo-6')).not.toBeInTheDocument();
+    expect(within(table).getByText('repo-5')).toBeInTheDocument();
+    expect(within(table).queryByText('repo-6')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId(riskStoryTestIds.topReposToggle));
 
-    expect(within(table).getByText('acme/repo-6')).toBeInTheDocument();
+    expect(within(table).getByText('repo-6')).toBeInTheDocument();
     expect(screen.getByTestId(riskStoryTestIds.topReposToggle)).toHaveTextContent('Show top 5');
   });
 
