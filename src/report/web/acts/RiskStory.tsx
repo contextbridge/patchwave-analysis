@@ -218,11 +218,13 @@ function repoTotal(r: RepoSeverityRow): number {
 }
 
 function AgeCell({ label, days, tone }: { label: string; days: number; tone: 'critical' | 'high' }) {
-  const color = tone === 'critical' ? 'text-destructive' : 'text-tangerine';
+  const color = tone === 'critical' ? 'var(--severity-critical)' : 'var(--severity-high)';
   return (
     <div className="bg-card p-5">
       <div className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
-      <div className={`mt-1.5 text-2xl font-medium tabular-nums ${color}`}>{days} days</div>
+      <div className="mt-1.5 text-2xl font-medium tabular-nums" style={{ color }}>
+        {days} days
+      </div>
     </div>
   );
 }

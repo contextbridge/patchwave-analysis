@@ -98,6 +98,14 @@
   /* Savings highlight. A lighter green reads on the dark palette but washes out
      on white, so light mode uses a darker green for contrast. */
   --savings: var(--color-green-700);
+
+  /* CVE severity palette from GitHub's Primer severity roles (Critical=danger,
+     High=severe, Medium=attention, Low=neutral). Vivid enough to read as solid
+     fills on both backgrounds, so one set serves light and dark. */
+  --severity-critical: #f85149;
+  --severity-high: #db6d28;
+  --severity-medium: #d29922;
+  --severity-low: #8b949e;
 }
 
 /* Dark palette. Applies when the OS asks for it (unless a Storybook story forces
