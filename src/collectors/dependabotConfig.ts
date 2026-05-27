@@ -1,12 +1,10 @@
+import type { Endpoints } from '@octokit/types';
 import { Result, ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { DependabotConfigSlice, DependabotInterval, DependabotUpdateEntry, RepoRef } from '../types.ts';
 
-interface ContentResponse {
-  content?: string;
-  encoding?: string;
-}
+type ContentsResponse = Endpoints['GET /repos/{owner}/{repo}/contents/{path}']['response']['data'];
 
 const CONFIG_PATHS = ['.github/dependabot.yml', '.github/dependabot.yaml'];
 
@@ -37,11 +35,7 @@ function fetchFirstAvailable(
   const [head, ...rest] = paths;
   if (head === undefined) return okAsync(null);
   return client
-    .request<ContentResponse>('GET /repos/{owner}/{repo}/contents/{path}', {
-      owner: ref.owner,
-      repo: ref.name,
-      path: head,
-    })
+    .request('GET /repos/{owner}/{repo}/contents/{path}', { owner: ref.owner, repo: ref.name, path: head })
     .map((data) => decodeContent(data))
     .orElse((err) => {
       if (err.kind === 'not-found') return fetchFirstAvailable(client, ref, rest);
@@ -49,8 +43,10 @@ function fetchFirstAvailable(
     });
 }
 
-function decodeContent(data: ContentResponse): string | null {
-  if (!data.content) return null;
+function decodeContent(data: ContentsResponse): string | null {
+  // A directory path returns an array; symlinks and submodules carry no inline
+  // content. Only a regular file has a base64 `content` body to decode.
+  if (Array.isArray(data) || !('content' in data) || !data.content) return null;
   if (data.encoding && data.encoding !== 'base64') return null;
   return Buffer.from(data.content, 'base64').toString('utf8');
 }

@@ -1,0 +1,71 @@
+query DependabotPrs($searchQuery: String!, $cursor: String) {
+  search(query: $searchQuery, type: ISSUE, first: 50, after: $cursor) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ... on PullRequest {
+        number
+        title
+        state
+        createdAt
+        closedAt
+        mergedAt
+        url
+        baseRefName
+        headRefName
+        mergedBy {
+          __typename
+          login
+        }
+        autoMergeRequest {
+          enabledAt
+        }
+        repository {
+          owner {
+            login
+          }
+          name
+        }
+        reviews(first: 50) {
+          nodes {
+            author {
+              __typename
+              login
+            }
+          }
+        }
+        comments(first: 50) {
+          nodes {
+            author {
+              __typename
+              login
+            }
+          }
+        }
+        commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                contexts(first: 100) {
+                  nodes {
+                    __typename
+                    ... on CheckRun {
+                      name
+                      conclusion
+                    }
+                    ... on StatusContext {
+                      context
+                      state
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

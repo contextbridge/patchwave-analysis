@@ -28,7 +28,7 @@ run *args:
 
 # Compile a host-platform binary (for cross-platform artifacts use `just release dry-run`)
 build:
-    bun run build:report-web
+    bun run build:assets
     bun build --compile ./src/index.ts --outfile dist/patchwave-analysis
 
 # Run the embedded report UI dev server with HMR
