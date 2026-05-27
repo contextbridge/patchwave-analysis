@@ -11,7 +11,7 @@ export const callToActionCopy = {
   pitch:
     'PatchWave reviews each Dependabot PR, auto-merges the safe updates, and gives engineers context for the few that need judgment.',
   earlyAccess: "Early access, plus a heads-up when the public beta opens. That's all we'll email you about.",
-  ctaLabel: 'Join the waitlist →',
+  ctaLabel: 'Join the waitlist',
 } as const;
 
 export function CallToAction() {
