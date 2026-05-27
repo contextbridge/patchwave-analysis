@@ -7,7 +7,7 @@ import { main, parseCli } from './cli.ts';
 import { createContext } from './context.ts';
 import { getEnvironment, isTelemetryDisabled } from './environment.ts';
 import { welcomeBannerBody, welcomeBannerTitle } from './interactive/banner.ts';
-import { runOpenReportPrompt } from './interactive/openReportPrompt.ts';
+import { openReport } from './interactive/openReport.ts';
 import { runSharePrompt } from './interactive/sharePrompt.ts';
 import { formatInteractiveTokenError, interactiveResolveToken } from './interactive/tokenWalkthrough.ts';
 import { enforceTty } from './interactive/ttyGate.ts';
@@ -89,7 +89,7 @@ const ctx = createContext({
 const result = await main(ctx, argv);
 
 if (result.kind === 'completed') {
-  await runOpenReportPrompt({ context: ctx, htmlPath: result.run.paths.html });
+  await openReport({ context: ctx, htmlPath: result.run.paths.html });
   await runSharePrompt({
     context: ctx,
     target: result.run.target,
