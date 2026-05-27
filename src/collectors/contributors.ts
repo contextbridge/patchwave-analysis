@@ -4,7 +4,7 @@ import type { GithubClient } from '../github/GithubClient.ts';
 import type { ContributorSlice, RepoRef } from '../types.ts';
 
 interface ListCommitsItem {
-  author: { login: string; type?: string } | null;
+  author: { login?: string; type?: string } | null;
   commit: { author: { name: string; date: string } | null };
 }
 
@@ -24,7 +24,7 @@ export function listActiveCommitters(
       const logins = new Set<string>();
       for (const c of commits) {
         const author = c.author;
-        if (!author) continue;
+        if (!author?.login) continue;
         if (author.type === 'Bot') continue;
         if (author.login.endsWith('[bot]')) continue;
         logins.add(author.login);

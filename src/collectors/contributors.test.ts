@@ -11,6 +11,7 @@ test('returns unique human committers, sorted, skipping bots', async () => {
     { author: { login: 'dependabot[bot]', type: 'Bot' }, commit: { author: { name: 'd', date: '' } } },
     { author: { login: 'renovate[bot]', type: 'User' }, commit: { author: { name: 'r', date: '' } } },
     { author: null, commit: { author: null } },
+    { author: { type: 'User' }, commit: { author: { name: 'e', date: '' } } },
   ]);
 
   const result = await listActiveCommitters(client, { owner: 'acme', name: 'widgets' }, '2026-01-01T00:00:00Z');
