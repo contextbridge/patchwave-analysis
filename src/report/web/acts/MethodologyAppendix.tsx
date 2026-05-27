@@ -6,6 +6,7 @@ import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
 import { Citation } from '../primitives/Citation.tsx';
+import { NotMeasured } from '../primitives/NotMeasured.tsx';
 import { reposWithoutSecurityAlertsId } from './RiskStory.tsx';
 
 export const methodologyAppendixTestIds = {
@@ -158,8 +159,8 @@ export function MethodologyAppendix() {
                           `${org.repoCount} active (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
-                        ['Active human committers', org.activeHumanCommitters.toLocaleString()],
-                        ['Repos with branch protection', org.reposWithBranchProtection.toLocaleString()],
+                        ['Active human committers', formatNullableNumber(org.activeHumanCommitters)],
+                        ['Repos with branch protection', formatNullableNumber(org.reposWithBranchProtection)],
                       ]}
                     />
                   </DataPanel>
@@ -167,13 +168,24 @@ export function MethodologyAppendix() {
                   <DataPanel title="Dependabot coverage">
                     <MetricList
                       rows={[
-                        ['Config coverage', `${cov.reposWithConfig} repos (${cov.reposWithConfigPercentage}%)`],
+                        [
+                          'Config coverage',
+                          cov.reposWithConfig === null
+                            ? 'Not measured'
+                            : `${cov.reposWithConfig} repos (${cov.reposWithConfigPercentage}%)`,
+                        ],
                         [
                           'Security updates',
                           `${cov.reposWithSecurityUpdates} repos (${cov.reposWithSecurityUpdatesPercentage}%)`,
                         ],
-                        ['Repos using groups', cov.reposUsingGroups.toLocaleString()],
-                        ['Repos with ignore rules', cov.reposWithIgnoreRules.toLocaleString()],
+                        [
+                          'Repos using groups',
+                          cov.configStatus === 'measured' ? cov.reposUsingGroups.toLocaleString() : 'Not measured',
+                        ],
+                        [
+                          'Repos with ignore rules',
+                          cov.configStatus === 'measured' ? cov.reposWithIgnoreRules.toLocaleString() : 'Not measured',
+                        ],
                       ]}
                     />
                     <InlineBreakdown
@@ -219,23 +231,36 @@ export function MethodologyAppendix() {
                   </DataPanel>
 
                   <DataPanel title="Stalled signals">
-                    <RepoList
-                      label="Repos at PR cap"
-                      empty="No repos are currently at the Dependabot PR cap."
-                      repos={stalled.reposAtPrCap.map((r) => `${r.repo} (${r.openPrs} open)`)}
-                    />
-                    <RepoList
-                      label="Config present, no recent PRs"
-                      empty="No configured repos were missing recent Dependabot PRs."
-                      repos={stalled.reposWithConfigButNoRecentPrs}
-                    />
+                    {stalled.status === 'skipped' ? (
+                      <p className="text-muted-foreground">
+                        <NotMeasured>
+                          Stalled signals were not measured because Dependabot config was skipped.
+                        </NotMeasured>
+                      </p>
+                    ) : (
+                      <>
+                        <RepoList
+                          label="Repos at PR cap"
+                          empty="No repos are currently at the Dependabot PR cap."
+                          repos={stalled.reposAtPrCap.map((r) => `${r.repo} (${r.openPrs} open)`)}
+                        />
+                        <RepoList
+                          label="Config present, no recent PRs"
+                          empty="No configured repos were missing recent Dependabot PRs."
+                          repos={stalled.reposWithConfigButNoRecentPrs}
+                        />
+                      </>
+                    )}
                   </DataPanel>
 
                   <DataPanel title="Security coverage">
                     <MetricList
                       rows={[
                         ['Alert status', cve.status],
-                        ['Open alerts', cve.totalOpenAlerts.toLocaleString()],
+                        [
+                          'Open alerts',
+                          cve.status === 'not-measured' ? 'Not measured' : cve.totalOpenAlerts.toLocaleString(),
+                        ],
                         [
                           'Severity',
                           `${cve.bySeverity.critical} critical, ${cve.bySeverity.high} high, ${cve.bySeverity.medium} medium, ${cve.bySeverity.low} low`,
@@ -254,13 +279,16 @@ export function MethodologyAppendix() {
                   </DataPanel>
 
                   {org.topLanguages.length > 0 && (
-                    <DataPanel title="Language mix">
+                    <DataPanel title={org.languageSource === 'metadata' ? 'Primary language by repo' : 'Language mix'}>
                       <ul className="space-y-1.5">
                         {org.topLanguages.map((l) => (
                           <li key={l.language} className="flex justify-between gap-4">
                             <span>{l.language}</span>
                             <span className="text-muted-foreground tabular-nums">
-                              {fmtBytes(l.bytes)} ({l.percentage}%)
+                              {org.languageSource === 'metadata'
+                                ? `${l.repoCount.toLocaleString()} repos`
+                                : fmtBytes(l.bytes)}{' '}
+                              ({l.percentage}%)
                             </span>
                           </li>
                         ))}
@@ -345,6 +373,10 @@ function DataPanel({ title, children }: { title: string; children: ReactNode }) 
       <div className="mt-3 space-y-4">{children}</div>
     </div>
   );
+}
+
+function formatNullableNumber(value: number | null): string {
+  return value === null ? 'Not measured' : value.toLocaleString();
 }
 
 function MetricList({ rows }: { rows: Array<[string, string]> }) {

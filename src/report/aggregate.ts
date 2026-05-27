@@ -2,6 +2,7 @@ import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts
 import { type Instant, Temporal, instantFromString } from '../time.ts';
 import type {
   CollectedData,
+  CollectorMeasurement,
   CveAlert,
   CveSeverity,
   DependabotConfigSlice,
@@ -12,6 +13,7 @@ import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derive
 
 export interface ReportBundle {
   meta: ReportMeta;
+  measurements: ReportMeasurements;
   orgOverview: OrgOverview;
   dependabotCoverage: DependabotCoverage;
   prBacklog: PrBacklog;
@@ -19,6 +21,11 @@ export interface ReportBundle {
   people: People;
   costEstimate: CostEstimate;
   cve: CveExposure;
+}
+
+export interface ReportMeasurements {
+  mode: 'full' | 'budgeted';
+  collectors: Record<CollectorMeasurement['collector'], CollectorMeasurement>;
 }
 
 export interface ReportMeta {
@@ -34,18 +41,20 @@ export interface OrgOverview {
   privateCount: number;
   internalCount: number;
   archivedExcluded: number;
-  topLanguages: Array<{ language: string; bytes: number; percentage: number }>;
+  topLanguages: Array<{ language: string; repoCount: number; bytes: number; percentage: number }>;
+  languageSource: 'bytes' | 'metadata' | 'skipped';
   nodeTsRepoCount: number;
   nodeTsRepoPercentage: number;
-  activeHumanCommitters: number;
-  reposWithBranchProtection: number;
+  activeHumanCommitters: number | null;
+  reposWithBranchProtection: number | null;
 }
 
 export type CadenceLabel = 'daily' | 'weekly' | 'monthly' | 'unspecified';
 
 export interface DependabotCoverage {
-  reposWithConfig: number;
-  reposWithConfigPercentage: number;
+  configStatus: 'measured' | 'skipped' | 'failed';
+  reposWithConfig: number | null;
+  reposWithConfigPercentage: number | null;
   reposWithSecurityUpdates: number;
   reposWithSecurityUpdatesPercentage: number;
   ecosystemBreakdown: Array<{ ecosystem: string; repoCount: number }>;
@@ -55,6 +64,7 @@ export interface DependabotCoverage {
 }
 
 export interface PrBacklog {
+  status: 'measured' | 'failed';
   openCount: number;
   closedInWindowCount: number;
   mergedInWindowCount: number;
@@ -70,6 +80,8 @@ export interface PrBacklog {
 }
 
 export interface StalledSignals {
+  status: 'measured' | 'skipped';
+  reason?: string;
   reposAtPrCap: Array<{ repo: string; openPrs: number }>;
   reposWithConfigButNoRecentPrs: string[];
 }
@@ -94,7 +106,9 @@ export interface CostEstimate {
 }
 
 export interface CveExposure {
-  status: 'ok' | 'scope-missing';
+  status: 'ok' | 'scope-missing' | 'not-measured';
+  source?: 'org-endpoint' | 'repo-endpoint';
+  disabledRepoStatus: 'measured' | 'metadata' | 'unknown';
   requiredScope?: string;
   totalOpenAlerts: number;
   bySeverity: Record<CveSeverity, number>;
@@ -116,6 +130,7 @@ export function aggregate(data: CollectedData): ReportBundle {
     totalReposScanned: data.repos.length,
   };
 
+  const measurements = buildReportMeasurements(data);
   const orgOverview = buildOrgOverview(data);
   const dependabotCoverage = buildDependabotCoverage(data);
   const prBacklog = buildPrBacklog(data, now, windowStart);
@@ -126,6 +141,7 @@ export function aggregate(data: CollectedData): ReportBundle {
 
   return {
     meta,
+    measurements,
     orgOverview,
     dependabotCoverage,
     prBacklog,
@@ -143,21 +159,15 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
   const privateCount = repos.filter((r) => r.visibility === 'private').length;
   const internalCount = repos.filter((r) => r.visibility === 'internal').length;
 
-  const aggregateBytes: LanguageBytes = {};
-  for (const lang of data.languages) {
-    for (const [name, bytes] of Object.entries(lang.bytes)) {
-      aggregateBytes[name] = (aggregateBytes[name] ?? 0) + bytes;
-    }
-  }
-  const totalBytes = Object.values(aggregateBytes).reduce((a, b) => a + b, 0);
-  const topLanguages = Object.entries(aggregateBytes)
-    .map(([language, bytes]) => ({
-      language,
-      bytes,
-      percentage: totalBytes > 0 ? round1((bytes / totalBytes) * 100) : 0,
-    }))
-    .sort((a, b) => b.bytes - a.bytes)
-    .slice(0, 10);
+  const languageMeasurement = findMeasurement(data, 'languages');
+  const languageSource: OrgOverview['languageSource'] =
+    languageMeasurement?.status === 'skipped'
+      ? 'skipped'
+      : languageMeasurement?.mode === 'metadata'
+        ? 'metadata'
+        : 'bytes';
+  const topLanguages =
+    languageSource === 'metadata' ? buildMetadataLanguages(repos) : buildByteLanguages(data.languages);
 
   const nodeTsRepoCount = repos.filter(
     (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
@@ -168,7 +178,10 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     for (const login of slice.activeHumanLogins) allCommitters.add(login);
   }
 
-  const reposWithBranchProtection = data.branchProtection.filter((b) => b.hasProtection).length;
+  const branchMeasurement = findMeasurement(data, 'branchProtection');
+  const contributorMeasurement = findMeasurement(data, 'contributors');
+  const reposWithBranchProtection =
+    branchMeasurement?.status === 'skipped' ? null : data.branchProtection.filter((b) => b.hasProtection).length;
 
   return {
     repoCount: repos.length,
@@ -177,16 +190,24 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     internalCount,
     archivedExcluded,
     topLanguages,
+    languageSource,
     nodeTsRepoCount,
     nodeTsRepoPercentage: pct(nodeTsRepoCount, repos.length),
-    activeHumanCommitters: allCommitters.size,
+    activeHumanCommitters: contributorMeasurement?.status === 'skipped' ? null : allCommitters.size,
     reposWithBranchProtection,
   };
 }
 
 function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
   const liveRepos = data.repos.filter((r) => !r.archived);
-  const reposWithConfig = data.dependabotConfig.filter((c) => c.hasConfig).length;
+  const configMeasurement = findMeasurement(data, 'dependabotConfig');
+  const configStatus: DependabotCoverage['configStatus'] =
+    configMeasurement?.status === 'skipped'
+      ? 'skipped'
+      : configMeasurement?.status === 'failed'
+        ? 'failed'
+        : 'measured';
+  const reposWithConfig = configStatus === 'measured' ? data.dependabotConfig.filter((c) => c.hasConfig).length : null;
   const reposWithSecurity = liveRepos.filter((r) => r.dependabotSecurityUpdates === true).length;
 
   const ecoCounts = new Map<string, number>();
@@ -215,8 +236,9 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
     .filter((c) => c.entryCount > 0);
 
   return {
+    configStatus,
     reposWithConfig,
-    reposWithConfigPercentage: pct(reposWithConfig, liveRepos.length),
+    reposWithConfigPercentage: reposWithConfig === null ? null : pct(reposWithConfig, liveRepos.length),
     reposWithSecurityUpdates: reposWithSecurity,
     reposWithSecurityUpdatesPercentage: pct(reposWithSecurity, liveRepos.length),
     ecosystemBreakdown,
@@ -227,6 +249,8 @@ function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
 }
 
 function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant): PrBacklog {
+  const status: PrBacklog['status'] =
+    findMeasurement(data, 'dependabotPrs')?.status === 'failed' ? 'failed' : 'measured';
   const prs = data.dependabotPrs;
   const openPrs = prs.filter((p) => p.state === 'open');
   const mergedInWindow = prs.filter((p) => p.merged && p.mergedAt && isAtOrAfter(p.mergedAt, windowStart));
@@ -294,6 +318,7 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   const timeToMergeP90Days = percentile(ttMergeDays, 90);
 
   return {
+    status,
     openCount: openPrs.length,
     closedInWindowCount: closedNotMergedInWindow.length,
     mergedInWindowCount: mergedInWindow.length,
@@ -310,6 +335,10 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
 }
 
 function buildStalledSignals(data: CollectedData, windowStart: Instant): StalledSignals {
+  const configMeasurement = findMeasurement(data, 'dependabotConfig');
+  if (configMeasurement?.status === 'skipped' || configMeasurement?.status === 'failed') {
+    return { status: 'skipped', reason: configMeasurement.reason, reposAtPrCap: [], reposWithConfigButNoRecentPrs: [] };
+  }
   const openByRepo = new Map<string, DependabotPr[]>();
   for (const pr of data.dependabotPrs) {
     if (pr.state !== 'open') continue;
@@ -340,6 +369,7 @@ function buildStalledSignals(data: CollectedData, windowStart: Instant): Stalled
     .sort();
 
   return {
+    status: 'measured',
     reposAtPrCap,
     reposWithConfigButNoRecentPrs,
   };
@@ -401,10 +431,25 @@ export function isBotLogin(login: string): boolean {
 }
 
 function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
+  const cveMeasurement = findMeasurement(data, 'cve');
+  if (cveMeasurement?.status === 'skipped' || cveMeasurement?.status === 'failed') {
+    return {
+      status: 'not-measured',
+      disabledRepoStatus: 'unknown',
+      totalOpenAlerts: 0,
+      bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+      topReposBySeverity: [],
+      oldestCriticalDays: null,
+      oldestHighDays: null,
+      reposWithSecurityAlertsDisabled: [],
+    };
+  }
   const scopeMissing = data.cve.find((s) => s.status === 'scope-missing');
   if (scopeMissing && scopeMissing.status === 'scope-missing') {
     return {
       status: 'scope-missing',
+      source: cveMeasurement?.mode === 'org-endpoint' ? 'org-endpoint' : 'repo-endpoint',
+      disabledRepoStatus: 'unknown',
       requiredScope: scopeMissing.requiredScope,
       totalOpenAlerts: 0,
       bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
@@ -443,6 +488,8 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
 
   return {
     status: 'ok',
+    source: cveMeasurement?.mode === 'org-endpoint' ? 'org-endpoint' : 'repo-endpoint',
+    disabledRepoStatus: cveMeasurement?.mode === 'org-endpoint' ? 'metadata' : 'measured',
     totalOpenAlerts: allAlerts.length,
     bySeverity,
     topReposBySeverity,
@@ -450,6 +497,52 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
     oldestHighDays: oldest('high'),
     reposWithSecurityAlertsDisabled: disabledRepos,
   };
+}
+
+function buildReportMeasurements(data: CollectedData): ReportMeasurements {
+  const collectors = Object.fromEntries(
+    data.measurements.map((m) => [m.collector, m]),
+  ) as ReportMeasurements['collectors'];
+  const mode = data.measurements.some((m) => m.status === 'skipped' || m.mode === 'metadata') ? 'budgeted' : 'full';
+  return { mode, collectors };
+}
+
+function findMeasurement(
+  data: CollectedData,
+  collector: CollectorMeasurement['collector'],
+): CollectorMeasurement | undefined {
+  return data.measurements.find((m) => m.collector === collector);
+}
+
+function buildByteLanguages(languages: CollectedData['languages']): OrgOverview['topLanguages'] {
+  const aggregateBytes: LanguageBytes = {};
+  for (const lang of languages) {
+    for (const [name, bytes] of Object.entries(lang.bytes)) {
+      aggregateBytes[name] = (aggregateBytes[name] ?? 0) + bytes;
+    }
+  }
+  const totalBytes = Object.values(aggregateBytes).reduce((a, b) => a + b, 0);
+  return Object.entries(aggregateBytes)
+    .map(([language, bytes]) => ({
+      language,
+      repoCount: 0,
+      bytes,
+      percentage: totalBytes > 0 ? round1((bytes / totalBytes) * 100) : 0,
+    }))
+    .sort((a, b) => b.bytes - a.bytes)
+    .slice(0, 10);
+}
+
+function buildMetadataLanguages(repos: readonly { primaryLanguage: string | null }[]): OrgOverview['topLanguages'] {
+  const counts = new Map<string, number>();
+  for (const repo of repos) {
+    if (repo.primaryLanguage) counts.set(repo.primaryLanguage, (counts.get(repo.primaryLanguage) ?? 0) + 1);
+  }
+  const total = [...counts.values()].reduce((a, b) => a + b, 0);
+  return [...counts.entries()]
+    .map(([language, repoCount]) => ({ language, repoCount, bytes: 0, percentage: pct(repoCount, total) }))
+    .sort((a, b) => b.repoCount - a.repoCount)
+    .slice(0, 10);
 }
 
 function severityScore(rec: { critical: number; high: number; medium: number; low: number }): number {

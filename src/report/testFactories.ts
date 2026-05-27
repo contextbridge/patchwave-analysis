@@ -8,6 +8,7 @@ import type {
   People,
   PrBacklog,
   ReportBundle,
+  ReportMeasurements,
   ReportMeta,
   StalledSignals,
 } from './aggregate.ts';
@@ -22,13 +23,26 @@ export const reportMeta = Factory.define<ReportMeta>(() => ({
   totalReposScanned: 24,
 }));
 
+export const reportMeasurements = Factory.define<ReportMeasurements>(() => ({
+  mode: 'full',
+  collectors: {
+    languages: { collector: 'languages', status: 'measured', mode: 'exact' },
+    dependabotConfig: { collector: 'dependabotConfig', status: 'measured', mode: 'exact' },
+    cve: { collector: 'cve', status: 'measured', mode: 'exact' },
+    branchProtection: { collector: 'branchProtection', status: 'measured', mode: 'exact' },
+    contributors: { collector: 'contributors', status: 'measured', mode: 'exact' },
+    dependabotPrs: { collector: 'dependabotPrs', status: 'measured', mode: 'exact' },
+  },
+}));
+
 export const orgOverview = Factory.define<OrgOverview>(() => ({
   repoCount: 24,
   publicCount: 3,
   privateCount: 21,
   internalCount: 0,
   archivedExcluded: 1,
-  topLanguages: [{ language: 'TypeScript', bytes: 2_000_000, percentage: 65 }],
+  topLanguages: [{ language: 'TypeScript', repoCount: 0, bytes: 2_000_000, percentage: 65 }],
+  languageSource: 'bytes',
   nodeTsRepoCount: 18,
   nodeTsRepoPercentage: 75,
   activeHumanCommitters: 17,
@@ -36,6 +50,7 @@ export const orgOverview = Factory.define<OrgOverview>(() => ({
 }));
 
 export const dependabotCoverage = Factory.define<DependabotCoverage>(() => ({
+  configStatus: 'measured',
   reposWithConfig: 20,
   reposWithConfigPercentage: 83.3,
   reposWithSecurityUpdates: 19,
@@ -50,6 +65,7 @@ export const dependabotCoverage = Factory.define<DependabotCoverage>(() => ({
 }));
 
 export const prBacklog = Factory.define<PrBacklog>(() => ({
+  status: 'measured',
   openCount: 102,
   closedInWindowCount: 14,
   mergedInWindowCount: 273,
@@ -74,6 +90,7 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
 }));
 
 export const stalledSignals = Factory.define<StalledSignals>(() => ({
+  status: 'measured',
   reposAtPrCap: [{ repo: 'acme/api', openPrs: 7 }],
   reposWithConfigButNoRecentPrs: ['acme/old-tool'],
 }));
@@ -118,6 +135,8 @@ export const costEstimate = Factory.define<CostEstimate>(() => ({
 
 export const cveExposureOk = Factory.define<CveExposure>(() => ({
   status: 'ok',
+  source: 'repo-endpoint',
+  disabledRepoStatus: 'measured',
   totalOpenAlerts: 7,
   bySeverity: { critical: 1, high: 3, medium: 2, low: 1 },
   topReposBySeverity: [{ repo: 'acme/api', critical: 1, high: 2, medium: 1, low: 0 }],
@@ -128,6 +147,8 @@ export const cveExposureOk = Factory.define<CveExposure>(() => ({
 
 export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
   status: 'scope-missing',
+  source: 'repo-endpoint',
+  disabledRepoStatus: 'unknown',
   requiredScope: 'security_events',
   totalOpenAlerts: 0,
   bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
@@ -139,6 +160,7 @@ export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
 
 export const reportBundle = Factory.define<ReportBundle>(() => ({
   meta: reportMeta.build(),
+  measurements: reportMeasurements.build(),
   orgOverview: orgOverview.build(),
   dependabotCoverage: dependabotCoverage.build(),
   prBacklog: prBacklog.build(),

@@ -26,6 +26,22 @@ export function CostStory() {
 
   const { humanMergeCount } = data.costEstimate;
 
+  if (data.prBacklog.status === 'failed') {
+    return (
+      <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
+        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
+          {costStoryCopy.eyebrow}
+        </div>
+        <h2 className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+          Dependabot PR toil was not measured
+        </h2>
+        <p className="text-foreground mt-5 text-base leading-relaxed">
+          PatchWave could not safely compute PR toil because GitHub returned incomplete PR data.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
       <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">

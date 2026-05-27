@@ -3,24 +3,35 @@ import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
 import { getBranchProtection } from './collectors/branchProtection.ts';
 import { listActiveCommitters } from './collectors/contributors.ts';
-import { getCveAlerts } from './collectors/cve.ts';
+import { getCveAlerts, getOrgCveAlerts } from './collectors/cve.ts';
 import { getDependabotConfig } from './collectors/dependabotConfig.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
-import { getRepoLanguages, listOrgRepos } from './collectors/repos.ts';
+import { type TargetKind, getRepoLanguages, listTargetRepos as listRepos } from './collectors/repos.ts';
 import { mapWithConcurrency } from './concurrency.ts';
 import type { Context } from './context.ts';
 import { getErrorMessage } from './errors.ts';
 import { formatFsError } from './FileSystem.ts';
 import { type GithubError, formatGithubError } from './github/errors.ts';
+import { getRateLimitStatus } from './github/rateLimit.ts';
 import { promptForTarget } from './interactive/targetPrompt.ts';
 import { formatPromptError } from './prompt/Prompter.ts';
 import { aggregate } from './report/aggregate.ts';
 import { type RenderError, renderHtml } from './report/html.ts';
 import type { ReportAnalyticsConfig } from './report/reportAnalyticsConfig.ts';
+import {
+  COLLECTOR_KEYS,
+  DEFAULT_API_BUDGET,
+  type ScanPlan,
+  apiBudgetFromRateLimit,
+  buildScanPlan,
+  countSkipped,
+  isBudgetConstrained,
+} from './scanPlan.ts';
 import { type Instant, Temporal } from './time.ts';
 import type {
   BranchProtectionSlice,
   CollectedData,
+  CollectorMeasurement,
   CollectorWarning,
   ContributorSlice,
   CveSlice,
@@ -167,6 +178,9 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     repos_included: stats.reposIncluded,
     dependabot_prs: stats.dependabotPrs,
     warnings: stats.warnings,
+    scan_mode: stats.scanMode,
+    skipped_collectors: stats.skippedCollectors,
+    budgeted_rest_budget: stats.restBudget,
     duration_ms: elapsedMs(startedAt, ctx.clock.now()),
   });
   return {
@@ -181,6 +195,9 @@ interface ReportStats {
   readonly reposIncluded: number;
   readonly dependabotPrs: number;
   readonly warnings: number;
+  readonly scanMode: 'full' | 'budgeted';
+  readonly skippedCollectors: number;
+  readonly restBudget: number;
 }
 
 interface RenderedReport {
@@ -201,41 +218,60 @@ function renderReport(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
   );
-  return listOrgRepos(ctx.githubClient, opts.target).andThen((repos) => {
+  return listRepos(ctx.githubClient, opts.target).andThen(({ targetKind, repos }) => {
     const filtered = filterRepos(repos, opts);
     ctx.logger.info(
-      { total: repos.length, included: filtered.length },
+      { total: repos.length, included: filtered.length, targetKind },
       `found ${repos.length} repos; ${filtered.length} included after filters`,
     );
     const now = ctx.clock.now();
     const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
-    return ResultAsync.fromSafePromise(
-      collectAll(ctx, filtered, opts.target, opts.windowDays, windowStart, now),
-    ).andThen((data) => {
-      ctx.logger.info(
-        { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
-        `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
-      );
-      if (data.errors.length > 0) {
+    return getRateLimitStatus(ctx.githubClient)
+      .map(apiBudgetFromRateLimit)
+      .orElse((err) => {
         ctx.logger.warn(
-          { count: data.errors.length },
-          `${data.errors.length} per-repo warnings were suppressed during crawl`,
+          { err: formatGithubError(err) },
+          'could not fetch GitHub rate limit; using conservative scan plan',
         );
-      }
-      const bundle = aggregate(data);
-      return renderHtml(bundle, analytics).map(
-        (report): RenderedReport => ({
-          report,
-          stats: {
-            reposTotal: repos.length,
-            reposIncluded: filtered.length,
-            dependabotPrs: data.dependabotPrs.length,
-            warnings: data.errors.length,
-          },
-        }),
-      );
-    });
+        return ResultAsync.fromSafePromise(Promise.resolve(DEFAULT_API_BUDGET));
+      })
+      .andThen((apiBudget) => {
+        const plan = buildScanPlan({ targetKind, repoCount: filtered.length, apiBudget });
+        ctx.logger.info(
+          { plan, budgetConstrained: isBudgetConstrained(plan) },
+          'using GitHub API budget-aware scan plan',
+        );
+        return ResultAsync.fromSafePromise(
+          collectAll(ctx, filtered, opts.target, targetKind, opts.windowDays, windowStart, now, plan),
+        ).andThen((data) => {
+          ctx.logger.info(
+            { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
+            `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
+          );
+          if (data.errors.length > 0) {
+            ctx.logger.warn(
+              { count: data.errors.length },
+              `${data.errors.length} per-repo warnings were suppressed during crawl`,
+            );
+          }
+          const bundle = aggregate(data);
+          return renderHtml(bundle, analytics).map(
+            (report): RenderedReport => ({
+              report,
+              stats: {
+                reposTotal: repos.length,
+                reposIncluded: filtered.length,
+                dependabotPrs: data.dependabotPrs.length,
+                warnings: data.errors.length,
+                scanMode: isBudgetConstrained(plan) ? 'budgeted' : 'full',
+                skippedCollectors: countSkipped(plan),
+                restBudget: plan.restBudget,
+              },
+            }),
+          );
+        });
+      });
   });
 }
 
@@ -243,39 +279,39 @@ async function collectAll(
   ctx: Context,
   repos: RepoMeta[],
   target: string,
+  targetKind: TargetKind,
   windowDays: number,
   windowStart: Instant,
   now: Instant,
+  plan: ScanPlan,
 ): Promise<CollectedData> {
   const client = ctx.githubClient;
   const warnings: CollectorWarning[] = [];
+  const measurements = measurementsFromPlan(plan);
   const windowStartIso = windowStart.toString();
+  const concurrency = isBudgetConstrained(plan) ? 4 : 8;
 
-  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
-    crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
-      (rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
-    ),
-    crawlPerRepo<DependabotConfigSlice>(
-      repos,
-      (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
-      warnings,
-      'dependabotConfig',
-    ),
-    crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve'),
-    crawlPerRepo<BranchProtectionSlice>(
-      repos,
-      (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
-      warnings,
-      'branchProtection',
-    ),
-    crawlPerRepo<ContributorSlice>(
-      repos,
-      (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
-      warnings,
-      'contributors',
-    ),
-    runResultAsync<DependabotPr[]>(listDependabotPrs(client, target, windowStartIso), [], warnings, 'dependabotPrs'),
+  const dependabotPrsPromise = runResultAsyncWithStatus<DependabotPr[]>(
+    listDependabotPrs(client, target, windowStartIso),
+    [],
+    warnings,
+    measurements,
+    'dependabotPrs',
+  );
+
+  const cvePromise = collectCveFromPlan(client, target, targetKind, repos, plan, warnings, measurements, concurrency);
+  const languagesPromise = collectLanguagesFromPlan(client, repos, plan, warnings, concurrency);
+  const configPromise = collectDependabotConfigFromPlan(client, repos, plan, warnings, measurements, concurrency);
+
+  const [dependabotPrs, cve, languages, dependabotConfig] = await Promise.all([
+    dependabotPrsPromise,
+    cvePromise,
+    languagesPromise,
+    configPromise,
   ]);
+
+  const branchProtection = await collectBranchProtectionFromPlan(client, repos, plan, warnings, concurrency);
+  const contributors = await collectContributorsFromPlan(client, repos, windowStartIso, plan, warnings, concurrency);
 
   return {
     ctx: { org: target, windowDays, windowStart, now },
@@ -286,8 +322,120 @@ async function collectAll(
     cve,
     branchProtection,
     contributors,
+    measurements,
     errors: warnings,
   };
+}
+
+async function collectCveFromPlan(
+  client: Context['githubClient'],
+  target: string,
+  targetKind: TargetKind,
+  repos: readonly RepoMeta[],
+  plan: ScanPlan,
+  warnings: CollectorWarning[],
+  measurements: CollectorMeasurement[],
+  concurrency: number,
+): Promise<CveSlice[]> {
+  if (!plan.include.has('cve')) {
+    addSkippedWarning(warnings, plan, 'cve');
+    return [];
+  }
+  if (targetKind === 'org' && plan.modes.cve === 'org-endpoint') {
+    return runResultAsyncWithStatus(getOrgCveAlerts(client, target, repos), [], warnings, measurements, 'cve');
+  }
+  return crawlPerRepo<CveSlice>(
+    repos,
+    (r) => getCveAlerts(client, { owner: r.owner, name: r.name }),
+    warnings,
+    'cve',
+    concurrency,
+  );
+}
+
+async function collectLanguagesFromPlan(
+  client: Context['githubClient'],
+  repos: readonly RepoMeta[],
+  plan: ScanPlan,
+  warnings: CollectorWarning[],
+  concurrency: number,
+): Promise<RepoLanguages[]> {
+  if (!plan.include.has('languages')) {
+    addSkippedWarning(warnings, plan, 'languages');
+    return [];
+  }
+  if (plan.modes.languages === 'metadata') return [];
+  return crawlPerRepo(
+    repos,
+    (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }),
+    warnings,
+    'languages',
+    concurrency,
+  ).then((rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })));
+}
+
+async function collectDependabotConfigFromPlan(
+  client: Context['githubClient'],
+  repos: readonly RepoMeta[],
+  plan: ScanPlan,
+  warnings: CollectorWarning[],
+  measurements: CollectorMeasurement[],
+  concurrency: number,
+): Promise<DependabotConfigSlice[]> {
+  if (!plan.include.has('dependabotConfig')) {
+    addSkippedWarning(warnings, plan, 'dependabotConfig');
+    return [];
+  }
+  const rows = await crawlPerRepo<DependabotConfigSlice>(
+    repos,
+    (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
+    warnings,
+    'dependabotConfig',
+    concurrency,
+  );
+  if (rows.length < repos.length) markMeasurement(measurements, 'dependabotConfig', 'partial');
+  return rows;
+}
+
+async function collectBranchProtectionFromPlan(
+  client: Context['githubClient'],
+  repos: readonly RepoMeta[],
+  plan: ScanPlan,
+  warnings: CollectorWarning[],
+  concurrency: number,
+): Promise<BranchProtectionSlice[]> {
+  if (!plan.include.has('branchProtection')) {
+    addSkippedWarning(warnings, plan, 'branchProtection');
+    return [];
+  }
+  return crawlPerRepo<BranchProtectionSlice>(
+    repos,
+    (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
+    warnings,
+    'branchProtection',
+    concurrency,
+  );
+}
+
+async function collectContributorsFromPlan(
+  client: Context['githubClient'],
+  repos: readonly RepoMeta[],
+  windowStartIso: string,
+  plan: ScanPlan,
+  warnings: CollectorWarning[],
+  concurrency: number,
+): Promise<ContributorSlice[]> {
+  if (!plan.include.has('contributors')) {
+    addSkippedWarning(warnings, plan, 'contributors');
+    return [];
+  }
+  return crawlPerRepo<ContributorSlice>(
+    repos,
+    (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
+    warnings,
+    'contributors',
+    concurrency,
+  );
 }
 
 async function crawlPerRepo<T>(
@@ -295,8 +443,9 @@ async function crawlPerRepo<T>(
   fn: (repo: RepoMeta) => ResultAsync<T, GithubError>,
   warnings: CollectorWarning[],
   collector: string,
+  concurrency: number,
 ): Promise<T[]> {
-  const results = await mapWithConcurrency(repos, 8, async (repo) => {
+  const results = await mapWithConcurrency(repos, concurrency, async (repo) => {
     const result = await fn(repo);
     return { repo, result };
   });
@@ -315,16 +464,51 @@ async function crawlPerRepo<T>(
   return ok;
 }
 
-async function runResultAsync<T>(
+async function runResultAsyncWithStatus<T>(
   ra: ResultAsync<T, GithubError>,
   fallback: T,
   warnings: CollectorWarning[],
-  collector: string,
+  measurements: CollectorMeasurement[],
+  collector: CollectorMeasurement['collector'],
 ): Promise<T> {
   const result = await ra;
   if (result.isOk()) return result.value;
   warnings.push({ collector, message: formatGithubError(result.error) });
+  markMeasurement(measurements, collector, 'failed', formatGithubError(result.error));
   return fallback;
+}
+
+function measurementsFromPlan(plan: ScanPlan): CollectorMeasurement[] {
+  return COLLECTOR_KEYS.map((collector) => ({
+    collector,
+    status: plan.include.has(collector) ? 'measured' : 'skipped',
+    mode: plan.modes[collector],
+    reason: plan.skipped[collector]?.message,
+    estimatedRestCost: plan.estimatedRestCost[collector],
+    estimatedGraphqlCost: plan.estimatedGraphqlCost[collector],
+  }));
+}
+
+function markMeasurement(
+  measurements: CollectorMeasurement[],
+  collector: CollectorMeasurement['collector'],
+  status: CollectorMeasurement['status'],
+  reason?: string,
+): void {
+  const measurement = measurements.find((m) => m.collector === collector);
+  if (!measurement) return;
+  (measurement as { status: CollectorMeasurement['status']; reason?: string }).status = status;
+  if (reason) (measurement as { reason?: string }).reason = reason;
+}
+
+function addSkippedWarning(
+  warnings: CollectorWarning[],
+  plan: ScanPlan,
+  collector: CollectorMeasurement['collector'],
+): void {
+  const skipped = plan.skipped[collector];
+  if (!skipped) return;
+  warnings.push({ collector, message: skipped.message });
 }
 
 export type ParseCliResult = { kind: 'ok'; value: CliOptions } | { kind: 'err'; message: string };

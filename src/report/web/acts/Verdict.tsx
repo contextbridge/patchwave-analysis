@@ -19,8 +19,26 @@ export const verdictCopy = {
 
 export function Verdict() {
   const { derived } = useAssumptions();
-  const { openCount } = useEmbeddedData().prBacklog;
+  const { prBacklog } = useEmbeddedData();
+  const { openCount } = prBacklog;
   const analytics = useAnalytics();
+
+  if (prBacklog.status === 'failed') {
+    return (
+      <section data-testid={verdictTestIds.section} className="pt-4">
+        <p className="text-foreground text-lg leading-snug">Dependabot PR toil</p>
+        <h1
+          data-testid={verdictTestIds.annualCost}
+          className="text-foreground mt-2 text-5xl leading-none font-medium tracking-tight sm:text-7xl"
+        >
+          Not measured
+        </h1>
+        <p className="text-foreground mt-2 max-w-2xl text-lg leading-snug">
+          GitHub returned incomplete PR data, so PatchWave avoided showing a misleading zero-cost claim.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section data-testid={verdictTestIds.section} className="pt-4">

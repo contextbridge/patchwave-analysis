@@ -161,6 +161,7 @@ describe('App report shell', () => {
     renderReport({
       cve: {
         status: 'scope-missing',
+        disabledRepoStatus: 'unknown',
         requiredScope: 'security_events',
         totalOpenAlerts: 0,
         bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },

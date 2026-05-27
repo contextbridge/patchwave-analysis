@@ -40,8 +40,30 @@ export interface Stub {
  */
 export class FakeGithubClient implements GithubClient {
   readonly calls: GithubCall[] = [];
-  private readonly paginateResponders: ParamResponder[] = [];
-  private readonly requestResponders: ParamResponder[] = [];
+  private readonly paginateResponders: ParamResponder[] = [
+    {
+      route: 'GET /orgs/{org}/dependabot/alerts',
+      paramsMatcher: {},
+      outcome: { kind: 'ok', value: [] },
+      label: 'GET /orgs/{org}/dependabot/alerts {}',
+    },
+  ];
+  private readonly requestResponders: ParamResponder[] = [
+    {
+      route: 'GET /rate_limit',
+      paramsMatcher: {},
+      outcome: {
+        kind: 'ok',
+        value: {
+          resources: {
+            core: { limit: 5_000, remaining: 5_000, used: 0, reset: 1_779_456_000 },
+            graphql: { limit: 5_000, remaining: 5_000, used: 0, reset: 1_779_456_000 },
+          },
+        },
+      },
+      label: 'GET /rate_limit {}',
+    },
+  ];
   private readonly graphqlResponders: GraphqlResponder[] = [];
 
   onPaginate(route: string, paramsMatcher: Record<string, unknown> = {}): Stub {

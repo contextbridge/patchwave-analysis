@@ -1,4 +1,4 @@
-import { ResultAsync, okAsync } from 'neverthrow';
+import { Result, ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import { DependabotPrsDocument, type DependabotPrsQuery } from '../github/graphql/generated.ts';
@@ -6,7 +6,8 @@ import type { CheckSummary, DependabotPr, PrState } from '../types.ts';
 
 // `search(type: ISSUE)` returns a union; nodes that aren't pull requests come
 // back as empty objects, so a real PR node is the arm carrying `number`.
-type SearchNode = NonNullable<DependabotPrsQuery['search']['nodes']>[number];
+type SearchPayload = NonNullable<DependabotPrsQuery['search']>;
+type SearchNode = NonNullable<SearchPayload['nodes']>[number];
 export type PrNode = Extract<SearchNode, { number: number }>;
 
 // GitHub's GraphQL Actor interface. `__typename` is the source of truth for
@@ -33,14 +34,27 @@ function pageThrough(
   acc: DependabotPr[],
 ): ResultAsync<DependabotPr[], GithubError> {
   return client.graphql(DependabotPrsDocument, { searchQuery, cursor }).andThen((res) => {
-    for (const node of res.search.nodes ?? []) {
+    const searchResult = readSearch(res);
+    if (searchResult.isErr()) return errAsync(searchResult.error);
+    const search = searchResult.value;
+    for (const node of search.nodes ?? []) {
       if (isPrNode(node)) acc.push(toDependabotPr(node));
     }
-    if (res.search.pageInfo.hasNextPage && res.search.pageInfo.endCursor) {
-      return pageThrough(client, searchQuery, res.search.pageInfo.endCursor, acc);
+    if (search.pageInfo.hasNextPage && search.pageInfo.endCursor) {
+      return pageThrough(client, searchQuery, search.pageInfo.endCursor, acc);
     }
     return okAsync<DependabotPr[], GithubError>(acc);
   });
+}
+
+function readSearch(res: DependabotPrsQuery | undefined): Result<SearchPayload, GithubError> {
+  if (!res?.search?.pageInfo) {
+    return err({
+      kind: 'malformed-response',
+      message: 'GitHub returned malformed data for Dependabot PR search; this run will continue without that section',
+    });
+  }
+  return ok(res.search);
 }
 
 function isPrNode(node: SearchNode): node is PrNode {

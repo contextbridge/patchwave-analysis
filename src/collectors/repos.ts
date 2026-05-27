@@ -17,25 +17,37 @@ const repoSchema = z.object({
   language: z.string().nullish(),
   pushed_at: z.string().nullish(),
   security_and_analysis: z
-    .object({ dependabot_security_updates: z.object({ status: z.enum(['enabled', 'disabled']) }).optional() })
+    .object({
+      dependabot_alerts: z.object({ status: z.enum(['enabled', 'disabled']) }).optional(),
+      dependabot_security_updates: z.object({ status: z.enum(['enabled', 'disabled']) }).optional(),
+    })
     .nullish(),
 });
 type RawRepo = z.infer<typeof repoSchema>;
 
-export function listOrgRepos(client: GithubClient, org: string): ResultAsync<RepoMeta[], GithubError> {
+export type TargetKind = 'org' | 'user';
+
+export interface RepoListResult {
+  readonly targetKind: TargetKind;
+  readonly repos: RepoMeta[];
+}
+
+export function listTargetRepos(client: GithubClient, target: string): ResultAsync<RepoListResult, GithubError> {
   return client
-    .paginate('GET /orgs/{org}/repos', { org, per_page: 100, type: 'all' }, repoSchema)
+    .paginate('GET /orgs/{org}/repos', { org: target, per_page: 100, type: 'all' }, repoSchema)
+    .map((repos): RepoListResult => ({ targetKind: 'org', repos: repos.map(toRepoMeta) }))
     .orElse((err) => {
       if (err.kind === 'not-found') {
-        return client.paginate(
-          'GET /users/{username}/repos',
-          { username: org, per_page: 100, type: 'owner' },
-          repoSchema,
-        );
+        return client
+          .paginate('GET /users/{username}/repos', { username: target, per_page: 100, type: 'owner' }, repoSchema)
+          .map((repos): RepoListResult => ({ targetKind: 'user', repos: repos.map(toRepoMeta) }));
       }
-      return errAsync<RawRepo[], GithubError>(err);
-    })
-    .map((repos) => repos.map(toRepoMeta));
+      return errAsync<RepoListResult, GithubError>(err);
+    });
+}
+
+export function listOrgRepos(client: GithubClient, org: string): ResultAsync<RepoMeta[], GithubError> {
+  return listTargetRepos(client, org).map(({ repos }) => repos);
 }
 
 export function getRepoLanguages(
@@ -50,6 +62,7 @@ export function getRepoLanguages(
 function toRepoMeta(raw: RawRepo): RepoMeta {
   const visibility: Visibility = raw.visibility === 'internal' ? 'internal' : raw.private ? 'private' : 'public';
   const securityUpdates = raw.security_and_analysis?.dependabot_security_updates?.status;
+  const alertsStatus = raw.security_and_analysis?.dependabot_alerts?.status;
   return {
     owner: raw.owner.login,
     name: raw.name,
@@ -60,5 +73,6 @@ function toRepoMeta(raw: RawRepo): RepoMeta {
     primaryLanguage: raw.language ?? null,
     pushedAt: raw.pushed_at ?? null,
     dependabotSecurityUpdates: securityUpdates === undefined ? null : securityUpdates === 'enabled',
+    dependabotAlertsEnabled: alertsStatus === undefined ? null : alertsStatus === 'enabled',
   };
 }

@@ -1,3 +1,4 @@
+import type { CollectorKey } from './scanPlan.ts';
 import type { Instant } from './time.ts';
 
 export type Visibility = 'public' | 'private' | 'internal';
@@ -15,6 +16,7 @@ export interface RepoMeta extends RepoRef {
   primaryLanguage: string | null;
   pushedAt: string | null;
   dependabotSecurityUpdates: boolean | null;
+  dependabotAlertsEnabled: boolean | null;
 }
 
 export interface LanguageBytes {
@@ -109,6 +111,17 @@ export interface CollectionContext {
   now: Instant;
 }
 
+export type CollectorMeasurementStatus = 'measured' | 'partial' | 'skipped' | 'failed';
+
+export interface CollectorMeasurement {
+  readonly collector: CollectorKey;
+  readonly status: CollectorMeasurementStatus;
+  readonly mode?: 'exact' | 'metadata' | 'org-endpoint';
+  readonly reason?: string;
+  readonly estimatedRestCost?: number;
+  readonly estimatedGraphqlCost?: number;
+}
+
 export interface CollectedData {
   ctx: CollectionContext;
   repos: RepoMeta[];
@@ -118,6 +131,7 @@ export interface CollectedData {
   cve: CveSlice[];
   branchProtection: BranchProtectionSlice[];
   contributors: ContributorSlice[];
+  measurements: CollectorMeasurement[];
   errors: CollectorWarning[];
 }
 

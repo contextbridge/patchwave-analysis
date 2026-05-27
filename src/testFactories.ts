@@ -32,6 +32,7 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   primaryLanguage: 'TypeScript',
   pushedAt: '2026-04-01T00:00:00Z',
   dependabotSecurityUpdates: true,
+  dependabotAlertsEnabled: true,
 }));
 
 export const checkSummary = Factory.define<CheckSummary>(() => ({
@@ -139,5 +140,13 @@ export const collectedData = Factory.define<CollectedData>(() => ({
   cve: [cveSliceOk.build()],
   branchProtection: [branchProtectionSlice.build()],
   contributors: [contributorSlice.build()],
+  measurements: [
+    { collector: 'languages', status: 'measured', mode: 'exact' },
+    { collector: 'dependabotConfig', status: 'measured', mode: 'exact' },
+    { collector: 'cve', status: 'measured', mode: 'exact' },
+    { collector: 'branchProtection', status: 'measured', mode: 'exact' },
+    { collector: 'contributors', status: 'measured', mode: 'exact' },
+    { collector: 'dependabotPrs', status: 'measured', mode: 'exact' },
+  ],
   errors: [],
 }));

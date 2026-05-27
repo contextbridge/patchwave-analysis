@@ -19,6 +19,7 @@ export const riskStoryTestIds = {
 export const riskStoryCopy = {
   eyebrow: 'CVE exposure',
   scopeMissingHeading: 'Not measured this run',
+  notMeasuredHeading: 'Not measured this run',
   noAlertsHeading: 'No open security alerts',
 } as const;
 
@@ -28,6 +29,25 @@ export const reposWithoutSecurityAlertsId = 'repos-without-security-alerts';
 export function RiskStory() {
   const { cve, orgOverview } = useEmbeddedData();
   const { reveal } = useAssumptionsDisclosure();
+
+  if (cve.status === 'not-measured') {
+    return (
+      <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
+        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
+          {riskStoryCopy.eyebrow}
+        </div>
+        <h2
+          data-testid={riskStoryTestIds.heading}
+          className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
+        >
+          {riskStoryCopy.notMeasuredHeading}
+        </h2>
+        <p className="text-foreground mt-5 leading-relaxed">
+          CVE exposure was not measured in this run to stay within the available GitHub API budget.
+        </p>
+      </section>
+    );
+  }
 
   if (cve.status === 'scope-missing') {
     return (
@@ -70,7 +90,8 @@ export function RiskStory() {
         </h2>
         <p className="text-foreground mt-5 leading-relaxed">
           No open Dependabot security alerts across the repos in scope. That can mean you're caught up, or that security
-          alerts aren't enabled everywhere. Check the appendix data for repos with alerts disabled.
+          alerts aren't enabled everywhere. Check the appendix data for repos with alerts disabled when that metadata is
+          available.
         </p>
       </section>
     );

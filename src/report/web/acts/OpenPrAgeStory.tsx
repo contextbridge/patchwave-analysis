@@ -15,6 +15,21 @@ export const openPrAgeStoryCopy = {
 
 export function OpenPrAgeStory() {
   const { prBacklog: pr } = useEmbeddedData();
+  if (pr.status === 'failed') {
+    return (
+      <section data-testid={openPrAgeStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
+        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
+          {openPrAgeStoryCopy.eyebrow}
+        </div>
+        <h2 className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+          Dependabot PR backlog was not measured
+        </h2>
+        <p className="text-foreground mt-5 text-base leading-relaxed">
+          GitHub returned incomplete PR search data, so PatchWave avoided showing a misleading zero backlog.
+        </p>
+      </section>
+    );
+  }
   const hasOpenPrs = pr.openCount > 0;
 
   return (

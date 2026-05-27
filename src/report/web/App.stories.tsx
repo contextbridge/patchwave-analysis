@@ -32,10 +32,10 @@ const sampleReport = toEmbeddedShape(
   reportBundle.build({
     orgOverview: orgOverview.build({
       topLanguages: [
-        { language: 'TypeScript', bytes: 4_200_000, percentage: 58 },
-        { language: 'Go', bytes: 1_600_000, percentage: 22 },
-        { language: 'Python', bytes: 880_000, percentage: 12 },
-        { language: 'Ruby', bytes: 560_000, percentage: 8 },
+        { language: 'TypeScript', repoCount: 0, bytes: 4_200_000, percentage: 58 },
+        { language: 'Go', repoCount: 0, bytes: 1_600_000, percentage: 22 },
+        { language: 'Python', repoCount: 0, bytes: 880_000, percentage: 12 },
+        { language: 'Ruby', repoCount: 0, bytes: 560_000, percentage: 8 },
       ],
     }),
     cve: cveExposureOk.build({

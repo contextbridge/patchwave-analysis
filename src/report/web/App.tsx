@@ -30,6 +30,7 @@ export function App({ data }: { data: EmbeddedReportData }) {
           <FootnoteProvider>
             <ReportHeader org={data.meta.org} />
             <main data-testid={appTestIds.main} className="mx-auto max-w-4xl px-6 pb-32 pt-12 sm:pt-16">
+              {data.measurements.mode === 'budgeted' && <MeasurementBanner />}
               <Verdict />
               <AutomatedStory />
               <CostStory />
@@ -71,5 +72,14 @@ function ReportHeader({ org }: { org: string }) {
         patchwave.ai
       </a>
     </header>
+  );
+}
+
+function MeasurementBanner() {
+  return (
+    <div className="border-border bg-card text-muted-foreground mb-10 rounded-md border px-4 py-3 text-sm leading-relaxed">
+      <span className="text-foreground font-medium">Budgeted scan:</span> GitHub API budget was limited, so some
+      lower-priority sections were not measured. Core Dependabot PR and CVE sections remain exact where shown.
+    </div>
   );
 }
