@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.1.0...v0.1.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* stop analyze.sh from hanging at interactive prompts ([#15](https://github.com/contextbridge/patchwave-analysis/issues/15)) ([e894145](https://github.com/contextbridge/patchwave-analysis/commit/e894145051a51d9ad266d3edfa24c255def09a73))
+
 ## [0.1.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.0.1...v0.1.0) (2026-05-26)
 
 
