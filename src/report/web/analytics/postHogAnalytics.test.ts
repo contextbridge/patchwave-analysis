@@ -50,9 +50,16 @@ describe('createPostHogReportAnalytics', () => {
         maskAllInputs: true,
         blockSelector: 'script[type="application/json"]',
       },
-      bootstrap: { distinctID: 'report-123' },
+      bootstrap: { distinctID: 'anon-456' },
     });
     expect(fake.init[0]?.config['before_send']).toBeDefined();
+  });
+
+  test('falls back to the report id as the distinct id when no anon id was embedded', () => {
+    const fake = createFakeClient();
+    createPostHogReportAnalytics(postHogReportAnalyticsOptions.build({ client: fake.client, generatedByAnonId: '' }));
+
+    expect(fake.init[0]?.config['bootstrap']).toEqual({ distinctID: 'report-123' });
   });
 
   test('registers the pw_* super-properties', () => {
@@ -63,7 +70,6 @@ describe('createPostHogReportAnalytics', () => {
       pw_surface: 'report',
       pw_version: '1.2.3',
       pw_report_id: 'report-123',
-      pw_generated_by: 'anon-456',
     });
   });
 
