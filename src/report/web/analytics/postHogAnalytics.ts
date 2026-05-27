@@ -23,19 +23,22 @@ export interface CreatePostHogReportAnalyticsOptions {
 export function createPostHogReportAnalytics(options: CreatePostHogReportAnalyticsOptions): Analytics {
   const { buildInfo, reportId, generatedByAnonId, version, client = posthog } = options;
 
+  // Identify by the generating machine's anon id (the CLI's distinct id too) so a run's CLI events
+  // and report views are one PostHog person. Fall back to the report id for reports with no anon id.
+  const distinctId = generatedByAnonId || reportId;
+
   const superProperties: Record<string, unknown> = {
     pw_surface: 'report',
     pw_version: version,
     pw_report_id: reportId,
-    pw_generated_by: generatedByAnonId,
   };
 
   client.init(buildInfo.postHogKey, {
     api_host: buildInfo.postHogHost,
-    // The report runs from a file:// page with no reliable storage, so keep identity in memory
-    // and seed the distinct id from the report id rather than persisting one per viewer.
+    // The report runs from a file:// page with no reliable storage, so keep identity in memory and
+    // seed the distinct id via bootstrap rather than persisting one per viewer.
     persistence: 'memory',
-    bootstrap: { distinctID: reportId },
+    bootstrap: { distinctID: distinctId },
     // Report copy lives in clickable elements; autocapture would leak it via $elements_text.
     autocapture: false,
     capture_pageview: true,
