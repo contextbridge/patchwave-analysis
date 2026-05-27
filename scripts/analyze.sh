@@ -11,9 +11,10 @@
 # temporary directory, printing the path when it finishes. Nothing is installed.
 #
 # Use the `bash -c "$(curl ...)"` form rather than `curl ... | bash`: the
-# command-substitution form leaves your terminal on stdin so the prompts work.
-# As a fallback the script also reconnects the controlling terminal (/dev/tty)
-# when running the binary, so a piped invocation still gets a TTY.
+# command-substitution form leaves your real terminal on stdin so the
+# interactive prompts work. A piped (`curl ... | bash`) invocation puts the pipe
+# on stdin instead of a terminal, so the CLI's TTY gate refuses to run and asks
+# you to re-run it interactively (it does not hang).
 #
 # Auth is the CLI's job: it reads GITHUB_TOKEN, then GH_TOKEN, then `gh auth
 # token`. Export a token first, or be logged in via the gh CLI.
@@ -53,19 +54,14 @@ main() {
   [ -f "$_tmp/$BINARY_NAME" ] || fail "expected '$BINARY_NAME' in tarball, not found"
   chmod +x "$_tmp/$BINARY_NAME"
 
-  # The CLI is an interactive session, so it needs a terminal on stdin.
-  # Reconnect the controlling terminal (/dev/tty) so prompts work even when this
-  # script was piped into a shell (stdin = the pipe, not your terminal). Where
-  # there is no terminal (e.g. CI), run with inherited stdin and let the CLI
-  # report that it needs one. Run, don't exec, so the EXIT trap still deletes the
-  # temp binary; preserve the CLI's exit code for the caller.
+  # Run with inherited stdin and let the CLI's TTY gate handle non-terminals. Do
+  # NOT redirect `< /dev/tty`: the compiled Bun binary can't read raw-mode
+  # keypresses from a reopened /dev/tty fd, so prompts would hang with no way to
+  # Ctrl-C out. Run (not exec) so the EXIT trap deletes the temp binary, and
+  # forward the CLI's exit code.
   info "starting ${BINARY_NAME}..."
   set +e
-  if (: < /dev/tty) 2>/dev/null; then
-    "$_tmp/$BINARY_NAME" "$@" < /dev/tty
-  else
-    "$_tmp/$BINARY_NAME" "$@"
-  fi
+  "$_tmp/$BINARY_NAME" "$@"
   _status=$?
   set -e
   exit "$_status"
