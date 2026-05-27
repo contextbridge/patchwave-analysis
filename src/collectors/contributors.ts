@@ -4,10 +4,7 @@ import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { ContributorSlice, RepoRef } from '../types.ts';
 
-// A commit's `author` is the GitHub user matched to the commit. GitHub returns
-// `null` when no account matches, and occasionally an object with no `login`
-// (a deleted/anonymized account) — neither identifies a human committer, so we
-// coerce anything without a usable login to `null` and skip it.
+// Treat unmatched/deleted GitHub authors as anonymous and skip them.
 const commitSchema = z.object({
   author: z.object({ login: z.string(), type: z.string().optional() }).nullable().catch(null),
 });

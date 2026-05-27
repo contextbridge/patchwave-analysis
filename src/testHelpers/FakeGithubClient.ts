@@ -68,9 +68,7 @@ export class FakeGithubClient implements GithubClient {
   ): ResultAsync<T[], GithubError> {
     const p = (params ?? {}) as Record<string, unknown>;
     this.calls.push({ kind: 'paginate', route, params: p });
-    // Mirror the real client: when a schema is supplied, validate and drop
-    // invalid items so collector tests exercise the production path. Dropped
-    // items are silent here — logging is the real client's concern.
+    // Exercise production validation; logging stays in the real client.
     return this.respond<unknown[]>(this.paginateResponders, 'paginate', route, p).map((items) =>
       schema ? validateItems(items, schema, () => {}) : (items as T[]),
     );

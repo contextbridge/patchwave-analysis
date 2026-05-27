@@ -18,21 +18,8 @@ const PatchWaveOctokit = Octokit.plugin(retry, throttling);
 export type PaginatedItem<R extends keyof PaginatingEndpoints> =
   PaginatingEndpoints[R]['response']['data'] extends ReadonlyArray<infer U> ? U : never;
 
-/**
- * Narrow GitHub API surface the collectors depend on. Each method returns a
- * ResultAsync so callers can chain without try/catch. The route literal drives
- * params and response types from octokit's published `Endpoints` map, and
- * GraphQL operations carry their types via `TypedDocumentNode` (codegen output),
- * so a hand-rolled response type can't drift from GitHub's real schema.
- * Production wires this to Octokit + @octokit/graphql; tests use FakeGithubClient.
- */
+/** Narrow GitHub API surface the collectors depend on. */
 export interface GithubClient {
-  /**
-   * Paginates a REST list endpoint. Pass `schema` to validate each item at
-   * runtime against a shape that reflects reality (octokit's types describe
-   * GitHub's published contract, which it occasionally violates); invalid items
-   * are dropped with a warning and the response type narrows to the schema's.
-   */
   paginate<R extends keyof PaginatingEndpoints, T = PaginatedItem<R>>(
     route: R,
     params?: PaginatingEndpoints[R]['parameters'],
@@ -84,10 +71,7 @@ export class GithubClientImpl implements GithubClient {
     });
   }
 
-  // The public interface is the source of truth: the route literal drives the
-  // typed params and response. Internally we call octokit through its loose
-  // `(route: string, params)` overloads and cast the result back to the
-  // route-derived type at this transport boundary.
+  // Keep casts at the Octokit boundary; callers get route-derived types.
   paginate<R extends keyof PaginatingEndpoints, T = PaginatedItem<R>>(
     route: R,
     params?: PaginatingEndpoints[R]['parameters'],

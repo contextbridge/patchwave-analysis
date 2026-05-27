@@ -1,8 +1,6 @@
 import type { CodegenConfig } from '@graphql-codegen/cli';
 
-// Generates typed-document-node operations against GitHub's published GraphQL
-// schema, so collectors consume real types instead of hand-rolled interfaces.
-// The output is committed and regenerated via `bun run build:graphql`.
+// Output is committed and regenerated via `bun run build:graphql`.
 const config: CodegenConfig = {
   schema: 'node_modules/@octokit/graphql-schema/schema.graphql',
   documents: 'src/**/*.graphql',

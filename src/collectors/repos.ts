@@ -4,11 +4,8 @@ import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { RepoMeta, RepoRef, Visibility } from '../types.ts';
 
-// The org-repos and user-repos endpoints return slightly different repository
-// shapes; validating both against one schema yields a single item type and
-// keeps the `orElse` fallback well-typed. Only `name` + `owner` are required —
-// everything else is optional with a default, so a repo is never dropped for a
-// field GitHub happens to omit (under-counting repos would skew the report).
+// Keep repo validation permissive; dropping repos for omitted metadata would
+// skew the report more than defaulting those fields.
 const repoSchema = z.object({
   name: z.string(),
   owner: z.object({ login: z.string() }),
