@@ -35,8 +35,8 @@ test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
     mergedInWindowCount: 1,
     oldestOpenDays: expect.any(Number) as number,
   });
-  // The 263-day-old PR should fall into the 180+ bucket.
-  const oldBucket = bundle.prBacklog.openAgeBuckets.find((b) => b.label === '180+ days');
+  // The 263-day-old PR should fall into the 90+ bucket (90 and 180+ are no longer split).
+  const oldBucket = bundle.prBacklog.openAgeBuckets.find((b) => b.label === '90+ days');
   expect(oldBucket?.count).toBe(1);
 });
 

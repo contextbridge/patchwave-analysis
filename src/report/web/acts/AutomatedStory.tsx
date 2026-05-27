@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
+import { Button } from '../components/ui/button.tsx';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
-import { AssumptionsFootnote } from '../primitives/AssumptionsFootnote.tsx';
 import { Citation } from '../primitives/Citation.tsx';
+import { callToActionCopy } from './CallToAction.tsx';
 
 export const automatedStoryTestIds = {
   section: 'automated-story-section',
@@ -10,14 +12,22 @@ export const automatedStoryTestIds = {
   patchwaveCost: 'automated-story-patchwave-cost',
   delta: 'automated-story-delta',
   shareSlider: 'automated-story-share-slider',
+  waitlistCta: 'automated-story-waitlist-cta',
 } as const;
 
 const SHARE_MIN = 50;
 const SHARE_MAX = 80;
+const SHARE_STEP = 5;
 const SHARE_DEFAULT = 65;
+const SHARE_MID = (SHARE_MIN + SHARE_MAX) / 2;
+const SHARE_STOPS = Array.from(
+  { length: (SHARE_MAX - SHARE_MIN) / SHARE_STEP + 1 },
+  (_, i) => SHARE_MIN + i * SHARE_STEP,
+);
 
 export function AutomatedStory() {
   const { assumptions, derived } = useAssumptions();
+  const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const todayCost = derived.annualCostUsd;
@@ -43,7 +53,6 @@ export function AutomatedStory() {
           label="Today"
           value={`${fmtUsd(todayCost)}/yr`}
           sub={quarterHoursLabel(todayCost, assumptions.hourlyRateUsd)}
-          footnote
         />
         <div className="flex flex-col items-center justify-center px-2 py-2">
           <div
@@ -53,7 +62,7 @@ export function AutomatedStory() {
             {sharePct}%
           </div>
           <div className="text-muted-foreground mt-1 text-xs font-medium tracking-[0.14em] uppercase">
-            cost recovered
+            PRs auto-merged
           </div>
         </div>
         <CompareCard
@@ -75,13 +84,22 @@ export function AutomatedStory() {
           type="range"
           min={SHARE_MIN}
           max={SHARE_MAX}
-          step={5}
+          step={SHARE_STEP}
           value={sharePct}
           onChange={(e) => setSharePct(Number(e.target.value))}
-          className="accent-primary mt-3 w-full"
+          className="accent-primary mt-3 block w-full"
         />
+        <div className="mt-2 flex justify-between px-[3px]" aria-hidden>
+          {SHARE_STOPS.map((stop) => (
+            <span
+              key={stop}
+              className={`h-1.5 w-1.5 rounded-full ${stop <= sharePct ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+            />
+          ))}
+        </div>
         <div className="text-muted-foreground mt-1 flex justify-between text-xs tabular-nums">
           <span>{SHARE_MIN}%</span>
+          <span>{SHARE_MID}%</span>
           <span>{SHARE_MAX}%</span>
         </div>
       </div>
@@ -92,6 +110,16 @@ export function AutomatedStory() {
         wrong
         <Citation source="mohayeji-2025" />.
       </p>
+
+      <Button asChild className="mt-6 no-print">
+        <a
+          data-testid={automatedStoryTestIds.waitlistCta}
+          href="https://patchwave.ai"
+          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_waitlist' })}
+        >
+          {callToActionCopy.ctaLabel}
+        </a>
+      </Button>
     </section>
   );
 }
@@ -102,34 +130,23 @@ function CompareCard({
   sub,
   testId,
   accent = false,
-  footnote = false,
 }: {
   label: string;
   value: string;
   sub: string;
   testId: string;
   accent?: boolean;
-  footnote?: boolean;
 }) {
   return (
     <div className="border-border bg-card flex flex-col rounded-md border p-5">
       <div className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
       <div
         data-testid={testId}
-        className={`${accent ? 'text-green-400' : 'text-foreground'} mt-2 text-3xl font-medium tabular-nums sm:text-4xl`}
+        className={`${accent ? 'text-savings' : 'text-foreground'} mt-2 text-3xl font-medium tabular-nums sm:text-4xl`}
       >
         {value}
       </div>
-      <div className="text-muted-foreground mt-1.5 text-sm leading-relaxed">
-        {footnote && (
-          <>
-            Adjustable
-            <AssumptionsFootnote from="automated-story" /> estimate
-            <span aria-hidden> · </span>
-          </>
-        )}
-        {sub}
-      </div>
+      <div className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{sub}</div>
     </div>
   );
 }

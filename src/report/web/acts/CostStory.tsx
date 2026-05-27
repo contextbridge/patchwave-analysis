@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
-import { AssumptionsFootnote } from '../primitives/AssumptionsFootnote.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
 export const costStoryTestIds = {
@@ -39,8 +38,7 @@ export function CostStory() {
       <p className="text-foreground mt-5 text-base leading-relaxed">
         In the last {data.meta.windowDays} days, your team merged{' '}
         <span className="font-semibold tabular-nums">{humanMergeCount.toLocaleString()}</span> Dependabot PRs by hand.
-        Anything a bot auto-merged is left out. At adjustable
-        <AssumptionsFootnote from="cost-story" /> defaults of{' '}
+        Anything a bot auto-merged is left out. At{' '}
         <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR and{' '}
         <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>, that comes out to:
       </p>
@@ -95,7 +93,7 @@ function CostCell({
 }
 
 function PeopleTable({ windowDays }: { windowDays: number }) {
-  const { derived } = useAssumptions();
+  const { assumptions, derived } = useAssumptions();
   const [expanded, setExpanded] = useState(false);
   const people = combinedPeopleRows(derived.mergers, derived.reviewers);
   const visiblePeople = expanded ? people : people.slice(0, INITIAL_PEOPLE_COUNT);
@@ -120,6 +118,7 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
             <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
+              <th className="px-3 py-2.5 text-right">Time (hrs)</th>
               <th className="px-3 py-2.5 text-right">Cost over last {windowDays} days</th>
               <th className="px-3 py-2.5 text-right">Annualized</th>
             </tr>
@@ -131,13 +130,14 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
                 login={r.login}
                 mergedCount={r.mergedCount}
                 reviewedCount={r.reviewedCount}
+                windowHours={Math.round(r.windowCostUsd / assumptions.hourlyRateUsd)}
                 windowCostUsd={r.windowCostUsd}
                 annualCostUsd={r.annualCostUsd}
               />
             ))}
             {hiddenCount > 0 || expanded ? (
               <tr className="border-border border-t">
-                <td colSpan={4} className="px-3 py-2.5 text-center">
+                <td colSpan={5} className="px-3 py-2.5 text-center">
                   <button
                     type="button"
                     data-testid={costStoryTestIds.peopleToggle}

@@ -31,10 +31,10 @@ export function App({ data }: { data: EmbeddedReportData }) {
             <ReportHeader org={data.meta.org} />
             <main data-testid={appTestIds.main} className="mx-auto max-w-4xl px-6 pb-32 pt-12 sm:pt-16">
               <Verdict />
+              <AutomatedStory />
               <CostStory />
               <OpenPrAgeStory />
               <RiskStory />
-              <AutomatedStory />
               <CallToAction />
               <MethodologyAppendix />
             </main>

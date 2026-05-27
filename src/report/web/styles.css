@@ -94,6 +94,10 @@
   --destructive: var(--red);
   --input: var(--color-neutral-200);
   --ring: var(--color-neutral-400);
+
+  /* Savings highlight. A lighter green reads on the dark palette but washes out
+     on white, so light mode uses a darker green for contrast. */
+  --savings: var(--color-green-700);
 }
 
 /* Dark palette. Applies when the OS asks for it (unless a Storybook story forces
@@ -119,6 +123,7 @@
 
     --input: var(--color-neutral-800);
     --ring: var(--color-neutral-600);
+    --savings: var(--color-green-400);
   }
 }
 
@@ -140,6 +145,7 @@
 
   --input: var(--color-neutral-800);
   --ring: var(--color-neutral-600);
+  --savings: var(--color-green-400);
 }
 
 @theme inline {
@@ -164,6 +170,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-savings: var(--savings);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

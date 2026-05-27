@@ -12,7 +12,6 @@ import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
 import { assumptionInputTestIds } from './primitives/AssumptionInput.tsx';
-import { assumptionsFootnoteTestId } from './primitives/AssumptionsFootnote.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
 import type { EmbeddedReportData } from './types.ts';
 
@@ -73,52 +72,23 @@ describe('App report shell', () => {
     expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$4,104/yr');
   });
 
-  it('reveals the methodology assumptions panel when an estimate footnote is clicked', () => {
-    renderReport();
-    const details = screen.getByTestId(assumptionInputTestIds.container).closest('details');
-    expect(details).toBeTruthy();
-    expect(details).not.toHaveAttribute('open');
-
-    const footnote = screen.getAllByTestId(assumptionsFootnoteTestId)[0];
-    if (!footnote) throw new Error('missing assumptions footnote');
-    const restore = suppressNavigation();
-    fireEvent.click(footnote);
-    restore();
-
-    expect(details).toHaveAttribute('open');
-  });
-
-  it('switches back to the calculation tab when an assumptions footnote is clicked from raw data', () => {
-    renderReport();
-    fireEvent.click(screen.getByText('How this report was calculated'));
-    fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
-    expect(screen.queryByTestId(assumptionInputTestIds.container)).not.toBeInTheDocument();
-
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getAllByTestId(assumptionsFootnoteTestId)[0] as HTMLElement);
-    restore();
-
-    expect(screen.getByRole('tab', { name: 'Calculation' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId(assumptionInputTestIds.container)).toBeInTheDocument();
-  });
-
   it('lists footnotes in ascending first-appearance order', () => {
     renderReport();
 
     fireEvent.click(screen.getByText('How this report was calculated'));
 
     const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
-    expect(sources).toHaveTextContent('1. Adjustable cost assumptions.');
+    // The solution section leads the report, so its Mohayeji citation is the first footnote.
+    expect(sources).toHaveTextContent('1. Mohayeji et al. 2025');
     expect(sources).toHaveTextContent('2. VulnCheck, May 2026');
     expect(sources).toHaveTextContent('3. Anthropic, "Project Glasswing');
     expect(sources).toHaveTextContent('4. Anthropic, Coordinated Vulnerability Disclosure dashboard');
-    expect(sources).toHaveTextContent('5. Mohayeji et al. 2025');
-    expect(sources).toHaveTextContent('6. Atlassian State of Developer Experience Report 2025.');
+    expect(sources).toHaveTextContent('5. Atlassian State of Developer Experience Report 2025.');
   });
 
   it('opens the appendix source note instead of navigating directly when a citation is clicked', () => {
     renderReport();
-    const details = screen.getByTestId(assumptionInputTestIds.container).closest('details');
+    const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
     expect(details).toBeTruthy();
     expect(details).not.toHaveAttribute('open');
 
@@ -136,7 +106,6 @@ describe('App report shell', () => {
   it('renders the ok CVE state with severity counts', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.cveLine)).toHaveTextContent('7 open security alerts');
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent('7 open security alerts');
     expect(screen.getByTestId(riskStoryTestIds.severityBar)).toBeInTheDocument();
   });
@@ -196,7 +165,6 @@ describe('App report shell', () => {
       },
     });
 
-    expect(screen.getByTestId(verdictTestIds.cveLine)).toHaveTextContent(verdictCopy.cveScopeMissing);
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent(riskStoryCopy.scopeMissingHeading);
     expect(screen.getByTestId(riskStoryTestIds.scopeRefreshCommand)).toHaveTextContent(
       'gh auth refresh -s security_events',
@@ -213,8 +181,7 @@ describe('App report shell', () => {
     expect(screen.getByTestId(openPrAgeStoryTestIds.section)).toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(screen.getByTestId(riskStoryTestIds.section)).toHaveTextContent(riskStoryCopy.eyebrow);
     expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent(callToActionCopy.heading);
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('based on adjustable1 assumptions');
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost).parentElement).toHaveTextContent('Adjustable1 estimate');
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('based on adjustable assumptions');
     expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveTextContent(verdictCopy.primaryCta);
     expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveAttribute('data-variant', 'default');
     expect(screen.getByTestId(callToActionTestIds.cta)).toHaveTextContent(callToActionCopy.ctaLabel);
@@ -228,16 +195,6 @@ describe('App report shell', () => {
     );
     expect(screen.getByRole('link', { name: 'ContextBridge' })).toHaveAttribute('href', 'https://contextbridge.ai');
     expect(screen.getByTestId(methodologyAppendixTestIds.section)).not.toHaveTextContent('patchwave.ai');
-  });
-
-  it('places every assumptions footnote immediately after adjustable', () => {
-    renderReport();
-    fireEvent.click(screen.getByText('How this report was calculated'));
-
-    for (const footnote of screen.getAllByTestId(assumptionsFootnoteTestId)) {
-      const previousText = footnote.previousSibling?.textContent ?? '';
-      expect(previousText.trimEnd().toLowerCase().endsWith('adjustable')).toBe(true);
-    }
   });
 
   it('combines person merge and review rows and labels the cost window', () => {
@@ -306,7 +263,7 @@ describe('App report shell', () => {
       },
     });
 
-    // The input lives on the Calculation tab and unmounts on Raw data, so adjust before navigating.
+    // The assumptions control lives in the hero, so it stays editable regardless of the appendix tab.
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
     fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
       target: { value: '10' },

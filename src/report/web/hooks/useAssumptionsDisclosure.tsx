@@ -28,9 +28,6 @@ export function AssumptionsDisclosureProvider({ children }: { children: ReactNod
     const revealHashTarget = () => {
       if (window.location.hash.length <= 1) return;
       const target = decodeURIComponent(window.location.hash.slice(1));
-      if (target === 'appendix-assumptions') {
-        reveal('calculation');
-      }
       if (target === 'appendix-sources' || target.startsWith('footnote-')) {
         setOpen(true);
       }

@@ -235,8 +235,7 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     { label: '0–30 days', min: 0, max: 30 },
     { label: '30–60 days', min: 30, max: 60 },
     { label: '60–90 days', min: 60, max: 90 },
-    { label: '90–180 days', min: 90, max: 180 },
-    { label: '180+ days', min: 180, max: Number.POSITIVE_INFINITY },
+    { label: '90+ days', min: 90, max: Number.POSITIVE_INFINITY },
   ];
   const openAgeBuckets = buckets.map((b) => ({
     label: b.label,

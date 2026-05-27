@@ -7,6 +7,27 @@ import { App } from './App.tsx';
 // Defaults cover most of the page; the overrides here only fill the spots that
 // would otherwise render as single-row tables (language mix, top repos by
 // severity) so the snapshot exercises the full UI.
+//
+// The global severity totals are summed from the per-repo rows so the
+// distribution bar and the per-repo breakdown always reconcile, mirroring how
+// production derives both from the same alert list.
+const topReposBySeverity = [
+  { repo: 'acme/api', critical: 1, high: 2, medium: 1, low: 0 },
+  { repo: 'acme/web', critical: 0, high: 1, medium: 3, low: 2 },
+  { repo: 'acme/billing', critical: 0, high: 0, medium: 2, low: 5 },
+  { repo: 'acme/worker', critical: 0, high: 0, medium: 2, low: 1 },
+  { repo: 'acme/mobile', critical: 0, high: 0, medium: 1, low: 3 },
+  { repo: 'acme/legacy-api', critical: 0, high: 0, medium: 1, low: 1 },
+  { repo: 'acme/internal-tools', critical: 0, high: 0, medium: 0, low: 4 },
+  { repo: 'acme/docs', critical: 0, high: 0, medium: 0, low: 2 },
+];
+const bySeverity = {
+  critical: sumBy(topReposBySeverity, 'critical'),
+  high: sumBy(topReposBySeverity, 'high'),
+  medium: sumBy(topReposBySeverity, 'medium'),
+  low: sumBy(topReposBySeverity, 'low'),
+};
+
 const sampleReport = toEmbeddedShape(
   reportBundle.build({
     orgOverview: orgOverview.build({
@@ -18,16 +39,9 @@ const sampleReport = toEmbeddedShape(
       ],
     }),
     cve: cveExposureOk.build({
-      topReposBySeverity: [
-        { repo: 'acme/api', critical: 1, high: 2, medium: 1, low: 0 },
-        { repo: 'acme/web', critical: 0, high: 1, medium: 3, low: 2 },
-        { repo: 'acme/billing', critical: 0, high: 0, medium: 2, low: 5 },
-        { repo: 'acme/worker', critical: 0, high: 0, medium: 2, low: 1 },
-        { repo: 'acme/mobile', critical: 0, high: 0, medium: 1, low: 3 },
-        { repo: 'acme/legacy-api', critical: 0, high: 0, medium: 1, low: 1 },
-        { repo: 'acme/internal-tools', critical: 0, high: 0, medium: 0, low: 4 },
-        { repo: 'acme/docs', critical: 0, high: 0, medium: 0, low: 2 },
-      ],
+      totalOpenAlerts: bySeverity.critical + bySeverity.high + bySeverity.medium + bySeverity.low,
+      bySeverity,
+      topReposBySeverity,
       reposWithSecurityAlertsDisabled: ['acme/legacy-cron'],
     }),
     people: people.build({
@@ -86,3 +100,7 @@ export const CveScopeMissing: Story = {
     data: { ...sampleReport, cve: cveExposureScopeMissing.build() },
   },
 };
+
+function sumBy<T>(rows: readonly T[], key: keyof T): number {
+  return rows.reduce((total, row) => total + (row[key] as number), 0);
+}

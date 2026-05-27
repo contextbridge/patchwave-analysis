@@ -56,8 +56,7 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
     { label: '0–30 days', count: 40 },
     { label: '30–60 days', count: 18 },
     { label: '60–90 days', count: 6 },
-    { label: '90–180 days', count: 25 },
-    { label: '180+ days', count: 13 },
+    { label: '90+ days', count: 38 },
   ],
   oldestOpenDays: 312,
   bumpTypeSplit: [

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { FootnoteReference } from '../primitives/FootnoteReference.tsx';
-import { StackedBar } from '../primitives/StackedBar.tsx';
+import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
 
 export const riskStoryTestIds = {
   section: 'risk-story-section',
@@ -122,7 +122,7 @@ export function RiskStory() {
           <h3 className="text-foreground mt-10 text-sm font-semibold tracking-[0.14em] uppercase">
             Top repos by severity
           </h3>
-          <TopReposBySeverityTable repos={cve.topReposBySeverity} />
+          <TopReposBySeverityBars repos={cve.topReposBySeverity} />
         </>
       )}
 
@@ -158,54 +158,63 @@ interface RepoSeverityRow {
   low: number;
 }
 
-function TopReposBySeverityTable({ repos }: { repos: readonly RepoSeverityRow[] }) {
+// Bars scale to the busiest repo so length reads as volume; the distribution
+// bar above already carries the legend, so these rows omit it.
+function TopReposBySeverityBars({ repos }: { repos: readonly RepoSeverityRow[] }) {
   const [expanded, setExpanded] = useState(false);
   const visibleRepos = expanded ? repos : repos.slice(0, INITIAL_REPO_COUNT);
   const hiddenCount = repos.length - visibleRepos.length;
+  const maxTotal = Math.max(1, ...repos.map(repoTotal));
 
   return (
-    <div
-      data-testid={riskStoryTestIds.topReposTable}
-      className="border-border bg-card mt-4 overflow-hidden rounded-md border"
-    >
-      <table className="w-full text-sm">
-        <thead className="bg-muted text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
-          <tr>
-            <th className="px-3 py-2.5 text-left">Repo</th>
-            <th className="px-3 py-2.5 text-right">Critical</th>
-            <th className="px-3 py-2.5 text-right">High</th>
-            <th className="px-3 py-2.5 text-right">Medium</th>
-            <th className="px-3 py-2.5 text-right">Low</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleRepos.map((r) => (
-            <tr key={r.repo} className="border-border border-t last:border-b-0">
-              <td className="text-foreground px-3 py-2.5 font-mono">{r.repo}</td>
-              <td className="text-destructive px-3 py-2.5 text-right tabular-nums">{r.critical || ''}</td>
-              <td className="text-tangerine px-3 py-2.5 text-right tabular-nums">{r.high || ''}</td>
-              <td className="text-amber-700 px-3 py-2.5 text-right tabular-nums">{r.medium || ''}</td>
-              <td className="text-muted-foreground px-3 py-2.5 text-right tabular-nums">{r.low || ''}</td>
-            </tr>
-          ))}
-          {hiddenCount > 0 || expanded ? (
-            <tr className="border-border border-t">
-              <td colSpan={5} className="px-3 py-2.5 text-center">
-                <button
-                  type="button"
-                  data-testid={riskStoryTestIds.topReposToggle}
-                  onClick={() => setExpanded((open) => !open)}
-                  className="text-muted-foreground hover:text-foreground text-sm font-medium underline-offset-4 hover:underline"
-                >
-                  {expanded ? 'Show top 5' : `Show ${hiddenCount.toLocaleString()} more`}
-                </button>
-              </td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
+    <div data-testid={riskStoryTestIds.topReposTable} className="mt-4 space-y-3">
+      {visibleRepos.map((r) => (
+        <RepoSeverityBar key={r.repo} repo={r} maxTotal={maxTotal} />
+      ))}
+      {hiddenCount > 0 || expanded ? (
+        <button
+          type="button"
+          data-testid={riskStoryTestIds.topReposToggle}
+          onClick={() => setExpanded((open) => !open)}
+          className="text-muted-foreground hover:text-foreground pt-1 text-sm font-medium underline-offset-4 hover:underline"
+        >
+          {expanded ? 'Show top 5' : `Show ${hiddenCount.toLocaleString()} more`}
+        </button>
+      ) : null}
     </div>
   );
+}
+
+function RepoSeverityBar({ repo, maxTotal }: { repo: RepoSeverityRow; maxTotal: number }) {
+  const total = repoTotal(repo);
+  const counts = { critical: repo.critical, high: repo.high, medium: repo.medium, low: repo.low };
+  return (
+    <div className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-sm">
+      <div className="text-foreground truncate font-mono text-xs" title={repo.repo}>
+        {repo.repo}
+      </div>
+      <div className="bg-muted h-3.5 overflow-hidden rounded-full">
+        <div className="flex h-full" style={{ width: `${(total / maxTotal) * 100}%` }}>
+          {SEGMENTS.map((s) => {
+            const v = counts[s.key];
+            if (v === 0) return null;
+            return (
+              <div
+                key={s.key}
+                style={{ width: `${(v / total) * 100}%`, backgroundColor: s.cssVar }}
+                title={`${s.label}: ${v}`}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className="text-foreground text-right font-semibold tabular-nums">{total.toLocaleString()}</div>
+    </div>
+  );
+}
+
+function repoTotal(r: RepoSeverityRow): number {
+  return r.critical + r.high + r.medium + r.low;
 }
 
 function AgeCell({ label, days, tone }: { label: string; days: number; tone: 'critical' | 'high' }) {
