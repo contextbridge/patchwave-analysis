@@ -40,6 +40,17 @@ export function OpenPrAgeStory() {
         )}
       </p>
 
+      {hasOpenPrs && pr.openAvgAgeDays !== null && (
+        <div className="divide-border mt-6 grid max-w-md grid-cols-2 divide-x">
+          <BacklogStat className="pr-6" value={pr.openCount.toLocaleString()} label="still open" />
+          <BacklogStat
+            className="pl-6"
+            value={`${pr.openAvgAgeDays} ${pr.openAvgAgeDays === 1 ? 'day' : 'days'}`}
+            label="average age"
+          />
+        </div>
+      )}
+
       <div data-testid={openPrAgeStoryTestIds.breakdown} className="mt-6">
         {!hasOpenPrs ? (
           <div className="border-border text-muted-foreground rounded-md border border-dashed px-4 py-6 text-sm">
@@ -60,6 +71,15 @@ export function OpenPrAgeStory() {
         )}
       </div>
     </section>
+  );
+}
+
+function BacklogStat({ value, label, className }: { value: string; label: string; className?: string }) {
+  return (
+    <div className={className}>
+      <div className="text-foreground text-3xl font-medium tabular-nums">{value}</div>
+      <div className="text-muted-foreground mt-1 text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
+    </div>
   );
 }
 

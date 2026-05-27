@@ -60,6 +60,7 @@ export interface PrBacklog {
   mergedInWindowCount: number;
   openAgeBuckets: Array<{ label: string; count: number }>;
   oldestOpenDays: number | null;
+  openAvgAgeDays: number | null;
   bumpTypeSplit: Array<{ bumpType: string; count: number; percentage: number }>;
   devOnlyShare: { count: number; percentage: number };
   ciStatusMix: { green: number; failing: number; pending: number };
@@ -235,19 +236,17 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     { label: '0–30 days', min: 0, max: 30 },
     { label: '30–60 days', min: 30, max: 60 },
     { label: '60–90 days', min: 60, max: 90 },
-    { label: '90–180 days', min: 90, max: 180 },
-    { label: '180+ days', min: 180, max: Number.POSITIVE_INFINITY },
+    { label: '90+ days', min: 90, max: Number.POSITIVE_INFINITY },
   ];
+  const openAges = openPrs.map((p) => daysBetween(now, instantFromString(p.createdAt)));
   const openAgeBuckets = buckets.map((b) => ({
     label: b.label,
-    count: openPrs.filter((p) => {
-      const age = daysBetween(now, instantFromString(p.createdAt));
-      return age >= b.min && age < b.max;
-    }).length,
+    count: openAges.filter((age) => age >= b.min && age < b.max).length,
   }));
 
-  const oldestOpenDays =
-    openPrs.length === 0 ? null : Math.max(...openPrs.map((p) => daysBetween(now, instantFromString(p.createdAt))));
+  const oldestOpenDays = openAges.length === 0 ? null : Math.max(...openAges);
+  const openAvgAgeDays =
+    openAges.length === 0 ? null : Math.round(openAges.reduce((sum, age) => sum + age, 0) / openAges.length);
 
   const bumpCounts = new Map<string, number>();
   for (const pr of prs) {
@@ -300,6 +299,7 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     mergedInWindowCount: mergedInWindow.length,
     openAgeBuckets,
     oldestOpenDays,
+    openAvgAgeDays,
     bumpTypeSplit,
     devOnlyShare,
     ciStatusMix: { green, failing, pending },

@@ -35,9 +35,25 @@ test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
     mergedInWindowCount: 1,
     oldestOpenDays: expect.any(Number) as number,
   });
-  // The 263-day-old PR should fall into the 180+ bucket.
-  const oldBucket = bundle.prBacklog.openAgeBuckets.find((b) => b.label === '180+ days');
+  // The 263-day-old PR should fall into the 90+ bucket (90 and 180+ are no longer split).
+  const oldBucket = bundle.prBacklog.openAgeBuckets.find((b) => b.label === '90+ days');
   expect(oldBucket?.count).toBe(1);
+});
+
+test('averages open PR age and reports null when nothing is open', () => {
+  // collectionContext.now is 2026-05-22, so these open PRs are 10 and 30 days old.
+  const withOpen = collectedData.build({
+    dependabotPrs: [
+      dependabotPr.build({ state: 'open', createdAt: '2026-05-12T00:00:00Z' }),
+      dependabotPr.build({ state: 'open', createdAt: '2026-04-22T00:00:00Z' }),
+    ],
+  });
+  expect(aggregate(withOpen).prBacklog.openAvgAgeDays).toBe(20);
+
+  const noOpen = collectedData.build({
+    dependabotPrs: [dependabotPr.build({ state: 'closed', merged: true, mergedAt: '2026-04-01T00:00:00Z' })],
+  });
+  expect(aggregate(noOpen).prBacklog.openAvgAgeDays).toBeNull();
 });
 
 test('rolls org/visibility/language counts up into orgOverview', () => {
@@ -180,13 +196,13 @@ test('builds a cost estimate from human merges and reviews, excluding bot merges
   const bundle = aggregate(data);
   expect(bundle.costEstimate.humanMergeCount).toBe(100);
   expect(bundle.costEstimate.humanReviewCount).toBe(0);
-  expect(bundle.costEstimate.hourlyRateUsd).toBe(150);
-  expect(bundle.costEstimate.minutesPerPr).toBe(5);
-  // 100 actions × 5 min × $150/hr / 60 = $1250 in window
-  expect(bundle.costEstimate.windowCostUsd).toBe(1250);
-  // ~$423/month over 90 days (window × 30.44/90)
-  expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(400);
-  expect(bundle.costEstimate.monthlyCostUsd).toBeLessThan(450);
+  expect(bundle.costEstimate.hourlyRateUsd).toBe(200);
+  expect(bundle.costEstimate.minutesPerPr).toBe(12);
+  // 100 actions × 12 min × $200/hr / 60 = $4000 in window
+  expect(bundle.costEstimate.windowCostUsd).toBe(4000);
+  // ~$1,352/month over 90 days (window × 30.44/90)
+  expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(1300);
+  expect(bundle.costEstimate.monthlyCostUsd).toBeLessThan(1400);
   expect(bundle.costEstimate.annualCostUsd).toBe(bundle.costEstimate.monthlyCostUsd * 12);
   expect(bundle.costEstimate.savingsScenarios.map((s) => s.autoMergeRate)).toEqual([0.5, 0.6, 0.7, 0.8]);
   expect(bundle.costEstimate.savingsScenarios[0]?.annualSavingsUsd).toBe(

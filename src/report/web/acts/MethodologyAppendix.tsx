@@ -5,8 +5,6 @@ import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
-import { AssumptionInput } from '../primitives/AssumptionInput.tsx';
-import { AssumptionsFootnote, assumptionsPanelId } from '../primitives/AssumptionsFootnote.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { reposWithoutSecurityAlertsId } from './RiskStory.tsx';
 
@@ -78,15 +76,16 @@ export function MethodologyAppendix() {
           >
             {activeTab === 'calculation' && (
               <div className="space-y-10">
-                <section id={assumptionsPanelId} className="scroll-mt-16">
+                <section>
                   <SectionHeading>Cost assumptions</SectionHeading>
                   <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">
-                    Every cost and time figure in this report is modeled from these two inputs. Change them and the
-                    numbers throughout recalculate. The defaults are intentionally conservative.
+                    Every cost and time figure in this report is modeled from two inputs: a loaded hourly rate and the
+                    minutes spent per PR. Adjust them at the top of the report and the numbers throughout recalculate.
                   </p>
-                  <div className="mt-3">
-                    <AssumptionInput />
-                  </div>
+                  <p className="text-foreground mt-3 text-sm">
+                    Currently <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> and{' '}
+                    <span className="font-semibold tabular-nums">{assumptions.minutesPerPr} min</span> per PR.
+                  </p>
                 </section>
 
                 <section>
@@ -99,13 +98,16 @@ export function MethodologyAppendix() {
                           value={
                             <>
                               (Human merges + reviews) &times; minutes per PR &divide; 60 &times; hourly rate.
-                              Bot-merged PRs are excluded. Currently using adjustable
-                              <AssumptionsFootnote from="methodology-formula" /> assumptions:{' '}
+                              Bot-merged PRs are excluded. Currently using adjustable assumptions:{' '}
                               {data.costEstimate.humanMergeCount + data.costEstimate.humanReviewCount} actions &times;{' '}
                               {assumptions.minutesPerPr} min &divide; 60 &times; ${assumptions.hourlyRateUsd}
                               /hr.
                             </>
                           }
+                        />
+                        <FormulaRow
+                          label="Open PRs"
+                          value="The cost counts only merged PRs. Currently open PRs are excluded and reported on their own in the backlog section."
                         />
                         <FormulaRow
                           label="Run rate"
@@ -127,11 +129,9 @@ export function MethodologyAppendix() {
                     </table>
                   </div>
                   <p className="text-muted-foreground mt-4 leading-relaxed">
-                    The adjustable
-                    <AssumptionsFootnote from="methodology-minutes-default" /> 5 min/PR default is deliberately low. The
-                    adjustable
-                    <AssumptionsFootnote from="methodology-rate-default" /> $150/hr default reflects a $300k engineer
-                    cost divided by 2,000 working hours.
+                    The adjustable 12 min/PR default covers the context switch, review, and merge for a single PR. The
+                    adjustable $200/hr default reflects a $400k fully-loaded engineer cost divided by 2,000 working
+                    hours.
                   </p>
                   <p className="text-muted-foreground mt-2 leading-relaxed">
                     Estimates only; real savings vary by team. The defaults are intentionally conservative

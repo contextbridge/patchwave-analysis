@@ -2,8 +2,8 @@
 // React app. No Temporal, no Bun globals, no React — keep this module dependency-free
 // so it bundles cleanly into both targets.
 
-export const ASSUMED_HOURLY_RATE_USD = 150;
-export const ASSUMED_MIN_PER_PR = 5;
+export const ASSUMED_HOURLY_RATE_USD = 200;
+export const ASSUMED_MIN_PER_PR = 12;
 
 export const AUTO_MERGE_SCENARIO_RATES = [0.5, 0.6, 0.7, 0.8] as const;
 

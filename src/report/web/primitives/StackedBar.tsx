@@ -5,12 +5,16 @@ interface Props {
   low: number;
 }
 
-const SEGMENTS = [
-  { key: 'critical', label: 'Critical', cssVar: 'var(--red)' },
-  { key: 'high', label: 'High', cssVar: 'var(--tangerine)' },
-  { key: 'medium', label: 'Medium', cssVar: 'var(--color-amber-600)' },
-  { key: 'low', label: 'Low', cssVar: 'var(--color-neutral-400)' },
+// Severity palette, ordered most-to-least severe. Shared with RiskStory's
+// per-repo bars so a severity is the same color everywhere.
+export const SEGMENTS = [
+  { key: 'critical', label: 'Critical', cssVar: 'var(--severity-critical)' },
+  { key: 'high', label: 'High', cssVar: 'var(--severity-high)' },
+  { key: 'medium', label: 'Medium', cssVar: 'var(--severity-medium)' },
+  { key: 'low', label: 'Low', cssVar: 'var(--severity-low)' },
 ] as const;
+
+export type SeverityCounts = Record<(typeof SEGMENTS)[number]['key'], number>;
 
 export function StackedBar({ critical, high, medium, low }: Props) {
   const total = critical + high + medium + low;

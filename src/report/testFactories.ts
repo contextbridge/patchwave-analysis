@@ -11,6 +11,7 @@ import type {
   ReportMeta,
   StalledSignals,
 } from './aggregate.ts';
+import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 import { type EmbeddedReportData, toEmbeddedShape } from './embeddedShape.ts';
 import type { ReportAnalyticsConfig } from './reportAnalyticsConfig.ts';
 
@@ -56,10 +57,10 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
     { label: '0–30 days', count: 40 },
     { label: '30–60 days', count: 18 },
     { label: '60–90 days', count: 6 },
-    { label: '90–180 days', count: 25 },
-    { label: '180+ days', count: 13 },
+    { label: '90+ days', count: 38 },
   ],
   oldestOpenDays: 312,
+  openAvgAgeDays: 74,
   bumpTypeSplit: [
     { bumpType: 'patch', count: 150, percentage: 55 },
     { bumpType: 'minor', count: 95, percentage: 34.8 },
@@ -77,31 +78,42 @@ export const stalledSignals = Factory.define<StalledSignals>(() => ({
   reposWithConfigButNoRecentPrs: ['acme/old-tool'],
 }));
 
+// Cost figures derive from the real defaults and formulas so the fixtures track
+// production whenever the assumptions move, rather than restating stale literals.
+const COST_WINDOW_DAYS = 90;
+const HUMAN_MERGE_COUNT = 150;
+const HUMAN_REVIEW_COUNT = 12;
+
 export const people = Factory.define<People>(() => ({
-  mergers: [
-    { login: 'alice', count: 90, windowCostUsd: 1125, annualCostUsd: 4563 },
-    { login: 'bob', count: 60, windowCostUsd: 750, annualCostUsd: 3042 },
-  ],
-  reviewers: [{ login: 'alice', count: 12, windowCostUsd: 90, annualCostUsd: 365 }],
+  mergers: derivePersonCosts(
+    [
+      { login: 'alice', count: 90 },
+      { login: 'bob', count: 60 },
+    ],
+    COST_WINDOW_DAYS,
+    ASSUMED_MIN_PER_PR,
+    ASSUMED_HOURLY_RATE_USD,
+  ),
+  reviewers: derivePersonCosts(
+    [{ login: 'alice', count: 12 }],
+    COST_WINDOW_DAYS,
+    ASSUMED_MIN_PER_PR,
+    ASSUMED_HOURLY_RATE_USD,
+  ),
   commenters: [],
 }));
 
 export const costEstimate = Factory.define<CostEstimate>(() => ({
-  humanMergeCount: 150,
-  humanReviewCount: 12,
+  humanMergeCount: HUMAN_MERGE_COUNT,
+  humanReviewCount: HUMAN_REVIEW_COUNT,
   openCount: 102,
-  windowDays: 90,
-  hourlyRateUsd: 150,
-  minutesPerPr: 5,
-  windowCostUsd: 2025,
-  monthlyCostUsd: 684,
-  annualCostUsd: 8208,
-  savingsScenarios: [
-    { autoMergeRate: 0.5, monthlySavingsUsd: 342, annualSavingsUsd: 4104 },
-    { autoMergeRate: 0.6, monthlySavingsUsd: 410, annualSavingsUsd: 4920 },
-    { autoMergeRate: 0.7, monthlySavingsUsd: 479, annualSavingsUsd: 5748 },
-    { autoMergeRate: 0.8, monthlySavingsUsd: 547, annualSavingsUsd: 6564 },
-  ],
+  windowDays: COST_WINDOW_DAYS,
+  hourlyRateUsd: ASSUMED_HOURLY_RATE_USD,
+  minutesPerPr: ASSUMED_MIN_PER_PR,
+  ...deriveCostEstimate(HUMAN_MERGE_COUNT + HUMAN_REVIEW_COUNT, COST_WINDOW_DAYS, {
+    hourlyRateUsd: ASSUMED_HOURLY_RATE_USD,
+    minutesPerPr: ASSUMED_MIN_PER_PR,
+  }),
 }));
 
 export const cveExposureOk = Factory.define<CveExposure>(() => ({

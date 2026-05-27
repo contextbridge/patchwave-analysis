@@ -7,7 +7,6 @@ import { footnoteMarkerClass } from './FootnoteMarker.tsx';
 export const footnoteReferenceTestId = 'footnote-reference';
 
 interface Props extends FootnoteRegistration {
-  kind?: 'note' | 'assumptions';
   className?: string;
   testId?: string;
   titleText?: string;
@@ -18,7 +17,6 @@ export function FootnoteReference({
   id,
   title,
   body,
-  kind = 'note',
   className,
   testId = footnoteReferenceTestId,
   titleText,
@@ -26,11 +24,10 @@ export function FootnoteReference({
 }: Props) {
   const number = useFootnote({ id, title, body });
   const { reveal } = useAssumptionsDisclosure();
-  const href = kind === 'assumptions' ? '#appendix-assumptions' : '#appendix-sources';
 
   return (
     <a
-      href={href}
+      href="#appendix-sources"
       data-testid={testId}
       title={titleText ?? title}
       onClick={() => {

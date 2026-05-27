@@ -12,7 +12,6 @@ import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
 import { assumptionInputTestIds } from './primitives/AssumptionInput.tsx';
-import { assumptionsFootnoteTestId } from './primitives/AssumptionsFootnote.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
 import type { EmbeddedReportData } from './types.ts';
 
@@ -24,9 +23,11 @@ describe('App report shell', () => {
   it('renders the headline annual cost from the embedded data', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$8,208/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
+    // The headline clarifies it excludes the open backlog, which lives in its own section.
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('not including the 102 still open');
   });
 
   it('recalculates the headline cost and comparison cards when assumptions change', () => {
@@ -37,11 +38,11 @@ describe('App report shell', () => {
       target: { value: '300' },
     });
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$16,428/year');
-    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$16,428/yr');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
+    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$39,420/yr');
     // "Today" mirrors the headline; "PatchWave savings" is the recovered cost at the default 65% share.
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$16,428/yr');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$10,678/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$39,420/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$25,623/yr');
   });
 
   it('allows replacing an assumption value by clearing and typing', () => {
@@ -57,7 +58,7 @@ describe('App report shell', () => {
     fireEvent.blur(hourlyRateInput);
 
     expect(hourlyRateInput).toHaveValue('275');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$15,060/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$36,132/year');
   });
 
   it('recalculates the PatchWave savings card when the auto-merge share changes', () => {
@@ -65,41 +66,12 @@ describe('App report shell', () => {
 
     // Default 65% share starts in the middle of the modeled range.
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$5,335/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$17,082/yr');
 
     fireEvent.change(screen.getByTestId(automatedStoryTestIds.shareSlider), { target: { value: '50' } });
 
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('50%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$4,104/yr');
-  });
-
-  it('reveals the methodology assumptions panel when an estimate footnote is clicked', () => {
-    renderReport();
-    const details = screen.getByTestId(assumptionInputTestIds.container).closest('details');
-    expect(details).toBeTruthy();
-    expect(details).not.toHaveAttribute('open');
-
-    const footnote = screen.getAllByTestId(assumptionsFootnoteTestId)[0];
-    if (!footnote) throw new Error('missing assumptions footnote');
-    const restore = suppressNavigation();
-    fireEvent.click(footnote);
-    restore();
-
-    expect(details).toHaveAttribute('open');
-  });
-
-  it('switches back to the calculation tab when an assumptions footnote is clicked from raw data', () => {
-    renderReport();
-    fireEvent.click(screen.getByText('How this report was calculated'));
-    fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
-    expect(screen.queryByTestId(assumptionInputTestIds.container)).not.toBeInTheDocument();
-
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getAllByTestId(assumptionsFootnoteTestId)[0] as HTMLElement);
-    restore();
-
-    expect(screen.getByRole('tab', { name: 'Calculation' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId(assumptionInputTestIds.container)).toBeInTheDocument();
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$13,140/yr');
   });
 
   it('lists footnotes in ascending first-appearance order', () => {
@@ -108,17 +80,17 @@ describe('App report shell', () => {
     fireEvent.click(screen.getByText('How this report was calculated'));
 
     const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
-    expect(sources).toHaveTextContent('1. Adjustable cost assumptions.');
+    // The solution section leads the report, so its Mohayeji citation is the first footnote.
+    expect(sources).toHaveTextContent('1. Mohayeji et al. 2025');
     expect(sources).toHaveTextContent('2. VulnCheck, May 2026');
     expect(sources).toHaveTextContent('3. Anthropic, "Project Glasswing');
     expect(sources).toHaveTextContent('4. Anthropic, Coordinated Vulnerability Disclosure dashboard');
-    expect(sources).toHaveTextContent('5. Mohayeji et al. 2025');
-    expect(sources).toHaveTextContent('6. Atlassian State of Developer Experience Report 2025.');
+    expect(sources).toHaveTextContent('5. Atlassian State of Developer Experience Report 2025.');
   });
 
   it('opens the appendix source note instead of navigating directly when a citation is clicked', () => {
     renderReport();
-    const details = screen.getByTestId(assumptionInputTestIds.container).closest('details');
+    const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
     expect(details).toBeTruthy();
     expect(details).not.toHaveAttribute('open');
 
@@ -136,7 +108,6 @@ describe('App report shell', () => {
   it('renders the ok CVE state with severity counts', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.cveLine)).toHaveTextContent('7 open security alerts');
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent('7 open security alerts');
     expect(screen.getByTestId(riskStoryTestIds.severityBar)).toBeInTheDocument();
   });
@@ -196,7 +167,6 @@ describe('App report shell', () => {
       },
     });
 
-    expect(screen.getByTestId(verdictTestIds.cveLine)).toHaveTextContent(verdictCopy.cveScopeMissing);
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent(riskStoryCopy.scopeMissingHeading);
     expect(screen.getByTestId(riskStoryTestIds.scopeRefreshCommand)).toHaveTextContent(
       'gh auth refresh -s security_events',
@@ -213,8 +183,6 @@ describe('App report shell', () => {
     expect(screen.getByTestId(openPrAgeStoryTestIds.section)).toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(screen.getByTestId(riskStoryTestIds.section)).toHaveTextContent(riskStoryCopy.eyebrow);
     expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent(callToActionCopy.heading);
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('based on adjustable1 assumptions');
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost).parentElement).toHaveTextContent('Adjustable1 estimate');
     expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveTextContent(verdictCopy.primaryCta);
     expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveAttribute('data-variant', 'default');
     expect(screen.getByTestId(callToActionTestIds.cta)).toHaveTextContent(callToActionCopy.ctaLabel);
@@ -230,26 +198,19 @@ describe('App report shell', () => {
     expect(screen.getByTestId(methodologyAppendixTestIds.section)).not.toHaveTextContent('patchwave.ai');
   });
 
-  it('places every assumptions footnote immediately after adjustable', () => {
-    renderReport();
-    fireEvent.click(screen.getByText('How this report was calculated'));
-
-    for (const footnote of screen.getAllByTestId(assumptionsFootnoteTestId)) {
-      const previousText = footnote.previousSibling?.textContent ?? '';
-      expect(previousText.trimEnd().toLowerCase().endsWith('adjustable')).toBe(true);
-    }
-  });
-
   it('combines person merge and review rows and labels the cost window', () => {
     renderReport();
 
     const table = screen.getByTestId(costStoryTestIds.peopleTable);
     expect(within(table).getByRole('columnheader', { name: 'Cost over last 90 days' })).toBeInTheDocument();
-    expect(within(table).getAllByText('alice')).toHaveLength(1);
-    expect(within(table).getByText('90')).toBeInTheDocument();
-    expect(within(table).getAllByText('merged').length).toBeGreaterThan(0);
-    expect(within(table).getByText('12')).toBeInTheDocument();
-    expect(within(table).getByText('reviewed')).toBeInTheDocument();
+    const aliceCells = within(table).getAllByText('alice');
+    expect(aliceCells).toHaveLength(1);
+    // alice merged and reviewed, so her two activity rows collapse into one combined row.
+    const aliceRow = aliceCells[0]?.closest('tr');
+    expect(aliceRow).toHaveTextContent('90');
+    expect(aliceRow).toHaveTextContent('merged');
+    expect(aliceRow).toHaveTextContent('12');
+    expect(aliceRow).toHaveTextContent('reviewed');
   });
 
   it('limits the people table to the top five with an optional expansion', () => {
@@ -285,16 +246,17 @@ describe('App report shell', () => {
     });
 
     const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    // 10 reviews x 5 min x $150/hr / 60 = $125 in window at the defaults.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$125');
+    // 10 reviews x 12 min x $200/hr / 60 = $400 in window at the defaults.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$400');
 
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
     fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
       target: { value: '10' },
     });
 
-    // Reviews ride the same minutes-per-PR slider as merges, so doubling it doubles the cost.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$250');
+    // Reviews ride the same minutes-per-PR slider as merges, so editing it reworks the cost:
+    // 10 reviews x 10 min x $200/hr / 60 = $333.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$333');
   });
 
   it('reworks the raw-data per-person costs when an assumption changes', () => {
@@ -306,7 +268,7 @@ describe('App report shell', () => {
       },
     });
 
-    // The input lives on the Calculation tab and unmounts on Raw data, so adjust before navigating.
+    // The assumptions control lives in the hero, so it stays editable regardless of the appendix tab.
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
     fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
       target: { value: '10' },
@@ -315,9 +277,9 @@ describe('App report shell', () => {
     fireEvent.click(screen.getByText('How this report was calculated'));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
 
-    // 10 reviews x 10 min x $150/hr / 60 = $250 window, annualized to $1,014/yr.
+    // 10 reviews x 10 min x $200/hr / 60 = $333 window, annualized to $1,351/yr.
     const rawData = screen.getByTestId(methodologyAppendixTestIds.rawData);
-    expect(within(rawData).getByText('carol').closest('li')).toHaveTextContent('$1,014/yr');
+    expect(within(rawData).getByText('carol').closest('li')).toHaveTextContent('$1,351/yr');
   });
 
   it('renders the open PR age buckets as a separate section with count-only rows', () => {
@@ -326,6 +288,11 @@ describe('App report shell', () => {
     const section = screen.getByTestId(openPrAgeStoryTestIds.section);
     const breakdown = screen.getByTestId(openPrAgeStoryTestIds.breakdown);
     expect(section).toHaveTextContent(openPrAgeStoryCopy.heading);
+    // Headline backlog stats summarize the section before the per-bucket bars.
+    expect(section).toHaveTextContent('102');
+    expect(section).toHaveTextContent('still open');
+    expect(section).toHaveTextContent('74 days');
+    expect(section).toHaveTextContent('average age');
     expect(breakdown).toHaveTextContent('0–30 days');
     expect(breakdown).toHaveTextContent('40');
     expect(breakdown).toHaveTextContent('Time-to-merge in your data: p50 2d, p90 14d');
@@ -339,6 +306,7 @@ describe('App report shell', () => {
         ...embeddedReportData.build().prBacklog,
         openCount: 0,
         oldestOpenDays: null,
+        openAvgAgeDays: null,
         openAgeBuckets: [],
       },
     });
@@ -347,6 +315,7 @@ describe('App report shell', () => {
     expect(section).toHaveTextContent(openPrAgeStoryCopy.emptyHeading);
     expect(section).not.toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(section).not.toHaveTextContent('Volume is trending up, not down');
+    expect(section).not.toHaveTextContent('average age');
   });
 });
 
