@@ -18,7 +18,7 @@
   "scripts": {
     "start": "bun run build:report-web && bun run src/index.ts",
     "test": "bun run test:unit && bun run test:browser",
-    "test:unit": "bun run build:report-web && bun test ./src/*.test.ts ./src/**/*.test.ts",
+    "test:unit": "bun run build:report-web && bun test ./src --path-ignore-patterns='**/*.browser.test.tsx'",
     "test:browser": "vitest run",
     "typecheck": "bun run build:report-web && tsc --noEmit",
     "lint": "eslint . --max-warnings 0 --cache",
