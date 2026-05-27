@@ -40,6 +40,22 @@ test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
   expect(oldBucket?.count).toBe(1);
 });
 
+test('averages open PR age and reports null when nothing is open', () => {
+  // collectionContext.now is 2026-05-22, so these open PRs are 10 and 30 days old.
+  const withOpen = collectedData.build({
+    dependabotPrs: [
+      dependabotPr.build({ state: 'open', createdAt: '2026-05-12T00:00:00Z' }),
+      dependabotPr.build({ state: 'open', createdAt: '2026-04-22T00:00:00Z' }),
+    ],
+  });
+  expect(aggregate(withOpen).prBacklog.openAvgAgeDays).toBe(20);
+
+  const noOpen = collectedData.build({
+    dependabotPrs: [dependabotPr.build({ state: 'closed', merged: true, mergedAt: '2026-04-01T00:00:00Z' })],
+  });
+  expect(aggregate(noOpen).prBacklog.openAvgAgeDays).toBeNull();
+});
+
 test('rolls org/visibility/language counts up into orgOverview', () => {
   const data = collectedData.build({
     repos: [

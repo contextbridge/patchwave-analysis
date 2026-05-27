@@ -60,6 +60,7 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
     { label: '90+ days', count: 38 },
   ],
   oldestOpenDays: 312,
+  openAvgAgeDays: 74,
   bumpTypeSplit: [
     { bumpType: 'patch', count: 150, percentage: 55 },
     { bumpType: 'minor', count: 95, percentage: 34.8 },

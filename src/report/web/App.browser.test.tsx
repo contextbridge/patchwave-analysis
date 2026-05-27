@@ -26,6 +26,8 @@ describe('App report shell', () => {
     expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
+    // The headline clarifies it excludes the open backlog, which lives in its own section.
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('not including the 102 still open');
   });
 
   it('recalculates the headline cost and comparison cards when assumptions change', () => {
@@ -286,6 +288,11 @@ describe('App report shell', () => {
     const section = screen.getByTestId(openPrAgeStoryTestIds.section);
     const breakdown = screen.getByTestId(openPrAgeStoryTestIds.breakdown);
     expect(section).toHaveTextContent(openPrAgeStoryCopy.heading);
+    // Headline backlog stats summarize the section before the per-bucket bars.
+    expect(section).toHaveTextContent('102');
+    expect(section).toHaveTextContent('still open');
+    expect(section).toHaveTextContent('74 days');
+    expect(section).toHaveTextContent('average age');
     expect(breakdown).toHaveTextContent('0–30 days');
     expect(breakdown).toHaveTextContent('40');
     expect(breakdown).toHaveTextContent('Time-to-merge in your data: p50 2d, p90 14d');
@@ -299,6 +306,7 @@ describe('App report shell', () => {
         ...embeddedReportData.build().prBacklog,
         openCount: 0,
         oldestOpenDays: null,
+        openAvgAgeDays: null,
         openAgeBuckets: [],
       },
     });
@@ -307,6 +315,7 @@ describe('App report shell', () => {
     expect(section).toHaveTextContent(openPrAgeStoryCopy.emptyHeading);
     expect(section).not.toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(section).not.toHaveTextContent('Volume is trending up, not down');
+    expect(section).not.toHaveTextContent('average age');
   });
 });
 

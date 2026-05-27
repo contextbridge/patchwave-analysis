@@ -106,6 +106,10 @@ export function MethodologyAppendix() {
                           }
                         />
                         <FormulaRow
+                          label="Open PRs"
+                          value="The cost counts only merged PRs. Currently open PRs are excluded and reported on their own in the backlog section."
+                        />
+                        <FormulaRow
                           label="Run rate"
                           value="Monthly run rate scales the window cost by (365 / 12) / windowDays. Annualized = monthly x 12."
                         />
