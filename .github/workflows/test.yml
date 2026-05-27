@@ -29,6 +29,10 @@ jobs:
         run: |
           shellcheck scripts/analyze.sh scripts/analyze.test.sh
           sh scripts/analyze.test.sh
+      - name: Verify generated GraphQL types are up to date
+        run: |
+          bun run build:graphql
+          git diff --exit-code src/github/graphql/generated.ts
 
   test:
     name: Test

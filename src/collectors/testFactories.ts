@@ -1,7 +1,7 @@
 import { Factory } from 'fishery';
-import type { RawPullRequest } from './dependabotPrs.ts';
+import type { PrNode } from './dependabotPrs.ts';
 
-export const rawPullRequest = Factory.define<RawPullRequest>(() => ({
+export const rawPullRequest = Factory.define<PrNode>(() => ({
   number: 1,
   title: 'Bump lodash from 4.17.20 to 4.17.21',
   state: 'OPEN',

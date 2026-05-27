@@ -77,8 +77,8 @@ async function loadOptions(client: GithubClient): Promise<TargetOption[]> {
   // to free-text input in that case, so individual errors collapse to "no
   // options" rather than killing the prompt.
   const [userResult, orgsResult] = await Promise.all([
-    client.request<{ login: string }>('GET /user'),
-    client.paginate<{ login: string }>('GET /user/orgs', { per_page: 100 }),
+    client.request('GET /user'),
+    client.paginate('GET /user/orgs', { per_page: 100 }),
   ]);
 
   const seen = new Set<string>();

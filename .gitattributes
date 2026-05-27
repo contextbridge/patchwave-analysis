@@ -1,0 +1,5 @@
+# Output of `bun run build:graphql` (graphql-codegen). Committed so type-aware
+# tooling resolves it without a codegen step, but marked generated so GitHub
+# collapses it in diffs and omits it from language stats. CI re-runs codegen and
+# fails on drift (see .github/workflows/test.yml).
+src/github/graphql/generated.ts linguist-generated=true

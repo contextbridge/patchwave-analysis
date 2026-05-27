@@ -1,38 +1,46 @@
 import { type ResultAsync, errAsync, okAsync } from 'neverthrow';
+import { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { CveAlert, CveSeverity, CveSlice, RepoRef } from '../types.ts';
 
-interface RawCveAlert {
-  number: number;
-  state: string;
-  created_at: string;
-  security_advisory: { summary: string };
-  security_vulnerability: {
-    severity: string;
-    package: { name: string; ecosystem: string };
-  };
-}
+// `security_vulnerability` is null on alerts GitHub can't attribute to a
+// concrete vulnerability (e.g. auto-dismissed); those carry no severity or
+// package, so we skip them rather than crash.
+const alertSchema = z.object({
+  number: z.number(),
+  created_at: z.string(),
+  security_advisory: z.object({ summary: z.string() }),
+  security_vulnerability: z
+    .object({
+      severity: z.string(),
+      package: z.object({ name: z.string(), ecosystem: z.string() }),
+    })
+    .nullable(),
+});
 
 export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<CveSlice, GithubError> {
   return client
-    .paginate<RawCveAlert>('GET /repos/{owner}/{repo}/dependabot/alerts', {
-      owner: ref.owner,
-      repo: ref.name,
-      state: 'open',
-      per_page: 100,
-    })
+    .paginate(
+      'GET /repos/{owner}/{repo}/dependabot/alerts',
+      { owner: ref.owner, repo: ref.name, state: 'open', per_page: 100 },
+      alertSchema,
+    )
     .map((raw): CveSlice => {
-      const alerts: CveAlert[] = raw.map((a) => ({
-        owner: ref.owner,
-        name: ref.name,
-        number: a.number,
-        severity: normalizeSeverity(a.security_vulnerability.severity),
-        createdAt: a.created_at,
-        packageName: a.security_vulnerability.package.name,
-        ecosystem: a.security_vulnerability.package.ecosystem,
-        summary: a.security_advisory.summary,
-      }));
+      const alerts: CveAlert[] = [];
+      for (const a of raw) {
+        if (a.security_vulnerability === null) continue;
+        alerts.push({
+          owner: ref.owner,
+          name: ref.name,
+          number: a.number,
+          severity: normalizeSeverity(a.security_vulnerability.severity),
+          createdAt: a.created_at,
+          packageName: a.security_vulnerability.package.name,
+          ecosystem: a.security_vulnerability.package.ecosystem,
+          summary: a.security_advisory.summary,
+        });
+      }
       return { owner: ref.owner, name: ref.name, status: 'ok', alerts };
     })
     .orElse((err) => {
