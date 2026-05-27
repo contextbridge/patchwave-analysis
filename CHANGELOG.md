@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.0...v0.2.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* **report:** clean up repo lists in the risk story ([#19](https://github.com/contextbridge/patchwave-analysis/issues/19)) ([4d71a9e](https://github.com/contextbridge/patchwave-analysis/commit/4d71a9e40b1f8a18208ed3548cff9426c67017cc))
+
 ## [0.2.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.1.1...v0.2.0) (2026-05-27)
 
 
