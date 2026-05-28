@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtBytes } from '../format/bytes.ts';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
@@ -158,7 +157,6 @@ export function MethodologyAppendix() {
                           `${org.repoCount} active (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
-                        ['Active human committers', org.activeHumanCommitters.toLocaleString()],
                         ['Repos with branch protection', org.reposWithBranchProtection.toLocaleString()],
                       ]}
                     />
@@ -254,13 +252,13 @@ export function MethodologyAppendix() {
                   </DataPanel>
 
                   {org.topLanguages.length > 0 && (
-                    <DataPanel title="Language mix">
+                    <DataPanel title="Primary language by repo">
                       <ul className="space-y-1.5">
                         {org.topLanguages.map((l) => (
                           <li key={l.language} className="flex justify-between gap-4">
                             <span>{l.language}</span>
                             <span className="text-muted-foreground tabular-nums">
-                              {fmtBytes(l.bytes)} ({l.percentage}%)
+                              {l.repoCount.toLocaleString()} repos ({l.percentage}%)
                             </span>
                           </li>
                         ))}

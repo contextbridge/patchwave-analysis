@@ -8,6 +8,7 @@ export interface RepoRef {
 }
 
 export interface RepoMeta extends RepoRef {
+  nodeId: string;
   visibility: Visibility;
   archived: boolean;
   fork: boolean;
@@ -15,14 +16,7 @@ export interface RepoMeta extends RepoRef {
   primaryLanguage: string | null;
   pushedAt: string | null;
   dependabotSecurityUpdates: boolean | null;
-}
-
-export interface LanguageBytes {
-  [language: string]: number;
-}
-
-export interface RepoLanguages extends RepoRef {
-  bytes: LanguageBytes;
+  dependabotAlertsEnabled: boolean | null;
 }
 
 export type DependabotEcosystem = string;
@@ -98,10 +92,6 @@ export interface BranchProtectionSlice extends RepoRef {
   requiresStatusChecks: boolean;
 }
 
-export interface ContributorSlice extends RepoRef {
-  activeHumanLogins: string[];
-}
-
 export interface CollectionContext {
   org: string;
   windowDays: number;
@@ -112,12 +102,10 @@ export interface CollectionContext {
 export interface CollectedData {
   ctx: CollectionContext;
   repos: RepoMeta[];
-  languages: RepoLanguages[];
   dependabotConfig: DependabotConfigSlice[];
   dependabotPrs: DependabotPr[];
   cve: CveSlice[];
   branchProtection: BranchProtectionSlice[];
-  contributors: ContributorSlice[];
   errors: CollectorWarning[];
 }
 

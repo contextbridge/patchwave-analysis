@@ -1,13 +1,11 @@
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
-import { getBranchProtection } from './collectors/branchProtection.ts';
-import { listActiveCommitters } from './collectors/contributors.ts';
-import { getCveAlerts } from './collectors/cve.ts';
-import { getDependabotConfig } from './collectors/dependabotConfig.ts';
+import pMap from 'p-map';
+import { getCveAlerts, getOrgCveAlerts } from './collectors/cve.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
-import { getRepoLanguages, listOrgRepos } from './collectors/repos.ts';
-import { mapWithConcurrency } from './concurrency.ts';
+import { listRepoMetadataBatched } from './collectors/repoMetadata.ts';
+import { type TargetKind, listTargetRepos } from './collectors/repos.ts';
 import type { Context } from './context.ts';
 import { getErrorMessage } from './errors.ts';
 import { formatFsError } from './FileSystem.ts';
@@ -22,11 +20,9 @@ import type {
   BranchProtectionSlice,
   CollectedData,
   CollectorWarning,
-  ContributorSlice,
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
-  RepoLanguages,
   RepoMeta,
 } from './types.ts';
 
@@ -201,7 +197,7 @@ function renderReport(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
   );
-  return listOrgRepos(ctx.githubClient, opts.target).andThen((repos) => {
+  return listTargetRepos(ctx.githubClient, opts.target).andThen(({ kind: targetKind, repos }) => {
     const filtered = filterRepos(repos, opts);
     ctx.logger.info(
       { total: repos.length, included: filtered.length },
@@ -211,7 +207,7 @@ function renderReport(
     const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
     return ResultAsync.fromSafePromise(
-      collectAll(ctx, filtered, opts.target, opts.windowDays, windowStart, now),
+      collectAll(ctx, filtered, opts.target, targetKind, opts.windowDays, windowStart, now),
     ).andThen((data) => {
       ctx.logger.info(
         { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
@@ -243,6 +239,7 @@ async function collectAll(
   ctx: Context,
   repos: RepoMeta[],
   target: string,
+  targetKind: TargetKind,
   windowDays: number,
   windowStart: Instant,
   now: Instant,
@@ -251,41 +248,32 @@ async function collectAll(
   const warnings: CollectorWarning[] = [];
   const windowStartIso = windowStart.toString();
 
-  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
-    crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
-      (rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
-    ),
-    crawlPerRepo<DependabotConfigSlice>(
-      repos,
-      (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
-      warnings,
-      'dependabotConfig',
-    ),
-    crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve'),
-    crawlPerRepo<BranchProtectionSlice>(
-      repos,
-      (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
-      warnings,
-      'branchProtection',
-    ),
-    crawlPerRepo<ContributorSlice>(
-      repos,
-      (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
-      warnings,
-      'contributors',
-    ),
+  const cvePromise: Promise<CveSlice[]> = (async () => {
+    const perRepoCrawl = (): Promise<CveSlice[]> =>
+      crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve');
+    if (targetKind === 'user') return perRepoCrawl();
+    // Try the org-level endpoint first (one call instead of N). If anything
+    // other than scope-missing comes back, fall back to per-repo so each
+    // repo gets a real status determination instead of an empty list.
+    const result = await getOrgCveAlerts(client, target, repos);
+    if (result.isOk()) return result.value;
+    warnings.push({ collector: 'cve', message: formatGithubError(result.error) });
+    return perRepoCrawl();
+  })();
+
+  const [metadata, cve, dependabotPrs] = await Promise.all([
+    runRepoMetadata(listRepoMetadataBatched(client, repos), warnings),
+    cvePromise,
     runResultAsync<DependabotPr[]>(listDependabotPrs(client, target, windowStartIso), [], warnings, 'dependabotPrs'),
   ]);
 
   return {
     ctx: { org: target, windowDays, windowStart, now },
     repos,
-    languages,
-    dependabotConfig,
+    dependabotConfig: metadata.dependabotConfig,
     dependabotPrs,
     cve,
-    branchProtection,
-    contributors,
+    branchProtection: metadata.branchProtection,
     errors: warnings,
   };
 }
@@ -296,10 +284,14 @@ async function crawlPerRepo<T>(
   warnings: CollectorWarning[],
   collector: string,
 ): Promise<T[]> {
-  const results = await mapWithConcurrency(repos, 8, async (repo) => {
-    const result = await fn(repo);
-    return { repo, result };
-  });
+  const results = await pMap(
+    repos,
+    async (repo) => {
+      const result = await fn(repo);
+      return { repo, result };
+    },
+    { concurrency: 8 },
+  );
   const ok: T[] = [];
   for (const { repo, result } of results) {
     if (result.isOk()) {
@@ -325,6 +317,23 @@ async function runResultAsync<T>(
   if (result.isOk()) return result.value;
   warnings.push({ collector, message: formatGithubError(result.error) });
   return fallback;
+}
+
+// listRepoMetadataBatched returns per-repo warnings inside the value; the outer
+// Err channel is reserved for systemic errors and is currently unused. This
+// helper forwards inner warnings up without double-counting and degrades to
+// empty slices if the outer Err ever fires.
+async function runRepoMetadata(
+  ra: ReturnType<typeof listRepoMetadataBatched>,
+  warnings: CollectorWarning[],
+): Promise<{ dependabotConfig: DependabotConfigSlice[]; branchProtection: BranchProtectionSlice[] }> {
+  const result = await ra;
+  if (result.isErr()) {
+    warnings.push({ collector: 'repoMetadata', message: formatGithubError(result.error) });
+    return { dependabotConfig: [], branchProtection: [] };
+  }
+  for (const w of result.value.warnings) warnings.push(w);
+  return { dependabotConfig: result.value.dependabotConfig, branchProtection: result.value.branchProtection };
 }
 
 export type ParseCliResult = { kind: 'ok'; value: CliOptions } | { kind: 'err'; message: string };

@@ -2,7 +2,7 @@ import { type ResultAsync, errAsync, okAsync } from 'neverthrow';
 import { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
-import type { CveAlert, CveSeverity, CveSlice, RepoRef } from '../types.ts';
+import type { CveAlert, CveSeverity, CveSlice, RepoMeta, RepoRef } from '../types.ts';
 
 // `security_vulnerability` is null on alerts GitHub can't attribute to a
 // concrete vulnerability (e.g. auto-dismissed); those carry no severity or
@@ -17,6 +17,13 @@ const alertSchema = z.object({
       package: z.object({ name: z.string(), ecosystem: z.string() }),
     })
     .nullable(),
+});
+
+const orgAlertSchema = alertSchema.extend({
+  repository: z.object({
+    name: z.string(),
+    owner: z.object({ login: z.string() }),
+  }),
 });
 
 export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<CveSlice, GithubError> {
@@ -68,10 +75,63 @@ export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<Cv
     });
 }
 
+export function getOrgCveAlerts(
+  client: GithubClient,
+  org: string,
+  repos: readonly RepoMeta[],
+): ResultAsync<CveSlice[], GithubError> {
+  return client
+    .paginate('GET /orgs/{org}/dependabot/alerts', { org, state: 'open', per_page: 100 }, orgAlertSchema)
+    .map((raw): CveSlice[] => {
+      const inScope = new Set(repos.map((r) => repoKey(r)));
+      const byRepo = new Map<string, CveAlert[]>();
+      for (const a of raw) {
+        if (a.security_vulnerability === null) continue;
+        const ref: RepoRef = { owner: a.repository.owner.login, name: a.repository.name };
+        const key = repoKey(ref);
+        if (!inScope.has(key)) continue;
+        const list = byRepo.get(key) ?? [];
+        list.push({
+          owner: ref.owner,
+          name: ref.name,
+          number: a.number,
+          severity: normalizeSeverity(a.security_vulnerability.severity),
+          createdAt: a.created_at,
+          packageName: a.security_vulnerability.package.name,
+          ecosystem: a.security_vulnerability.package.ecosystem,
+          summary: a.security_advisory.summary,
+        });
+        byRepo.set(key, list);
+      }
+      return repos.map((r): CveSlice => {
+        if (r.dependabotAlertsEnabled === false) {
+          return { owner: r.owner, name: r.name, status: 'not-enabled' };
+        }
+        return { owner: r.owner, name: r.name, status: 'ok', alerts: byRepo.get(repoKey(r)) ?? [] };
+      });
+    })
+    .orElse((err) => {
+      // Unlike the per-repo collector, an org-wide 404/403 here means the org
+      // is inaccessible — not "alerts disabled on a single repo". Per-repo
+      // "not enabled" is driven by `dependabotAlertsEnabled === false` against
+      // RepoMeta in the .map above. Only scope-missing is a soft failure.
+      if (err.kind === 'scope-missing') {
+        return okAsync<CveSlice[], GithubError>(
+          repos.map((r) => ({ owner: r.owner, name: r.name, status: 'scope-missing', requiredScope: err.required })),
+        );
+      }
+      return errAsync<CveSlice[], GithubError>(err);
+    });
+}
+
 function normalizeSeverity(raw: string): CveSeverity {
   const v = raw.toLowerCase();
   if (v === 'critical') return 'critical';
   if (v === 'high') return 'high';
   if (v === 'medium' || v === 'moderate') return 'medium';
   return 'low';
+}
+
+function repoKey(ref: RepoRef): string {
+  return `${ref.owner}/${ref.name}`;
 }

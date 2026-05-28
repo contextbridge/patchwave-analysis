@@ -25,7 +25,7 @@ Easiest path: run `gh auth login` (via [GitHub CLI](https://cli.github.com)) and
 
 Prefer a custom token? Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) instead and set these repository permissions to read:
 
-- **Contents:** commit history and the `dependabot.yml` config
+- **Contents:** the `dependabot.yml` config
 - **Pull requests:** the Dependabot PR backlog
 - **Administration:** branch-protection and ruleset coverage
 - **Dependabot alerts:** the CVE numbers
@@ -56,12 +56,11 @@ The report covers:
 
 Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
 
-- The repo list, visibility, and language breakdown
+- The repo list, visibility, and primary language metadata
 - Dependabot PRs in the window, including state, timing, reviews, and CI status
 - Open Dependabot security alerts (needs the `security_events` scope)
 - Each repo's `.github/dependabot.yml`
 - Branch-protection and ruleset settings on the default branch
-- Commit authors in the window, to count active humans
 
 All calls are read only. It writes nothing back to GitHub and pulls no file contents beyond the Dependabot config.
 

@@ -6,13 +6,11 @@ import type {
   CollectedData,
   CollectionContext,
   CollectorWarning,
-  ContributorSlice,
   CveAlert,
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
   DependabotUpdateEntry,
-  RepoLanguages,
   RepoMeta,
   RepoRef,
 } from './types.ts';
@@ -25,6 +23,7 @@ export const repoRef = Factory.define<RepoRef>(() => ({
 export const repoMeta = Factory.define<RepoMeta>(() => ({
   owner: 'acme',
   name: 'widgets',
+  nodeId: 'R_kgDOwidgets',
   visibility: 'private',
   archived: false,
   fork: false,
@@ -32,6 +31,7 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   primaryLanguage: 'TypeScript',
   pushedAt: '2026-04-01T00:00:00Z',
   dependabotSecurityUpdates: true,
+  dependabotAlertsEnabled: true,
 }));
 
 export const checkSummary = Factory.define<CheckSummary>(() => ({
@@ -89,12 +89,6 @@ export const branchProtectionSlice = Factory.define<BranchProtectionSlice>(() =>
   requiresStatusChecks: true,
 }));
 
-export const contributorSlice = Factory.define<ContributorSlice>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  activeHumanLogins: [],
-}));
-
 export const dependabotUpdateEntry = Factory.define<DependabotUpdateEntry>(() => ({
   ecosystem: 'npm',
   interval: 'weekly',
@@ -109,12 +103,6 @@ export const dependabotConfigSlice = Factory.define<DependabotConfigSlice>(() =>
   hasConfig: true,
   ecosystems: ['npm'],
   updates: [dependabotUpdateEntry.build()],
-}));
-
-export const repoLanguages = Factory.define<RepoLanguages>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  bytes: { TypeScript: 100_000, JavaScript: 20_000 },
 }));
 
 export const collectorWarning = Factory.define<CollectorWarning>(() => ({
@@ -133,11 +121,9 @@ export const collectionContext = Factory.define<CollectionContext>(() => ({
 export const collectedData = Factory.define<CollectedData>(() => ({
   ctx: collectionContext.build(),
   repos: [repoMeta.build()],
-  languages: [repoLanguages.build()],
   dependabotConfig: [dependabotConfigSlice.build()],
   dependabotPrs: [],
   cve: [cveSliceOk.build()],
   branchProtection: [branchProtectionSlice.build()],
-  contributors: [contributorSlice.build()],
   errors: [],
 }));

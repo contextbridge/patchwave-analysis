@@ -1,13 +1,6 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
 import { type Instant, Temporal, instantFromString } from '../time.ts';
-import type {
-  CollectedData,
-  CveAlert,
-  CveSeverity,
-  DependabotConfigSlice,
-  DependabotPr,
-  LanguageBytes,
-} from '../types.ts';
+import type { CollectedData, CveAlert, CveSeverity, DependabotConfigSlice, DependabotPr } from '../types.ts';
 import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 
 export interface ReportBundle {
@@ -34,10 +27,9 @@ export interface OrgOverview {
   privateCount: number;
   internalCount: number;
   archivedExcluded: number;
-  topLanguages: Array<{ language: string; bytes: number; percentage: number }>;
+  topLanguages: Array<{ language: string; repoCount: number; percentage: number }>;
   nodeTsRepoCount: number;
   nodeTsRepoPercentage: number;
-  activeHumanCommitters: number;
   reposWithBranchProtection: number;
 }
 
@@ -143,30 +135,23 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
   const privateCount = repos.filter((r) => r.visibility === 'private').length;
   const internalCount = repos.filter((r) => r.visibility === 'internal').length;
 
-  const aggregateBytes: LanguageBytes = {};
-  for (const lang of data.languages) {
-    for (const [name, bytes] of Object.entries(lang.bytes)) {
-      aggregateBytes[name] = (aggregateBytes[name] ?? 0) + bytes;
-    }
+  const langCounts = new Map<string, number>();
+  for (const r of repos) {
+    if (r.primaryLanguage) langCounts.set(r.primaryLanguage, (langCounts.get(r.primaryLanguage) ?? 0) + 1);
   }
-  const totalBytes = Object.values(aggregateBytes).reduce((a, b) => a + b, 0);
-  const topLanguages = Object.entries(aggregateBytes)
-    .map(([language, bytes]) => ({
+  const totalLangRepos = [...langCounts.values()].reduce((a, b) => a + b, 0);
+  const topLanguages = [...langCounts.entries()]
+    .map(([language, repoCount]) => ({
       language,
-      bytes,
-      percentage: totalBytes > 0 ? round1((bytes / totalBytes) * 100) : 0,
+      repoCount,
+      percentage: totalLangRepos > 0 ? round1((repoCount / totalLangRepos) * 100) : 0,
     }))
-    .sort((a, b) => b.bytes - a.bytes)
+    .sort((a, b) => b.repoCount - a.repoCount)
     .slice(0, 10);
 
   const nodeTsRepoCount = repos.filter(
     (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
   ).length;
-
-  const allCommitters = new Set<string>();
-  for (const slice of data.contributors) {
-    for (const login of slice.activeHumanLogins) allCommitters.add(login);
-  }
 
   const reposWithBranchProtection = data.branchProtection.filter((b) => b.hasProtection).length;
 
@@ -179,7 +164,6 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     topLanguages,
     nodeTsRepoCount,
     nodeTsRepoPercentage: pct(nodeTsRepoCount, repos.length),
-    activeHumanCommitters: allCommitters.size,
     reposWithBranchProtection,
   };
 }
