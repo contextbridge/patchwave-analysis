@@ -69,7 +69,7 @@ test('writes a report when the GitHub calls succeed', async () => {
     content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
     encoding: 'base64',
   });
-  githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
+  githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   githubClient
     .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
     .fails({ kind: 'not-found', message: 'no protection' });
@@ -150,7 +150,7 @@ test('excludes forked repos from the crawl', async () => {
     content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
     encoding: 'base64',
   });
-  githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
+  githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   githubClient
     .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
     .fails({ kind: 'not-found', message: 'no protection' });
@@ -168,7 +168,82 @@ test('excludes forked repos from the crawl', async () => {
   });
 });
 
-test('captures run_failed when listOrgRepos fails', async () => {
+test('uses the per-repo CVE endpoint for user targets', async () => {
+  const { ctx, githubClient } = createFakeContext();
+
+  // User-target fallthrough: /orgs/{org}/repos 404s, /users/{username}/repos succeeds.
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'not-found', message: 'no org' });
+  githubClient.onPaginate('GET /users/{username}/repos', {}).resolves([
+    {
+      name: 'solo',
+      owner: { login: 'blimmer' },
+      private: false,
+      visibility: 'public',
+      archived: false,
+      fork: false,
+      default_branch: 'main',
+      language: 'TypeScript',
+      pushed_at: '2026-04-01T00:00:00Z',
+    },
+  ]);
+  githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
+    content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
+    encoding: 'base64',
+  });
+  // Per-repo CVE endpoint — the path Task 4 keeps for user targets.
+  githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
+  githubClient
+    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
+    .fails({ kind: 'not-found', message: 'no protection' });
+  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
+  githubClient.onGraphql('DependabotPrs').resolves({
+    search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+  });
+
+  const result = await main(ctx, ['blimmer']);
+  expect(result.kind).toBe('completed');
+
+  const paginateRoutes = githubClient.callsTo('paginate').flatMap((c) => (c.kind === 'paginate' ? [c.route] : []));
+  expect(paginateRoutes).toContain('GET /repos/{owner}/{repo}/dependabot/alerts');
+  expect(paginateRoutes).not.toContain('GET /orgs/{org}/dependabot/alerts');
+});
+
+test('falls back to the per-repo CVE endpoint when the org-level call fails', async () => {
+  const { ctx, githubClient } = createFakeContext();
+
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
+    {
+      name: 'widgets',
+      node_id: 'R_kgDOwidgets',
+      owner: { login: 'acme' },
+      private: true,
+      visibility: 'private',
+      archived: false,
+      default_branch: 'main',
+      language: 'TypeScript',
+      pushed_at: '2026-04-01T00:00:00Z',
+    },
+  ]);
+  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
+  // Org-level endpoint refuses: token can see the org but not its alerts.
+  githubClient
+    .onPaginate('GET /orgs/{org}/dependabot/alerts', {})
+    .fails({ kind: 'forbidden', message: 'no access to org alerts' });
+  // Per-repo endpoint is the fallback so each repo still gets a real status.
+  githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
+  githubClient.onGraphql('DependabotPrs').resolves({
+    search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+  });
+
+  const result = await main(ctx, ['acme']);
+  expect(result.kind).toBe('completed');
+
+  const paginateRoutes = githubClient.callsTo('paginate').flatMap((c) => (c.kind === 'paginate' ? [c.route] : []));
+  expect(paginateRoutes).toContain('GET /orgs/{org}/dependabot/alerts');
+  expect(paginateRoutes).toContain('GET /repos/{owner}/{repo}/dependabot/alerts');
+});
+
+test('captures run_failed when listTargetRepos fails', async () => {
   const { ctx, githubClient, analytics } = createFakeContext();
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });
 
@@ -178,7 +253,7 @@ test('captures run_failed when listOrgRepos fails', async () => {
   expect(failed?.properties).toMatchObject({ error_kind: 'forbidden' });
 });
 
-test('returns failed when listOrgRepos fails non-recoverably', async () => {
+test('returns failed when listTargetRepos fails non-recoverably', async () => {
   const { ctx, prompter, githubClient } = createFakeContext();
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'forbidden', message: 'no access' });
 

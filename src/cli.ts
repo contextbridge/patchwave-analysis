@@ -2,10 +2,10 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
 import { getBranchProtection } from './collectors/branchProtection.ts';
-import { getCveAlerts } from './collectors/cve.ts';
+import { getCveAlerts, getOrgCveAlerts } from './collectors/cve.ts';
 import { getDependabotConfig } from './collectors/dependabotConfig.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
-import { listOrgRepos } from './collectors/repos.ts';
+import { type TargetKind, listTargetRepos } from './collectors/repos.ts';
 import { mapWithConcurrency } from './concurrency.ts';
 import type { Context } from './context.ts';
 import { getErrorMessage } from './errors.ts';
@@ -198,7 +198,7 @@ function renderReport(
     { target: opts.target, windowDays: opts.windowDays },
     `scanning ${opts.target} (${opts.windowDays}-day window)`,
   );
-  return listOrgRepos(ctx.githubClient, opts.target).andThen((repos) => {
+  return listTargetRepos(ctx.githubClient, opts.target).andThen(({ kind: targetKind, repos }) => {
     const filtered = filterRepos(repos, opts);
     ctx.logger.info(
       { total: repos.length, included: filtered.length },
@@ -208,7 +208,7 @@ function renderReport(
     const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
     return ResultAsync.fromSafePromise(
-      collectAll(ctx, filtered, opts.target, opts.windowDays, windowStart, now),
+      collectAll(ctx, filtered, opts.target, targetKind, opts.windowDays, windowStart, now),
     ).andThen((data) => {
       ctx.logger.info(
         { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
@@ -240,6 +240,7 @@ async function collectAll(
   ctx: Context,
   repos: RepoMeta[],
   target: string,
+  targetKind: TargetKind,
   windowDays: number,
   windowStart: Instant,
   now: Instant,
@@ -248,6 +249,19 @@ async function collectAll(
   const warnings: CollectorWarning[] = [];
   const windowStartIso = windowStart.toString();
 
+  const cvePromise: Promise<CveSlice[]> = (async () => {
+    const perRepoCrawl = (): Promise<CveSlice[]> =>
+      crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve');
+    if (targetKind === 'user') return perRepoCrawl();
+    // Try the org-level endpoint first (one call instead of N). If anything
+    // other than scope-missing comes back, fall back to per-repo so each
+    // repo gets a real status determination instead of an empty list.
+    const result = await getOrgCveAlerts(client, target, repos);
+    if (result.isOk()) return result.value;
+    warnings.push({ collector: 'cve', message: formatGithubError(result.error) });
+    return perRepoCrawl();
+  })();
+
   const [dependabotConfig, cve, branchProtection, dependabotPrs] = await Promise.all([
     crawlPerRepo<DependabotConfigSlice>(
       repos,
@@ -255,7 +269,7 @@ async function collectAll(
       warnings,
       'dependabotConfig',
     ),
-    crawlPerRepo<CveSlice>(repos, (r) => getCveAlerts(client, { owner: r.owner, name: r.name }), warnings, 'cve'),
+    cvePromise,
     crawlPerRepo<BranchProtectionSlice>(
       repos,
       (r) => getBranchProtection(client, { owner: r.owner, name: r.name }, r.defaultBranch),
