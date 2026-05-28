@@ -1,5 +1,4 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
-import { graphql as graphqlBase } from '@octokit/graphql';
 import type { PaginatingEndpoints } from '@octokit/plugin-paginate-rest';
 import { retry } from '@octokit/plugin-retry';
 import { throttling } from '@octokit/plugin-throttling';
@@ -43,7 +42,6 @@ export interface GithubClientImplOptions {
 
 export class GithubClientImpl implements GithubClient {
   private readonly rest: InstanceType<typeof PatchWaveOctokit>;
-  private readonly graphqlClient: typeof graphqlBase;
   private readonly log: Logger;
 
   constructor(options: GithubClientImplOptions) {
@@ -62,12 +60,8 @@ export class GithubClientImpl implements GithubClient {
       retry: { doNotRetry: [400, 401, 403, 404, 409, 422] },
       throttle: {
         onRateLimit: (_retryAfter, _opts, _octokit, retryCount) => retryCount < 2,
-        onSecondaryRateLimit: () => true,
+        onSecondaryRateLimit: (_retryAfter, _opts, _octokit, retryCount) => retryCount < 2,
       },
-    });
-    this.graphqlClient = graphqlBase.defaults({
-      headers: { authorization: `token ${token}` },
-      request: { log },
     });
   }
 
@@ -99,6 +93,6 @@ export class GithubClientImpl implements GithubClient {
     document: TypedDocumentNode<TResult, TVariables>,
     variables: TVariables,
   ): ResultAsync<TResult, GithubError> {
-    return ResultAsync.fromPromise(this.graphqlClient<TResult>(print(document), variables), toGithubError);
+    return ResultAsync.fromPromise(this.rest.graphql<TResult>(print(document), variables), toGithubError);
   }
 }
