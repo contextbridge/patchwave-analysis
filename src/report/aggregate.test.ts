@@ -81,6 +81,23 @@ test('rolls org/visibility/language counts up into orgOverview', () => {
   });
 });
 
+test('topLanguages is a repo-count breakdown using primaryLanguage', () => {
+  const data = collectedData.build({
+    repos: [
+      repoMeta.build({ owner: 'acme', name: 'a', primaryLanguage: 'TypeScript' }),
+      repoMeta.build({ owner: 'acme', name: 'b', primaryLanguage: 'TypeScript' }),
+      repoMeta.build({ owner: 'acme', name: 'c', primaryLanguage: 'Go' }),
+      repoMeta.build({ owner: 'acme', name: 'd', primaryLanguage: null }),
+    ],
+  });
+
+  const bundle = aggregate(data);
+  expect(bundle.orgOverview.topLanguages).toEqual([
+    { language: 'TypeScript', repoCount: 2, percentage: 66.7 },
+    { language: 'Go', repoCount: 1, percentage: 33.3 },
+  ]);
+});
+
 test('emits a scope-missing CVE exposure when any slice signals scope-missing', () => {
   const data = collectedData.build({
     cve: [{ owner: 'acme', name: 'widgets', status: 'scope-missing', requiredScope: 'security_events' }],

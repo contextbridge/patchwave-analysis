@@ -11,7 +11,6 @@ import type {
   DependabotConfigSlice,
   DependabotPr,
   DependabotUpdateEntry,
-  RepoLanguages,
   RepoMeta,
   RepoRef,
 } from './types.ts';
@@ -104,12 +103,6 @@ export const dependabotConfigSlice = Factory.define<DependabotConfigSlice>(() =>
   updates: [dependabotUpdateEntry.build()],
 }));
 
-export const repoLanguages = Factory.define<RepoLanguages>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  bytes: { TypeScript: 100_000, JavaScript: 20_000 },
-}));
-
 export const collectorWarning = Factory.define<CollectorWarning>(() => ({
   collector: 'branchProtection',
   repo: { owner: 'acme', name: 'widgets' },
@@ -126,7 +119,6 @@ export const collectionContext = Factory.define<CollectionContext>(() => ({
 export const collectedData = Factory.define<CollectedData>(() => ({
   ctx: collectionContext.build(),
   repos: [repoMeta.build()],
-  languages: [repoLanguages.build()],
   dependabotConfig: [dependabotConfigSlice.build()],
   dependabotPrs: [],
   cve: [cveSliceOk.build()],

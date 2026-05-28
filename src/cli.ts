@@ -5,7 +5,7 @@ import { getBranchProtection } from './collectors/branchProtection.ts';
 import { getCveAlerts } from './collectors/cve.ts';
 import { getDependabotConfig } from './collectors/dependabotConfig.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
-import { getRepoLanguages, listOrgRepos } from './collectors/repos.ts';
+import { listOrgRepos } from './collectors/repos.ts';
 import { mapWithConcurrency } from './concurrency.ts';
 import type { Context } from './context.ts';
 import { getErrorMessage } from './errors.ts';
@@ -24,7 +24,6 @@ import type {
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
-  RepoLanguages,
   RepoMeta,
 } from './types.ts';
 
@@ -249,10 +248,7 @@ async function collectAll(
   const warnings: CollectorWarning[] = [];
   const windowStartIso = windowStart.toString();
 
-  const [languages, dependabotConfig, cve, branchProtection, dependabotPrs] = await Promise.all([
-    crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
-      (rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
-    ),
+  const [dependabotConfig, cve, branchProtection, dependabotPrs] = await Promise.all([
     crawlPerRepo<DependabotConfigSlice>(
       repos,
       (r) => getDependabotConfig(client, { owner: r.owner, name: r.name }),
@@ -272,7 +268,6 @@ async function collectAll(
   return {
     ctx: { org: target, windowDays, windowStart, now },
     repos,
-    languages,
     dependabotConfig,
     dependabotPrs,
     cve,

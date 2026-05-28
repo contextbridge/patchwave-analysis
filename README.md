@@ -56,7 +56,7 @@ The report covers:
 
 Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
 
-- The repo list, visibility, and language breakdown
+- The repo list, visibility, and primary language metadata
 - Dependabot PRs in the window, including state, timing, reviews, and CI status
 - Open Dependabot security alerts (needs the `security_events` scope)
 - Each repo's `.github/dependabot.yml`

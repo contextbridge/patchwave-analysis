@@ -17,14 +17,6 @@ export interface RepoMeta extends RepoRef {
   dependabotSecurityUpdates: boolean | null;
 }
 
-export interface LanguageBytes {
-  [language: string]: number;
-}
-
-export interface RepoLanguages extends RepoRef {
-  bytes: LanguageBytes;
-}
-
 export type DependabotEcosystem = string;
 
 export type DependabotInterval = 'daily' | 'weekly' | 'monthly';
@@ -108,7 +100,6 @@ export interface CollectionContext {
 export interface CollectedData {
   ctx: CollectionContext;
   repos: RepoMeta[];
-  languages: RepoLanguages[];
   dependabotConfig: DependabotConfigSlice[];
   dependabotPrs: DependabotPr[];
   cve: CveSlice[];

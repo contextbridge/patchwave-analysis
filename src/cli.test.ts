@@ -65,7 +65,6 @@ test('writes a report when the GitHub calls succeed', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/languages', {}).resolves({ TypeScript: 1000 });
   githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
     content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
     encoding: 'base64',
@@ -147,7 +146,6 @@ test('excludes forked repos from the crawl', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/languages', {}).resolves({ TypeScript: 1000 });
   githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
     content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
     encoding: 'base64',
