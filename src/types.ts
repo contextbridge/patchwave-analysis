@@ -8,6 +8,7 @@ export interface RepoRef {
 }
 
 export interface RepoMeta extends RepoRef {
+  nodeId: string;
   visibility: Visibility;
   archived: boolean;
   fork: boolean;
@@ -15,6 +16,7 @@ export interface RepoMeta extends RepoRef {
   primaryLanguage: string | null;
   pushedAt: string | null;
   dependabotSecurityUpdates: boolean | null;
+  dependabotAlertsEnabled: boolean | null;
 }
 
 export type DependabotEcosystem = string;

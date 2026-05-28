@@ -23,6 +23,7 @@ export const repoRef = Factory.define<RepoRef>(() => ({
 export const repoMeta = Factory.define<RepoMeta>(() => ({
   owner: 'acme',
   name: 'widgets',
+  nodeId: 'R_kgDOwidgets',
   visibility: 'private',
   archived: false,
   fork: false,
@@ -30,6 +31,7 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   primaryLanguage: 'TypeScript',
   pushedAt: '2026-04-01T00:00:00Z',
   dependabotSecurityUpdates: true,
+  dependabotAlertsEnabled: true,
 }));
 
 export const checkSummary = Factory.define<CheckSummary>(() => ({
