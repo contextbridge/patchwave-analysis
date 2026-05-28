@@ -4,7 +4,6 @@ import { assumptionFields } from '../assumptionFields.ts';
 import type { EmbeddedReportData } from '../types.ts';
 
 export interface Assumptions {
-  hourlyRateUsd: number;
   minutesPerPr: number;
 }
 
@@ -21,7 +20,6 @@ type ValueUpdate = number | ((prev: number) => number);
 
 interface ContextValue {
   assumptions: Assumptions;
-  setHourlyRate: (next: ValueUpdate) => void;
   setMinutesPerPr: (next: ValueUpdate) => void;
   reset: () => void;
   derived: DerivedCost;
@@ -31,22 +29,9 @@ const Ctx = createContext<ContextValue | null>(null);
 
 export function AssumptionsProvider({ data, children }: { data: EmbeddedReportData; children: ReactNode }) {
   const defaults: Assumptions = {
-    hourlyRateUsd: data.costEstimate.hourlyRateUsd,
     minutesPerPr: data.costEstimate.minutesPerPr,
   };
   const [assumptions, setAssumptions] = useState<Assumptions>(defaults);
-  const setHourlyRate = useCallback(
-    (next: ValueUpdate) =>
-      setAssumptions((prev) => ({
-        ...prev,
-        hourlyRateUsd: clamp(
-          resolve(next, prev.hourlyRateUsd),
-          assumptionFields.hourlyRateUsd.min,
-          assumptionFields.hourlyRateUsd.max,
-        ),
-      })),
-    [],
-  );
   const setMinutesPerPr = useCallback(
     (next: ValueUpdate) =>
       setAssumptions((prev) => ({
@@ -59,13 +44,14 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
       })),
     [],
   );
-  const reset = useCallback(() => setAssumptions(defaults), [defaults.hourlyRateUsd, defaults.minutesPerPr]);
+  const reset = useCallback(() => setAssumptions(defaults), [defaults.minutesPerPr]);
 
   const derived = useMemo<DerivedCost>(() => {
-    const { hourlyRateUsd, minutesPerPr } = assumptions;
+    const { minutesPerPr } = assumptions;
+    const hourlyRateUsd = data.costEstimate.hourlyRateUsd;
     const totalActions = data.costEstimate.humanMergeCount + data.costEstimate.humanReviewCount;
     const windowDays = data.costEstimate.windowDays;
-    const cost = deriveCostEstimate(totalActions, windowDays, assumptions);
+    const cost = deriveCostEstimate(totalActions, windowDays, { minutesPerPr, hourlyRateUsd });
     return {
       ...cost,
       mergers: derivePersonCosts(data.people.mergers, windowDays, minutesPerPr, hourlyRateUsd),
@@ -73,7 +59,7 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
     };
   }, [assumptions, data]);
 
-  const value: ContextValue = { assumptions, setHourlyRate, setMinutesPerPr, reset, derived };
+  const value: ContextValue = { assumptions, setMinutesPerPr, reset, derived };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

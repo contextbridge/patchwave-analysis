@@ -23,7 +23,7 @@ describe('App report shell', () => {
   it('renders the headline annual cost from the embedded data', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('50 engineer-hours/quarter');
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
     // The headline clarifies it excludes the open backlog, which lives in its own section.
@@ -34,44 +34,46 @@ describe('App report shell', () => {
     renderReport();
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
 
-    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.hourlyRate), {
-      target: { value: '300' },
+    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
+      target: { value: '12' },
     });
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
-    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$39,420/yr');
-    // "Today" mirrors the headline; "PatchWave savings" is the recovered cost at the default 65% share.
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$39,420/yr');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$25,623/yr');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('60 engineer-hours/quarter');
+    expect(screen.getByTestId(costStoryTestIds.windowCost)).toHaveTextContent('60 hrs');
+    expect(screen.getByTestId(costStoryTestIds.monthlyCost)).toHaveTextContent('20 hrs/mo');
+    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('60 hrs/qtr');
+    // The automation comparison defaults to recovered engineer hours per quarter.
+    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('~60 hrs/qtr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('~36 hrs/qtr');
   });
 
   it('allows replacing an assumption value by clearing and typing', () => {
     renderReport();
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
-    const hourlyRateInput = within(assumptions).getByTestId(assumptionInputTestIds.hourlyRate);
+    const minutesInput = within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr);
 
-    fireEvent.focus(hourlyRateInput);
-    fireEvent.change(hourlyRateInput, { target: { value: '' } });
-    expect(hourlyRateInput).toHaveValue('');
+    fireEvent.focus(minutesInput);
+    fireEvent.change(minutesInput, { target: { value: '' } });
+    expect(minutesInput).toHaveValue('');
 
-    fireEvent.change(hourlyRateInput, { target: { value: '275' } });
-    fireEvent.blur(hourlyRateInput);
+    fireEvent.change(minutesInput, { target: { value: '12' } });
+    fireEvent.blur(minutesInput);
 
-    expect(hourlyRateInput).toHaveValue('275');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$36,132/year');
+    expect(minutesInput).toHaveValue('12');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('60 engineer-hours/quarter');
   });
 
   it('recalculates the PatchWave savings card when the auto-merge share changes', () => {
     renderReport();
 
-    // Default 65% share starts in the middle of the modeled range.
-    expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$17,082/yr');
+    // Default 60% share matches PatchWave's public calculator assumption.
+    expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('60%');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('~30 hrs/qtr');
 
     fireEvent.change(screen.getByTestId(automatedStoryTestIds.shareSlider), { target: { value: '50' } });
 
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('50%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$13,140/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('~25 hrs/qtr');
   });
 
   it('lists footnotes in ascending first-appearance order', () => {
@@ -206,12 +208,12 @@ describe('App report shell', () => {
     renderReport();
 
     const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    expect(within(table).getByRole('columnheader', { name: 'Cost over last 90 days' })).toBeInTheDocument();
+    expect(within(table).getByRole('columnheader', { name: 'Time over last 90 days' })).toBeInTheDocument();
     const aliceCells = within(table).getAllByText('alice');
     expect(aliceCells).toHaveLength(1);
     // alice merged and reviewed, so her two activity rows collapse into one combined row.
     const aliceRow = aliceCells[0]?.closest('tr');
-    expect(aliceRow).toHaveTextContent('90');
+    expect(aliceRow).toHaveTextContent('180');
     expect(aliceRow).toHaveTextContent('merged');
     expect(aliceRow).toHaveTextContent('12');
     expect(aliceRow).toHaveTextContent('reviewed');
@@ -240,7 +242,7 @@ describe('App report shell', () => {
     expect(within(table).getByText('person-6')).toBeInTheDocument();
   });
 
-  it('reworks per-person review costs when the minutes-per-PR assumption changes', () => {
+  it('reworks per-person review time when the minutes-per-PR assumption changes', () => {
     renderReport({
       people: {
         mergers: [],
@@ -250,20 +252,20 @@ describe('App report shell', () => {
     });
 
     const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    // 10 reviews x 12 min x $200/hr / 60 = $400 in window at the defaults.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$400');
+    // 10 reviews x 10 min / 60 = ~2 hours in window at the defaults.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('2');
 
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
     fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
-      target: { value: '10' },
+      target: { value: '20' },
     });
 
-    // Reviews ride the same minutes-per-PR slider as merges, so editing it reworks the cost:
-    // 10 reviews x 10 min x $200/hr / 60 = $333.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$333');
+    // Reviews ride the same minutes-per-PR slider as merges, so editing it reworks the time:
+    // 10 reviews x 20 min / 60 = ~3 hours.
+    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('3');
   });
 
-  it('reworks the raw-data per-person costs when an assumption changes', () => {
+  it('keeps raw-data people rows count-only when an assumption changes', () => {
     renderReport({
       people: {
         mergers: [],
@@ -275,15 +277,16 @@ describe('App report shell', () => {
     // The assumptions control lives in the hero, so it stays editable regardless of the appendix tab.
     const assumptions = screen.getByTestId(assumptionInputTestIds.container);
     fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
-      target: { value: '10' },
+      target: { value: '20' },
     });
 
     fireEvent.click(screen.getByText('How this report was calculated'));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
 
-    // 10 reviews x 10 min x $200/hr / 60 = $333 window, annualized to $1,351/yr.
     const rawData = screen.getByTestId(methodologyAppendixTestIds.rawData);
-    expect(within(rawData).getByText('carol').closest('li')).toHaveTextContent('$1,351/yr');
+    const row = within(rawData).getByText('carol').closest('li');
+    expect(row).toHaveTextContent('10 reviewed');
+    expect(row).not.toHaveTextContent('$');
   });
 
   it('renders the open PR age buckets as a separate section with count-only rows', () => {
@@ -393,14 +396,14 @@ describe('App analytics', () => {
     const { analytics, events } = createFakeAnalytics();
     renderWithAnalytics(analytics);
 
-    const input = screen.getAllByTestId(assumptionInputTestIds.hourlyRate)[0];
-    if (!input) throw new Error('missing hourly rate input');
-    fireEvent.change(input, { target: { value: '275' } });
+    const input = screen.getAllByTestId(assumptionInputTestIds.minutesPerPr)[0];
+    if (!input) throw new Error('missing minutes per PR input');
+    fireEvent.change(input, { target: { value: '12' } });
     fireEvent.blur(input);
 
     expect(events).toContainEqual({
       event: 'assumption_changed',
-      properties: { field: 'hourly_rate', value: 275 },
+      properties: { field: 'minutes_per_pr', value: 12 },
     });
   });
 });

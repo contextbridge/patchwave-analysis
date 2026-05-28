@@ -214,14 +214,16 @@ test('builds a cost estimate from human merges and reviews, excluding bot merges
   expect(bundle.costEstimate.humanMergeCount).toBe(100);
   expect(bundle.costEstimate.humanReviewCount).toBe(0);
   expect(bundle.costEstimate.hourlyRateUsd).toBe(200);
-  expect(bundle.costEstimate.minutesPerPr).toBe(12);
-  // 100 actions × 12 min × $200/hr / 60 = $4000 in window
-  expect(bundle.costEstimate.windowCostUsd).toBe(4000);
-  // ~$1,352/month over 90 days (window × 30.44/90)
-  expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(1300);
-  expect(bundle.costEstimate.monthlyCostUsd).toBeLessThan(1400);
+  expect(bundle.costEstimate.minutesPerPr).toBe(10);
+  // 100 actions × 10 min × $200/hr / 60 = $3333 in window
+  expect(bundle.costEstimate.windowCostUsd).toBe(3333);
+  // ~$1,126/month over 90 days (window × 30.44/90)
+  expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(1100);
+  expect(bundle.costEstimate.monthlyCostUsd).toBeLessThan(1150);
   expect(bundle.costEstimate.annualCostUsd).toBe(bundle.costEstimate.monthlyCostUsd * 12);
-  expect(bundle.costEstimate.savingsScenarios.map((s) => s.autoMergeRate)).toEqual([0.5, 0.6, 0.7, 0.8]);
+  expect(bundle.costEstimate.savingsScenarios.map((s) => s.autoMergeRate)).toEqual([
+    0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9,
+  ]);
   expect(bundle.costEstimate.savingsScenarios[0]?.annualSavingsUsd).toBe(
     (bundle.costEstimate.savingsScenarios[0]?.monthlySavingsUsd ?? 0) * 12,
   );

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { fmtUsd } from '../format/money.ts';
+import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
@@ -15,10 +15,10 @@ export const automatedStoryTestIds = {
   waitlistCta: 'automated-story-waitlist-cta',
 } as const;
 
-const SHARE_MIN = 50;
-const SHARE_MAX = 80;
+const SHARE_MIN = 10;
+const SHARE_MAX = 90;
 const SHARE_STEP = 5;
-const SHARE_DEFAULT = 65;
+const SHARE_DEFAULT = 60;
 const SHARE_MID = (SHARE_MIN + SHARE_MAX) / 2;
 const SHARE_STOPS = Array.from(
   { length: (SHARE_MAX - SHARE_MIN) / SHARE_STEP + 1 },
@@ -26,12 +26,14 @@ const SHARE_STOPS = Array.from(
 );
 
 export function AutomatedStory() {
-  const { assumptions, derived } = useAssumptions();
+  const { assumptions } = useAssumptions();
+  const { costEstimate } = useEmbeddedData();
   const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
-  const todayCost = derived.annualCostUsd;
-  const patchwaveSavings = Math.round(todayCost * (sharePct / 100));
+  const totalActions = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
+  const quarterlyHours = actionsToHours(totalActions, assumptions.minutesPerPr);
+  const patchwaveSavingsHours = Math.round(quarterlyHours * (sharePct / 100));
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -51,8 +53,8 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.todayCost}
           label="Today"
-          value={`${fmtUsd(todayCost)}/yr`}
-          sub={quarterHoursLabel(todayCost, assumptions.hourlyRateUsd)}
+          value={fmtHoursPerQuarter(quarterlyHours)}
+          sub="engineer time per quarter spent on Dependabot PRs"
         />
         <div className="flex flex-col items-center justify-center px-2 py-2">
           <div
@@ -68,8 +70,8 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
-          value={`${fmtUsd(patchwaveSavings)}/yr`}
-          sub={quarterHoursSavedLabel(patchwaveSavings, assumptions.hourlyRateUsd)}
+          value={fmtHoursPerQuarter(patchwaveSavingsHours)}
+          sub="engineer time saved per quarter"
           accent
         />
       </div>
@@ -151,14 +153,11 @@ function CompareCard({
   );
 }
 
-function quarterHoursLabel(costUsd: number, hourlyRateUsd: number): string {
-  const hours = Math.round(costUsd / hourlyRateUsd / 4);
-  if (hours <= 0) return 'under an hour of engineer time per quarter';
-  return `~${hours.toLocaleString()} ${hours === 1 ? 'hour' : 'hours'} of engineer time per quarter`;
+function actionsToHours(count: number, minutesPerPr: number): number {
+  return Math.round((count * minutesPerPr) / 60);
 }
 
-function quarterHoursSavedLabel(savingsUsd: number, hourlyRateUsd: number): string {
-  const hours = Math.round(savingsUsd / hourlyRateUsd / 4);
-  if (hours <= 0) return 'under an hour of engineer time saved per quarter';
-  return `~${hours.toLocaleString()} ${hours === 1 ? 'hour' : 'hours'} of engineer time saved per quarter`;
+function fmtHoursPerQuarter(hours: number): string {
+  if (hours <= 0) return '<1 hr/qtr';
+  return `~${hours.toLocaleString()} ${hours === 1 ? 'hr' : 'hrs'}/qtr`;
 }

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
@@ -24,7 +23,10 @@ export function CostStory() {
   const data = useEmbeddedData();
   const { assumptions, derived } = useAssumptions();
 
-  const { humanMergeCount } = data.costEstimate;
+  const { humanMergeCount, humanReviewCount } = data.costEstimate;
+  const totalActions = humanMergeCount + humanReviewCount;
+  const windowHours = actionsToHours(totalActions, assumptions.minutesPerPr);
+  const monthlyHours = (windowHours * (365 / 12)) / data.costEstimate.windowDays;
 
   return (
     <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -39,25 +41,25 @@ export function CostStory() {
         In the last {data.meta.windowDays} days, your team merged{' '}
         <span className="font-semibold tabular-nums">{humanMergeCount.toLocaleString()}</span> Dependabot PRs by hand.
         Anything a bot auto-merged is left out. At{' '}
-        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR and{' '}
-        <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>, that comes out to:
+        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR, that comes out
+        to:
       </p>
 
       <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
         <CostCell
           testId={costStoryTestIds.windowCost}
           label={`Last ${data.costEstimate.windowDays} days`}
-          value={fmtUsd(derived.windowCostUsd)}
+          value={fmtHours(windowHours)}
         />
         <CostCell
           testId={costStoryTestIds.monthlyCost}
           label="Monthly run rate"
-          value={`${fmtUsd(derived.monthlyCostUsd)}/mo`}
+          value={`${fmtHours(monthlyHours)}/mo`}
         />
         <CostCell
           testId={costStoryTestIds.annualCost}
-          label="Annualized"
-          value={`${fmtUsd(derived.annualCostUsd)}/yr`}
+          label="Quarterly run rate"
+          value={`${fmtHours(windowHours)}/qtr`}
           emphasize
         />
       </div>
@@ -65,7 +67,7 @@ export function CostStory() {
       <PeopleTable windowDays={data.meta.windowDays} />
 
       <p className="text-muted-foreground mt-6 text-sm leading-relaxed">
-        The 12 min/PR default covers the context switch, review, and merge for a single PR. Anything a bot merged is
+        The 10 min/PR default covers the context switch, review, and merge for a single PR. Anything a bot merged is
         left out, so these totals only count human effort.
       </p>
     </section>
@@ -91,6 +93,15 @@ function CostCell({
       <div className="mt-1.5 text-2xl font-medium tabular-nums">{value}</div>
     </div>
   );
+}
+
+function actionsToHours(count: number, minutesPerPr: number): number {
+  return (count * minutesPerPr) / 60;
+}
+
+function fmtHours(hours: number): string {
+  const rounded = Math.round(hours);
+  return `${rounded.toLocaleString()} ${rounded === 1 ? 'hr' : 'hrs'}`;
 }
 
 function PeopleTable({ windowDays }: { windowDays: number }) {
@@ -119,9 +130,7 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
             <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
-              <th className="px-3 py-2.5 text-right">Time (hrs)</th>
-              <th className="px-3 py-2.5 text-right">Cost over last {windowDays} days</th>
-              <th className="px-3 py-2.5 text-right">Annualized</th>
+              <th className="px-3 py-2.5 text-right">Time over last {windowDays} days</th>
             </tr>
           </thead>
           <tbody>
@@ -131,14 +140,12 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
                 login={r.login}
                 mergedCount={r.mergedCount}
                 reviewedCount={r.reviewedCount}
-                windowHours={Math.round(r.windowCostUsd / assumptions.hourlyRateUsd)}
-                windowCostUsd={r.windowCostUsd}
-                annualCostUsd={r.annualCostUsd}
+                windowHours={Math.round(actionsToHours(r.mergedCount + r.reviewedCount, assumptions.minutesPerPr))}
               />
             ))}
             {hiddenCount > 0 || expanded ? (
               <tr className="border-border border-t">
-                <td colSpan={5} className="px-3 py-2.5 text-center">
+                <td colSpan={3} className="px-3 py-2.5 text-center">
                   <button
                     type="button"
                     data-testid={costStoryTestIds.peopleToggle}

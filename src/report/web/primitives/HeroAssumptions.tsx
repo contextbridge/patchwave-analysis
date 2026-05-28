@@ -14,10 +14,9 @@ export function HeroAssumptions() {
         className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-sm select-none marker:content-none [&::-webkit-details-marker]:hidden"
       >
         <span>
-          Assumes the loaded cost of engineering is{' '}
-          <span className="text-foreground font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> and it
-          takes <span className="text-foreground font-semibold tabular-nums">{assumptions.minutesPerPr} minutes</span>{' '}
-          to review each PR
+          Assumes it takes{' '}
+          <span className="text-foreground font-semibold tabular-nums">{assumptions.minutesPerPr} minutes</span> to
+          review each PR
         </span>
         <span className="text-primary text-xs font-medium underline-offset-4 hover:underline">
           <span className="group-open:hidden">Adjust</span>

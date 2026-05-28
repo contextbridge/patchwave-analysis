@@ -80,14 +80,14 @@ export const stalledSignals = Factory.define<StalledSignals>(() => ({
 // Cost figures derive from the real defaults and formulas so the fixtures track
 // production whenever the assumptions move, rather than restating stale literals.
 const COST_WINDOW_DAYS = 90;
-const HUMAN_MERGE_COUNT = 150;
+const HUMAN_MERGE_COUNT = 288;
 const HUMAN_REVIEW_COUNT = 12;
 
 export const people = Factory.define<People>(() => ({
   mergers: derivePersonCosts(
     [
-      { login: 'alice', count: 90 },
-      { login: 'bob', count: 60 },
+      { login: 'alice', count: 180 },
+      { login: 'bob', count: 108 },
     ],
     COST_WINDOW_DAYS,
     ASSUMED_MIN_PER_PR,

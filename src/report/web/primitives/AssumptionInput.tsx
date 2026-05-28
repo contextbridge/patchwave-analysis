@@ -6,26 +6,18 @@ import { NumberStepper } from './NumberStepper.tsx';
 
 export const assumptionInputTestIds = {
   container: 'assumption-input-container',
-  hourlyRate: 'assumption-input-hourly-rate',
   minutesPerPr: 'assumption-input-minutes-per-pr',
   reset: 'assumption-input-reset',
 } as const;
 
 export function AssumptionInput() {
-  const { assumptions, setHourlyRate, setMinutesPerPr, reset } = useAssumptions();
+  const { assumptions, setMinutesPerPr, reset } = useAssumptions();
   const analytics = useAnalytics();
   return (
     <div
       data-testid={assumptionInputTestIds.container}
       className="border-border bg-muted flex flex-wrap items-end gap-4 rounded-md border p-4"
     >
-      <NumberStepper
-        testId={assumptionInputTestIds.hourlyRate}
-        value={assumptions.hourlyRateUsd}
-        onChange={setHourlyRate}
-        onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
-        {...assumptionFields.hourlyRateUsd}
-      />
       <NumberStepper
         testId={assumptionInputTestIds.minutesPerPr}
         value={assumptions.minutesPerPr}

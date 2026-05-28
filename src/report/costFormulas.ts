@@ -3,9 +3,9 @@
 // so it bundles cleanly into both targets.
 
 export const ASSUMED_HOURLY_RATE_USD = 200;
-export const ASSUMED_MIN_PER_PR = 12;
+export const ASSUMED_MIN_PER_PR = 10;
 
-export const AUTO_MERGE_SCENARIO_RATES = [0.5, 0.6, 0.7, 0.8] as const;
+export const AUTO_MERGE_SCENARIO_RATES = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] as const;
 
 const DAYS_PER_MONTH = 365 / 12;
 

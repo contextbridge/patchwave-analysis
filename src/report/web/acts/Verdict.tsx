@@ -1,7 +1,6 @@
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { HeroAssumptions } from '../primitives/HeroAssumptions.tsx';
 
@@ -18,9 +17,12 @@ export const verdictCopy = {
 } as const;
 
 export function Verdict() {
-  const { derived } = useAssumptions();
-  const { openCount } = useEmbeddedData().prBacklog;
+  const { assumptions } = useAssumptions();
+  const { costEstimate, prBacklog } = useEmbeddedData();
+  const { openCount } = prBacklog;
   const analytics = useAnalytics();
+  const totalActions = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
+  const quarterlyHours = actionsToHours(totalActions, assumptions.minutesPerPr);
 
   return (
     <section data-testid={verdictTestIds.section} className="pt-4">
@@ -29,8 +31,8 @@ export function Verdict() {
         data-testid={verdictTestIds.annualCost}
         className="text-foreground mt-2 text-5xl leading-none font-medium tracking-tight tabular-nums sm:text-7xl"
       >
-        ~{fmtUsd(derived.annualCostUsd)}
-        <span className="text-muted-foreground text-2xl font-normal sm:text-3xl">/year</span>
+        ~{fmtHours(quarterlyHours)}
+        <span className="text-muted-foreground text-2xl font-normal sm:text-3xl">/quarter</span>
       </h1>
       <p className="text-foreground mt-2 max-w-2xl text-lg leading-snug">
         {verdictCopy.costTrailer}
@@ -54,4 +56,12 @@ export function Verdict() {
       </div>
     </section>
   );
+}
+
+function actionsToHours(count: number, minutesPerPr: number): number {
+  return (count * minutesPerPr) / 60;
+}
+
+function fmtHours(hours: number): string {
+  return `${Math.round(hours).toLocaleString()} engineer-hours`;
 }

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
@@ -78,12 +77,11 @@ export function MethodologyAppendix() {
                 <section>
                   <SectionHeading>Cost assumptions</SectionHeading>
                   <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">
-                    Every cost and time figure in this report is modeled from two inputs: a loaded hourly rate and the
-                    minutes spent per PR. Adjust them at the top of the report and the numbers throughout recalculate.
+                    Every time figure in this report is modeled from one input: the minutes spent per PR. Adjust it at
+                    the top of the report and the numbers throughout recalculate.
                   </p>
                   <p className="text-foreground mt-3 text-sm">
-                    Currently <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span> and{' '}
-                    <span className="font-semibold tabular-nums">{assumptions.minutesPerPr} min</span> per PR.
+                    Currently <span className="font-semibold tabular-nums">{assumptions.minutesPerPr} min</span> per PR.
                   </p>
                 </section>
 
@@ -93,14 +91,13 @@ export function MethodologyAppendix() {
                     <table className="w-full text-left text-sm">
                       <tbody className="divide-y divide-border">
                         <FormulaRow
-                          label="Cost in window"
+                          label="Time in window"
                           value={
                             <>
-                              (Human merges + reviews) &times; minutes per PR &divide; 60 &times; hourly rate.
-                              Bot-merged PRs are excluded. Currently using adjustable assumptions:{' '}
+                              (Human merges + reviews) &times; minutes per PR &divide; 60. Bot-merged PRs are excluded.
+                              Currently using adjustable assumptions:{' '}
                               {data.costEstimate.humanMergeCount + data.costEstimate.humanReviewCount} actions &times;{' '}
-                              {assumptions.minutesPerPr} min &divide; 60 &times; ${assumptions.hourlyRateUsd}
-                              /hr.
+                              {assumptions.minutesPerPr} min &divide; 60.
                             </>
                           }
                         />
@@ -110,11 +107,11 @@ export function MethodologyAppendix() {
                         />
                         <FormulaRow
                           label="Run rate"
-                          value="Monthly run rate scales the window cost by (365 / 12) / windowDays. Annualized = monthly x 12."
+                          value="Monthly run rate scales the window hours by (365 / 12) / windowDays. Quarterly run rate matches the 90-day report window."
                         />
                         <FormulaRow
                           label="Savings model"
-                          value="Savings scenarios model the monthly cost recovered at 50% through 80% auto-merge share, annualized over 12 months."
+                          value="Savings scenarios model the engineer-hours recovered at 10% through 90% auto-merge share."
                         />
                         <FormulaRow
                           label="People counts"
@@ -128,9 +125,7 @@ export function MethodologyAppendix() {
                     </table>
                   </div>
                   <p className="text-muted-foreground mt-4 leading-relaxed">
-                    The adjustable 12 min/PR default covers the context switch, review, and merge for a single PR. The
-                    adjustable $200/hr default reflects a $400k fully-loaded engineer cost divided by 2,000 working
-                    hours.
+                    The adjustable 10 min/PR default covers the context switch, review, and merge for a single PR.
                   </p>
                   <p className="text-muted-foreground mt-2 leading-relaxed">
                     Estimates only; real savings vary by team. The defaults are intentionally conservative
@@ -464,7 +459,7 @@ function PeopleList({
   countLabel,
 }: {
   label: string;
-  rows: ReadonlyArray<{ login: string; count: number; annualCostUsd?: number }>;
+  rows: ReadonlyArray<{ login: string; count: number }>;
   countLabel: string;
 }) {
   return (
@@ -479,7 +474,6 @@ function PeopleList({
               <span className="font-mono">{row.login}</span>
               <span className="text-muted-foreground text-right tabular-nums">
                 {row.count} {countLabel}
-                {row.annualCostUsd !== undefined ? `, ${fmtUsd(row.annualCostUsd)}/yr` : ''}
               </span>
             </li>
           ))}

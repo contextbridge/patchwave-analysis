@@ -1,15 +1,11 @@
-import { fmtUsd } from '../format/money.ts';
-
 interface Props {
   login: string;
   mergedCount: number;
   reviewedCount: number;
   windowHours: number;
-  windowCostUsd: number;
-  annualCostUsd: number;
 }
 
-export function PersonRow({ login, mergedCount, reviewedCount, windowHours, windowCostUsd, annualCostUsd }: Props) {
+export function PersonRow({ login, mergedCount, reviewedCount, windowHours }: Props) {
   return (
     <tr className="border-border border-t">
       <td className="text-foreground px-3 py-2.5 font-mono text-sm">{login}</td>
@@ -19,10 +15,6 @@ export function PersonRow({ login, mergedCount, reviewedCount, windowHours, wind
         <ActivityCount count={reviewedCount} label="reviewed" />
       </td>
       <td className="text-foreground px-3 py-2.5 text-right text-sm tabular-nums">{windowHours.toLocaleString()}</td>
-      <td className="text-foreground px-3 py-2.5 text-right text-sm tabular-nums">{fmtUsd(windowCostUsd)}</td>
-      <td className="text-foreground px-3 py-2.5 text-right text-sm font-semibold tabular-nums">
-        {fmtUsd(annualCostUsd)}
-      </td>
     </tr>
   );
 }
