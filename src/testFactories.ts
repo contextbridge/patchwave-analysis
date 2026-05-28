@@ -6,7 +6,6 @@ import type {
   CollectedData,
   CollectionContext,
   CollectorWarning,
-  ContributorSlice,
   CveAlert,
   CveSlice,
   DependabotConfigSlice,
@@ -89,12 +88,6 @@ export const branchProtectionSlice = Factory.define<BranchProtectionSlice>(() =>
   requiresStatusChecks: true,
 }));
 
-export const contributorSlice = Factory.define<ContributorSlice>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  activeHumanLogins: [],
-}));
-
 export const dependabotUpdateEntry = Factory.define<DependabotUpdateEntry>(() => ({
   ecosystem: 'npm',
   interval: 'weekly',
@@ -138,6 +131,5 @@ export const collectedData = Factory.define<CollectedData>(() => ({
   dependabotPrs: [],
   cve: [cveSliceOk.build()],
   branchProtection: [branchProtectionSlice.build()],
-  contributors: [contributorSlice.build()],
   errors: [],
 }));

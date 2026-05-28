@@ -31,7 +31,6 @@ export const orgOverview = Factory.define<OrgOverview>(() => ({
   topLanguages: [{ language: 'TypeScript', bytes: 2_000_000, percentage: 65 }],
   nodeTsRepoCount: 18,
   nodeTsRepoPercentage: 75,
-  activeHumanCommitters: 17,
   reposWithBranchProtection: 14,
 }));
 

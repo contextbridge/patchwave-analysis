@@ -98,10 +98,6 @@ export interface BranchProtectionSlice extends RepoRef {
   requiresStatusChecks: boolean;
 }
 
-export interface ContributorSlice extends RepoRef {
-  activeHumanLogins: string[];
-}
-
 export interface CollectionContext {
   org: string;
   windowDays: number;
@@ -117,7 +113,6 @@ export interface CollectedData {
   dependabotPrs: DependabotPr[];
   cve: CveSlice[];
   branchProtection: BranchProtectionSlice[];
-  contributors: ContributorSlice[];
   errors: CollectorWarning[];
 }
 

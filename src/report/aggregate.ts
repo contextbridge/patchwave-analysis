@@ -37,7 +37,6 @@ export interface OrgOverview {
   topLanguages: Array<{ language: string; bytes: number; percentage: number }>;
   nodeTsRepoCount: number;
   nodeTsRepoPercentage: number;
-  activeHumanCommitters: number;
   reposWithBranchProtection: number;
 }
 
@@ -163,11 +162,6 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
   ).length;
 
-  const allCommitters = new Set<string>();
-  for (const slice of data.contributors) {
-    for (const login of slice.activeHumanLogins) allCommitters.add(login);
-  }
-
   const reposWithBranchProtection = data.branchProtection.filter((b) => b.hasProtection).length;
 
   return {
@@ -179,7 +173,6 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     topLanguages,
     nodeTsRepoCount,
     nodeTsRepoPercentage: pct(nodeTsRepoCount, repos.length),
-    activeHumanCommitters: allCommitters.size,
     reposWithBranchProtection,
   };
 }

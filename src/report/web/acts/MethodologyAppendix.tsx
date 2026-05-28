@@ -158,7 +158,6 @@ export function MethodologyAppendix() {
                           `${org.repoCount} active (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
-                        ['Active human committers', org.activeHumanCommitters.toLocaleString()],
                         ['Repos with branch protection', org.reposWithBranchProtection.toLocaleString()],
                       ]}
                     />

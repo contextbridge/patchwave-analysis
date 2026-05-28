@@ -2,7 +2,6 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
 import { getBranchProtection } from './collectors/branchProtection.ts';
-import { listActiveCommitters } from './collectors/contributors.ts';
 import { getCveAlerts } from './collectors/cve.ts';
 import { getDependabotConfig } from './collectors/dependabotConfig.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
@@ -22,7 +21,6 @@ import type {
   BranchProtectionSlice,
   CollectedData,
   CollectorWarning,
-  ContributorSlice,
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
@@ -251,7 +249,7 @@ async function collectAll(
   const warnings: CollectorWarning[] = [];
   const windowStartIso = windowStart.toString();
 
-  const [languages, dependabotConfig, cve, branchProtection, contributors, dependabotPrs] = await Promise.all([
+  const [languages, dependabotConfig, cve, branchProtection, dependabotPrs] = await Promise.all([
     crawlPerRepo(repos, (r) => getRepoLanguages(client, { owner: r.owner, name: r.name }), warnings, 'languages').then(
       (rows): RepoLanguages[] => rows.map((r) => ({ owner: r.ref.owner, name: r.ref.name, bytes: r.bytes })),
     ),
@@ -268,12 +266,6 @@ async function collectAll(
       warnings,
       'branchProtection',
     ),
-    crawlPerRepo<ContributorSlice>(
-      repos,
-      (r) => listActiveCommitters(client, { owner: r.owner, name: r.name }, windowStartIso),
-      warnings,
-      'contributors',
-    ),
     runResultAsync<DependabotPr[]>(listDependabotPrs(client, target, windowStartIso), [], warnings, 'dependabotPrs'),
   ]);
 
@@ -285,7 +277,6 @@ async function collectAll(
     dependabotPrs,
     cve,
     branchProtection,
-    contributors,
     errors: warnings,
   };
 }
