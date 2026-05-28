@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.3...v0.2.4) (2026-05-28)
+
+
+### Bug Fixes
+
+* use more performant GitHub APIs to avoid rate limiting ([#29](https://github.com/contextbridge/patchwave-analysis/issues/29)) ([5564e47](https://github.com/contextbridge/patchwave-analysis/commit/5564e479fded9828516de0b2ed20ffc700de8b10))
+
 ## [0.2.3](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.2...v0.2.3) (2026-05-27)
 
 
