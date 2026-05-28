@@ -1,0 +1,43 @@
+query RepoMetadataBatch($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    __typename
+    ... on Repository {
+      ...RepoMetadataFields
+    }
+  }
+}
+
+fragment RepoMetadataFields on Repository {
+  yml: object(expression: "HEAD:.github/dependabot.yml") {
+    ... on Blob {
+      text
+    }
+  }
+  yaml: object(expression: "HEAD:.github/dependabot.yaml") {
+    ... on Blob {
+      text
+    }
+  }
+  defaultBranchRef {
+    branchProtectionRule {
+      requiredApprovingReviewCount
+      requiresStatusChecks
+    }
+    rules(first: 20) {
+      nodes {
+        type
+        parameters {
+          __typename
+          ... on PullRequestParameters {
+            requiredApprovingReviewCount
+          }
+          ... on RequiredStatusChecksParameters {
+            requiredStatusChecks {
+              context
+            }
+          }
+        }
+      }
+    }
+  }
+}

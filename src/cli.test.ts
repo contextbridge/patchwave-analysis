@@ -2,6 +2,17 @@ import { expect, test } from 'bun:test';
 import { main } from './cli.ts';
 import { createFakeContext } from './testHelpers/index.ts';
 
+function repoBatchResponse(nodes: unknown[] = []): Record<string, unknown> {
+  return { nodes };
+}
+
+const npmConfigBlob = {
+  __typename: 'Repository',
+  yml: { text: 'updates:\n  - package-ecosystem: "npm"\n' },
+  yaml: null,
+  defaultBranchRef: null,
+};
+
 test('prints usage and exits 0 when --help is passed', async () => {
   const { ctx, io } = createFakeContext();
   const result = await main(ctx, ['--help']);
@@ -56,6 +67,7 @@ test('writes a report when the GitHub calls succeed', async () => {
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
     {
       name: 'widgets',
+      node_id: 'R_kgDOwidgets',
       owner: { login: 'acme' },
       private: true,
       visibility: 'private',
@@ -65,15 +77,8 @@ test('writes a report when the GitHub calls succeed', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
-    content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
-    encoding: 'base64',
-  });
+  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
-  githubClient
-    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
-    .fails({ kind: 'not-found', message: 'no protection' });
-  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
@@ -125,6 +130,7 @@ test('excludes forked repos from the crawl', async () => {
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
     {
       name: 'widgets',
+      node_id: 'R_kgDOwidgets',
       owner: { login: 'acme' },
       private: true,
       visibility: 'private',
@@ -136,6 +142,7 @@ test('excludes forked repos from the crawl', async () => {
     },
     {
       name: 'upstream-fork',
+      node_id: 'R_kgDOfork',
       owner: { login: 'acme' },
       private: false,
       visibility: 'public',
@@ -146,15 +153,8 @@ test('excludes forked repos from the crawl', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
-    content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
-    encoding: 'base64',
-  });
+  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
-  githubClient
-    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
-    .fails({ kind: 'not-found', message: 'no protection' });
-  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
@@ -176,6 +176,7 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
   githubClient.onPaginate('GET /users/{username}/repos', {}).resolves([
     {
       name: 'solo',
+      node_id: 'R_kgDOsolo',
       owner: { login: 'blimmer' },
       private: false,
       visibility: 'public',
@@ -186,16 +187,9 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/contents/{path}', {}).resolves({
-    content: Buffer.from('updates:\n  - package-ecosystem: "npm"\n', 'utf8').toString('base64'),
-    encoding: 'base64',
-  });
+  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   // Per-repo CVE endpoint — the path Task 4 keeps for user targets.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
-  githubClient
-    .onRequest('GET /repos/{owner}/{repo}/branches/{branch}/protection', {})
-    .fails({ kind: 'not-found', message: 'no protection' });
-  githubClient.onRequest('GET /repos/{owner}/{repo}/rules/branches/{branch}', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({
     search: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
