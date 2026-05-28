@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
@@ -21,7 +22,7 @@ export const costStoryCopy = {
 
 export function CostStory() {
   const data = useEmbeddedData();
-  const { assumptions, derived } = useAssumptions();
+  const { assumptions, displayMode, derived } = useAssumptions();
 
   const { humanMergeCount, humanReviewCount } = data.costEstimate;
   const totalActions = humanMergeCount + humanReviewCount;
@@ -41,25 +42,31 @@ export function CostStory() {
         In the last {data.meta.windowDays} days, your team merged{' '}
         <span className="font-semibold tabular-nums">{humanMergeCount.toLocaleString()}</span> Dependabot PRs by hand.
         Anything a bot auto-merged is left out. At{' '}
-        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR, that comes out
-        to:
+        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR
+        {displayMode === 'cost' ? (
+          <>
+            {' '}
+            and <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>
+          </>
+        ) : null}
+        {', '}that comes out to:
       </p>
 
       <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
         <CostCell
           testId={costStoryTestIds.windowCost}
           label={`Last ${data.costEstimate.windowDays} days`}
-          value={fmtHours(windowHours)}
+          value={displayMode === 'time' ? fmtHours(windowHours) : fmtUsd(derived.windowCostUsd)}
         />
         <CostCell
           testId={costStoryTestIds.monthlyCost}
           label="Monthly run rate"
-          value={`${fmtHours(monthlyHours)}/mo`}
+          value={displayMode === 'time' ? `${fmtHours(monthlyHours)}/mo` : `${fmtUsd(derived.monthlyCostUsd)}/mo`}
         />
         <CostCell
           testId={costStoryTestIds.annualCost}
-          label="Quarterly run rate"
-          value={`${fmtHours(windowHours)}/qtr`}
+          label={displayMode === 'time' ? 'Quarterly run rate' : 'Annualized'}
+          value={displayMode === 'time' ? `${fmtHours(windowHours)}/qtr` : `${fmtUsd(derived.annualCostUsd)}/yr`}
           emphasize
         />
       </div>
@@ -105,7 +112,7 @@ function fmtHours(hours: number): string {
 }
 
 function PeopleTable({ windowDays }: { windowDays: number }) {
-  const { assumptions, derived } = useAssumptions();
+  const { assumptions, displayMode, derived } = useAssumptions();
   const [expanded, setExpanded] = useState(false);
   const people = combinedPeopleRows(derived.mergers, derived.reviewers);
   const visiblePeople = expanded ? people : people.slice(0, INITIAL_PEOPLE_COUNT);
@@ -130,7 +137,9 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
             <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
-              <th className="px-3 py-2.5 text-right">Time over last {windowDays} days</th>
+              <th className="px-3 py-2.5 text-right">
+                {displayMode === 'time' ? `Time over last ${windowDays} days` : `Cost over last ${windowDays} days`}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -140,7 +149,13 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
                 login={r.login}
                 mergedCount={r.mergedCount}
                 reviewedCount={r.reviewedCount}
-                windowHours={Math.round(actionsToHours(r.mergedCount + r.reviewedCount, assumptions.minutesPerPr))}
+                value={
+                  displayMode === 'time'
+                    ? Math.round(
+                        actionsToHours(r.mergedCount + r.reviewedCount, assumptions.minutesPerPr),
+                      ).toLocaleString()
+                    : fmtUsd(r.windowCostUsd)
+                }
               />
             ))}
             {hiddenCount > 0 || expanded ? (

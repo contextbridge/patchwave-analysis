@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Analytics } from '../../Analytics.ts';
 import { cveExposureOk, embeddedReportData } from '../testFactories.ts';
-import { automatedStoryTestIds } from './acts/AutomatedStory.tsx';
+import { automatedStoryCopy, automatedStoryTestIds } from './acts/AutomatedStory.tsx';
 import { callToActionCopy, callToActionTestIds } from './acts/CallToAction.tsx';
 import { costStoryCopy, costStoryTestIds } from './acts/CostStory.tsx';
 import { methodologyAppendixTestIds } from './acts/MethodologyAppendix.tsx';
@@ -28,6 +28,9 @@ describe('App report shell', () => {
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
     // The headline clarifies it excludes the open backlog, which lives in its own section.
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('not including the 102 still open');
+    expect(screen.getByTestId(assumptionInputTestIds.container)).toBeInTheDocument();
+    expect(screen.getByTestId(verdictTestIds.section)).not.toHaveTextContent('Showing savings as time');
+    expect(screen.queryByTestId(assumptionInputTestIds.hourlyRateUsd)).not.toBeInTheDocument();
   });
 
   it('recalculates the headline cost and comparison cards when assumptions change', () => {
@@ -45,6 +48,26 @@ describe('App report shell', () => {
     // The automation comparison defaults to recovered engineer hours per quarter.
     expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('~60 hrs/qtr');
     expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('~36 hrs/qtr');
+  });
+
+  it('toggles report savings from time to cost', () => {
+    renderReport();
+    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
+
+    fireEvent.click(within(assumptions).getByTestId(assumptionInputTestIds.displayCost));
+
+    expect(within(assumptions).getByTestId(assumptionInputTestIds.hourlyRateUsd)).toBeInTheDocument();
+    expect(screen.getByTestId(verdictTestIds.section)).not.toHaveTextContent('Showing savings as cost');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$40,560/year');
+    expect(screen.getByTestId(costStoryTestIds.windowCost)).toHaveTextContent('$10,000');
+    expect(screen.getByTestId(costStoryTestIds.monthlyCost)).toHaveTextContent('$3,380/mo');
+    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$40,560/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$40,560/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$24,336/yr');
+
+    const table = screen.getByTestId(costStoryTestIds.peopleTable);
+    expect(within(table).getByRole('columnheader', { name: 'Cost over last 90 days' })).toBeInTheDocument();
+    expect(within(table).getByText('alice').closest('tr')).toHaveTextContent('$6,400');
   });
 
   it('allows replacing an assumption value by clearing and typing', () => {
@@ -189,8 +212,13 @@ describe('App report shell', () => {
     expect(screen.getByTestId(openPrAgeStoryTestIds.section)).toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(screen.getByTestId(riskStoryTestIds.section)).toHaveTextContent(riskStoryCopy.eyebrow);
     expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent(callToActionCopy.heading);
-    expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveTextContent(verdictCopy.primaryCta);
-    expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveAttribute('data-variant', 'default');
+    expect(screen.getByTestId(automatedStoryTestIds.secondaryCta)).toHaveTextContent(automatedStoryCopy.secondaryCta);
+    expect(screen.getByTestId(automatedStoryTestIds.secondaryCta)).toHaveAttribute('data-variant', 'secondary');
+    expect(
+      screen
+        .getByTestId(automatedStoryTestIds.waitlistCta)
+        .compareDocumentPosition(screen.getByTestId(automatedStoryTestIds.secondaryCta)),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(screen.getByTestId(callToActionTestIds.cta)).toHaveTextContent(callToActionCopy.ctaLabel);
 
     fireEvent.click(screen.getByText('How this report was calculated'));
@@ -370,15 +398,15 @@ describe('App analytics', () => {
     cleanup();
   });
 
-  it('captures cta_clicked when the verdict primary CTA is clicked', () => {
+  it('captures cta_clicked when the automated story secondary CTA is clicked', () => {
     const { analytics, events } = createFakeAnalytics();
     renderWithAnalytics(analytics);
 
     const restore = suppressNavigation();
-    fireEvent.click(screen.getByTestId(verdictTestIds.primaryCta));
+    fireEvent.click(screen.getByTestId(automatedStoryTestIds.secondaryCta));
     restore();
 
-    expect(events).toContainEqual({ event: 'cta_clicked', properties: { which: 'verdict_primary' } });
+    expect(events).toContainEqual({ event: 'cta_clicked', properties: { which: 'automated_story_secondary' } });
   });
 
   it('captures cta_clicked when the call-to-action CTA is clicked', () => {

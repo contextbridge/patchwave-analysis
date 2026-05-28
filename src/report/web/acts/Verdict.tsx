@@ -1,26 +1,22 @@
-import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
-import { Button } from '../components/ui/button.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { HeroAssumptions } from '../primitives/HeroAssumptions.tsx';
 
 export const verdictTestIds = {
   section: 'verdict-section',
   annualCost: 'verdict-annual-cost',
-  primaryCta: 'verdict-primary-cta',
 } as const;
 
 export const verdictCopy = {
   costLeadIn: 'Your engineering team spends',
   costTrailer: 'triaging, reviewing, and merging Dependabot PRs',
-  primaryCta: 'See how PatchWave helps',
 } as const;
 
 export function Verdict() {
-  const { assumptions } = useAssumptions();
+  const { assumptions, displayMode, derived } = useAssumptions();
   const { costEstimate, prBacklog } = useEmbeddedData();
   const { openCount } = prBacklog;
-  const analytics = useAnalytics();
   const totalActions = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
   const quarterlyHours = actionsToHours(totalActions, assumptions.minutesPerPr);
 
@@ -31,8 +27,10 @@ export function Verdict() {
         data-testid={verdictTestIds.annualCost}
         className="text-foreground mt-2 text-5xl leading-none font-medium tracking-tight tabular-nums sm:text-7xl"
       >
-        ~{fmtHours(quarterlyHours)}
-        <span className="text-muted-foreground text-2xl font-normal sm:text-3xl">/quarter</span>
+        {displayMode === 'time' ? `~${fmtHours(quarterlyHours)}` : `~${fmtUsd(derived.annualCostUsd)}`}
+        <span className="text-muted-foreground text-2xl font-normal sm:text-3xl">
+          {displayMode === 'time' ? '/quarter' : '/year'}
+        </span>
       </h1>
       <p className="text-foreground mt-2 max-w-2xl text-lg leading-snug">
         {verdictCopy.costTrailer}
@@ -40,16 +38,6 @@ export function Verdict() {
           <span className="text-muted-foreground"> (not including the {openCount.toLocaleString()} still open)</span>
         )}
       </p>
-
-      <Button asChild className="mt-7">
-        <a
-          data-testid={verdictTestIds.primaryCta}
-          href="https://patchwave.ai"
-          onClick={() => analytics.capture('cta_clicked', { which: 'verdict_primary' })}
-        >
-          {verdictCopy.primaryCta}
-        </a>
-      </Button>
 
       <div className="mt-7">
         <HeroAssumptions />

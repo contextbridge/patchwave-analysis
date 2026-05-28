@@ -60,9 +60,9 @@ export function NumberStepper({
   };
   const displayValue = isEditing ? draft : String(value);
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-2">
       <span className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</span>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <Button
           type="button"
           variant="outline"
@@ -75,13 +75,14 @@ export function NumberStepper({
             onCommit?.(next);
             setDraft(String(next));
           }}
+          className="size-10"
           data-testid={decrementTestId}
         >
           <Minus />
         </Button>
         <div className="relative">
           {prefix && (
-            <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+            <span className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-sm">
               {prefix}
             </span>
           )}
@@ -101,10 +102,10 @@ export function NumberStepper({
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur();
             }}
-            className={cn('w-28 text-center tabular-nums', prefix && 'pl-7', suffix && 'pr-9')}
+            className={cn('h-10 w-28 text-center tabular-nums', prefix && 'pl-8', suffix && 'pr-10')}
           />
           {suffix && (
-            <span className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-sm">
+            <span className="text-muted-foreground pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-sm">
               {suffix}
             </span>
           )}
@@ -121,6 +122,7 @@ export function NumberStepper({
             onCommit?.(next);
             setDraft(String(next));
           }}
+          className="size-10"
           data-testid={incrementTestId}
         >
           <Plus />

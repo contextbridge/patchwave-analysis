@@ -13,5 +13,6 @@ export interface AssumptionField {
 }
 
 export const assumptionFields = {
+  hourlyRateUsd: { label: 'Loaded cost of engineering', prefix: '$', suffix: '/hr', min: 1, max: 1000, step: 25 },
   minutesPerPr: { label: 'Minutes per PR', min: 1, max: 240, step: 1 },
 } as const satisfies Record<string, AssumptionField>;

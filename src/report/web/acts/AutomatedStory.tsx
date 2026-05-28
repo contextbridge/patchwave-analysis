@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
@@ -13,6 +14,11 @@ export const automatedStoryTestIds = {
   delta: 'automated-story-delta',
   shareSlider: 'automated-story-share-slider',
   waitlistCta: 'automated-story-waitlist-cta',
+  secondaryCta: 'automated-story-secondary-cta',
+} as const;
+
+export const automatedStoryCopy = {
+  secondaryCta: 'See how PatchWave helps',
 } as const;
 
 const SHARE_MIN = 10;
@@ -26,7 +32,7 @@ const SHARE_STOPS = Array.from(
 );
 
 export function AutomatedStory() {
-  const { assumptions } = useAssumptions();
+  const { assumptions, displayMode, derived } = useAssumptions();
   const { costEstimate } = useEmbeddedData();
   const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
@@ -34,6 +40,7 @@ export function AutomatedStory() {
   const totalActions = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
   const quarterlyHours = actionsToHours(totalActions, assumptions.minutesPerPr);
   const patchwaveSavingsHours = Math.round(quarterlyHours * (sharePct / 100));
+  const patchwaveSavingsUsd = Math.round(derived.annualCostUsd * (sharePct / 100));
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -53,8 +60,12 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.todayCost}
           label="Today"
-          value={fmtHoursPerQuarter(quarterlyHours)}
-          sub="engineer time per quarter spent on Dependabot PRs"
+          value={displayMode === 'time' ? fmtHoursPerQuarter(quarterlyHours) : `${fmtUsd(derived.annualCostUsd)}/yr`}
+          sub={
+            displayMode === 'time'
+              ? 'engineer time per quarter spent on Dependabot PRs'
+              : 'loaded engineering cost per year spent on Dependabot PRs'
+          }
         />
         <div className="flex flex-col items-center justify-center px-2 py-2">
           <div
@@ -70,8 +81,10 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
-          value={fmtHoursPerQuarter(patchwaveSavingsHours)}
-          sub="engineer time saved per quarter"
+          value={
+            displayMode === 'time' ? fmtHoursPerQuarter(patchwaveSavingsHours) : `${fmtUsd(patchwaveSavingsUsd)}/yr`
+          }
+          sub={displayMode === 'time' ? 'engineer time saved per quarter' : 'loaded engineering cost saved per year'}
           accent
         />
       </div>
@@ -113,15 +126,26 @@ export function AutomatedStory() {
         <Citation source="mohayeji-2025" />.
       </p>
 
-      <Button asChild className="mt-6 no-print">
-        <a
-          data-testid={automatedStoryTestIds.waitlistCta}
-          href="https://patchwave.ai"
-          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_waitlist' })}
-        >
-          {callToActionCopy.ctaLabel}
-        </a>
-      </Button>
+      <div className="mt-6 flex flex-wrap gap-3 no-print">
+        <Button asChild>
+          <a
+            data-testid={automatedStoryTestIds.waitlistCta}
+            href="https://patchwave.ai"
+            onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_waitlist' })}
+          >
+            {callToActionCopy.ctaLabel}
+          </a>
+        </Button>
+        <Button asChild variant="secondary">
+          <a
+            data-testid={automatedStoryTestIds.secondaryCta}
+            href="https://patchwave.ai"
+            onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_secondary' })}
+          >
+            {automatedStoryCopy.secondaryCta}
+          </a>
+        </Button>
+      </div>
     </section>
   );
 }
