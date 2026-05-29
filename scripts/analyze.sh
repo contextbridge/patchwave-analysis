@@ -2,6 +2,12 @@
 #
 # analyze.sh — download and run patchwave-analysis as a one-off.
 #
+# Source Code:
+#   https://github.com/contextbridge/patchwave-analysis
+# This wrapper only fetches a release binary built from that repo by GitHub
+# Actions; what the binary reads and sends is documented in the README's "What
+# it reads from GitHub" and "Telemetry & privacy" sections.
+#
 # Usage (interactive — it prompts you through everything, no flags needed):
 #   bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
 #
@@ -16,8 +22,18 @@
 # on stdin instead of a terminal, so the CLI's TTY gate refuses to run and asks
 # you to re-run it interactively (it does not hang).
 #
+# Privacy: the binary reads from api.github.com and writes its report to a local
+# temp dir — nothing leaves your machine unless you choose to share the report.
+# It sends anonymous usage and crash telemetry only (never org or repo names,
+# tokens, report contents, or your hostname); disable it with DO_NOT_TRACK=1.
+#
 # Auth is the CLI's job: it reads GITHUB_TOKEN, then GH_TOKEN, then `gh auth
 # token`. Export a token first, or be logged in via the gh CLI.
+#
+# Verify the binary yourself: macOS release binaries are signed and Apple-
+# notarized, and every release archive carries GitHub build provenance you can
+# check with `gh attestation verify` — see the README's "Verify what you're
+# running" section.
 #
 # Env vars:
 #   PW_VERSION   pin to a release tag (e.g. v0.1.0) instead of the latest release
