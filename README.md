@@ -79,6 +79,16 @@ To turn it off, set any of these:
 - `DO_NOT_TRACK=1`
 - `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`
 
+## Verify what you're running
+
+The tool is open source (this repo, MIT) and its binaries are built from it by GitHub Actions. Every release archive ships with [GitHub build provenance](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds) — a Sigstore-signed attestation, recorded in a public transparency log, that ties the artifact to the source commit and workflow that built it. Verify a download with:
+
+```sh
+gh attestation verify patchwave-analysis_darwin_arm64.tar.gz --repo contextbridge/patchwave-analysis
+```
+
+macOS binaries are also signed and Apple-notarized.
+
 ## Contributing
 
 Development setup, testing, and the release workflow live in [`CONTRIBUTING.md`](./CONTRIBUTING.md).
