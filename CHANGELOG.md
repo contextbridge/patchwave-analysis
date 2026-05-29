@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.4...v0.2.5) (2026-05-29)
+
+
+### Bug Fixes
+
+* publish verifiable build provenance for releases ([#32](https://github.com/contextbridge/patchwave-analysis/issues/32)) ([560aeee](https://github.com/contextbridge/patchwave-analysis/commit/560aeeeb6aa42626d224e5870d60a5d5e38b1e14))
+
 ## [0.2.4](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.3...v0.2.4) (2026-05-28)
 
 
