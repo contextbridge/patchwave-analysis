@@ -1,9 +1,24 @@
 import { describe, expect, test } from 'bun:test';
 import { fakeContextHandle } from '../testHelpers/testFactories.ts';
-import { runSharePrompt } from './sharePrompt.ts';
+import { runSharePrompt, shouldRequestReportShare, showLocalReportReadyNotice } from './sharePrompt.ts';
 import { sharePromptInputsFor } from './testFactories.ts';
 
-describe('runSharePrompt', () => {
+describe('report sharing prompt', () => {
+  test('does not request report sharing when do not track disables telemetry', () => {
+    const handle = fakeContextHandle.build();
+    const context = { ...handle.ctx, env: { ...handle.ctx.env, DO_NOT_TRACK: true }, telemetryDisabled: true };
+
+    showLocalReportReadyNotice({ context, target: 'acme', htmlPath: '/tmp/report.html' });
+
+    expect(shouldRequestReportShare(context)).toBe(false);
+    expect(handle.prompter.selects).toHaveLength(0);
+    expect(handle.prompter.texts).toHaveLength(0);
+    expect(handle.uploader.calls).toHaveLength(0);
+    expect(handle.prompter.notes[0]).toMatchObject({
+      title: 'Report ready',
+    });
+    expect(handle.prompter.notes[0]?.message).toContain('Nothing was uploaded because tracking is disabled.');
+  });
   test('shows the report path and a clear share question, defaulting to sharing', async () => {
     const handle = fakeContextHandle.build();
     handle.prompter.scriptSelect('declined');

@@ -8,7 +8,7 @@ import { createContext } from './context.ts';
 import { getEnvironment, isTelemetryDisabled } from './environment.ts';
 import { welcomeBannerBody, welcomeBannerTitle } from './interactive/banner.ts';
 import { openReport } from './interactive/openReport.ts';
-import { runSharePrompt } from './interactive/sharePrompt.ts';
+import { runSharePrompt, shouldRequestReportShare, showLocalReportReadyNotice } from './interactive/sharePrompt.ts';
 import { formatInteractiveTokenError, interactiveResolveToken } from './interactive/tokenWalkthrough.ts';
 import { enforceTty } from './interactive/ttyGate.ts';
 import { IoImpl } from './IoImpl.ts';
@@ -90,12 +90,20 @@ const result = await main(ctx, argv);
 
 if (result.kind === 'completed') {
   await openReport({ context: ctx, htmlPath: result.run.paths.html });
-  await runSharePrompt({
-    context: ctx,
-    target: result.run.target,
-    htmlPath: result.run.paths.html,
-    htmlContent: result.run.html,
-  });
+  if (shouldRequestReportShare(ctx)) {
+    await runSharePrompt({
+      context: ctx,
+      target: result.run.target,
+      htmlPath: result.run.paths.html,
+      htmlContent: result.run.html,
+    });
+  } else {
+    showLocalReportReadyNotice({
+      context: ctx,
+      target: result.run.target,
+      htmlPath: result.run.paths.html,
+    });
+  }
 }
 
 await shutdown();
