@@ -6,10 +6,13 @@ const SUPPORT_LINE = 'Reach us at founders@contextbridge.ai — or learn more at
 
 export type ShareChoice = 'html' | 'declined';
 
-export interface SharePromptInputs {
+export interface ReportReadyNoticeInputs {
   readonly context: Context;
   readonly target: string;
   readonly htmlPath: string;
+}
+
+export interface SharePromptInputs extends ReportReadyNoticeInputs {
   readonly htmlContent: string;
 }
 
@@ -18,6 +21,24 @@ export type ShareOutcome =
   | { kind: 'declined' }
   | { kind: 'cancelled' }
   | { kind: 'upload-failed'; message: string };
+
+export function shouldRequestReportShare(context: Context): boolean {
+  return !context.telemetryDisabled;
+}
+
+export function showLocalReportReadyNotice(inputs: ReportReadyNoticeInputs): void {
+  const { prompter } = inputs.context;
+  prompter.note(
+    [
+      `Scanned:      ${inputs.target}`,
+      `HTML report:  ${inputs.htmlPath}`,
+      '',
+      'Nothing was uploaded because tracking is disabled.',
+    ].join('\n'),
+    'Report ready',
+  );
+  prompter.outro('Done.');
+}
 
 export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOutcome> {
   const { prompter, analytics, uploader } = inputs.context;
