@@ -72,9 +72,9 @@ The report is one self-contained file with every metric baked in. It carries no 
 
 ## Telemetry & privacy
 
-We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. Builds from source send nothing.
+We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. We also do not ask if you want to share the report with us if you opt out of telemetry.
 
-To turn it off, set any of these:
+To disable telemetry, set any of these in your environment:
 
 - `DO_NOT_TRACK=1`
 - `CONTEXTBRIDGE_TELEMETRY_DISABLED=1`
