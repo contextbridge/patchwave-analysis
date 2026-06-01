@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.5...v0.2.6) (2026-06-01)
+
+
+### Bug Fixes
+
+* auto-opt out of share prompt with disabled telemetry ([a176524](https://github.com/contextbridge/patchwave-analysis/commit/a1765249253d265b737d4d4ea4e96c3c39114db2))
+
 ## [0.2.5](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.4...v0.2.5) (2026-05-29)
 
 
