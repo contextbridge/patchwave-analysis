@@ -5,7 +5,12 @@ export type GithubError =
   | { kind: 'not-found'; url?: string; message: string }
   | { kind: 'scope-missing'; required: string; message: string }
   | { kind: 'forbidden'; url?: string; message: string }
-  | { kind: 'http'; status: number; url?: string; message: string };
+  | { kind: 'http'; status: number; url?: string; message: string }
+  // A 200 whose GraphQL body carried no usable `data` (empty/degraded response,
+  // or a top-level error left only `data: null`). GitHub returns these under
+  // load on large orgs; Octokit surfaces them as a resolved null/undefined
+  // rather than a throw, so we raise them here instead of crashing a collector.
+  | { kind: 'empty-response'; message: string };
 
 interface RequestErrorLike {
   status?: number;
@@ -76,5 +81,7 @@ export function formatGithubError(err: GithubError): string {
       return `GitHub returned 403 for ${err.url ?? 'an API call'}: ${err.message}`;
     case 'http':
       return `GitHub returned ${err.status} for ${err.url ?? 'an API call'}: ${err.message}`;
+    case 'empty-response':
+      return `GitHub returned an empty GraphQL response: ${err.message}`;
   }
 }

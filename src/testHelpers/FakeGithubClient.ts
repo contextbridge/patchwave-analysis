@@ -5,7 +5,7 @@ import { print } from 'graphql';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
-import type { GithubClient, PaginatedItem } from '../github/GithubClient.ts';
+import { type GithubClient, type PaginatedItem, graphqlDataOrError } from '../github/GithubClient.ts';
 import { validateItems } from '../github/validateItems.ts';
 
 export type GithubCall =
@@ -97,9 +97,12 @@ export class FakeGithubClient implements GithubClient {
         )}`,
       );
     }
-    return responder.outcome.kind === 'ok'
-      ? okAsync(responder.outcome.value as TResult)
-      : errAsync(responder.outcome.error);
+    if (responder.outcome.kind === 'err') return errAsync(responder.outcome.error);
+    // Mirror the real client's boundary: a resolved null/undefined payload
+    // becomes an empty-response Err, so collector tests exercise the same
+    // contract production callers see.
+    const data = graphqlDataOrError(responder.outcome.value as TResult);
+    return data.isOk() ? okAsync(data.value) : errAsync(data.error);
   }
 
   callsTo(kind: GithubCall['kind']): GithubCall[] {

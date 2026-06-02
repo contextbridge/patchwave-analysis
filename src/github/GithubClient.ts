@@ -5,7 +5,7 @@ import { throttling } from '@octokit/plugin-throttling';
 import { Octokit } from '@octokit/rest';
 import type { Endpoints } from '@octokit/types';
 import { print } from 'graphql';
-import { ResultAsync } from 'neverthrow';
+import { type Result, ResultAsync, err, ok } from 'neverthrow';
 import type { z } from 'zod';
 import type { Logger } from '../logger.ts';
 import { type GithubError, toGithubError } from './errors.ts';
@@ -104,8 +104,24 @@ export class GithubClientImpl implements GithubClient {
       this.log.warn({ errorCount: graphqlErrorCount(err) }, 'GraphQL returned partial data; ignoring forbidden fields');
       return partial;
     });
-    return ResultAsync.fromPromise(promise, toGithubError);
+    return ResultAsync.fromPromise(promise, toGithubError).andThen(graphqlDataOrError);
   }
+}
+
+// Octokit's `graphql()` returns `response.data.data` and only throws when the
+// body carries an `errors` array. A 200 with an empty or degraded body
+// therefore resolves `null`/`undefined`, which the codegen types model as a
+// fully-populated object — so collectors that trust the type crash on the first
+// field access. Convert a missing payload into a loud Err at the boundary so
+// every caller degrades through its normal error channel instead.
+export function graphqlDataOrError<T>(data: T | null | undefined): Result<T, GithubError> {
+  if (data == null) {
+    return err<T, GithubError>({
+      kind: 'empty-response',
+      message: 'the response body contained no data (likely an empty or degraded reply from GitHub under load)',
+    });
+  }
+  return ok<T, GithubError>(data);
 }
 
 // Octokit raises a `GraphqlResponseError` (name set on the instance) that still

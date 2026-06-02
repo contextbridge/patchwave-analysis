@@ -156,6 +156,18 @@ test('propagates the error when every batch fails', async () => {
   expect(result.isErr()).toBe(true);
 });
 
+// Regression: a 200 with an empty/degraded body makes Octokit's graphql()
+// resolve `undefined`, which crashed `repoNodesOf` on `res.nodes`. The client
+// boundary now turns that into a loud Err, so the batch fails cleanly instead
+// of taking down the whole crawl with a TypeError.
+test('fails the batch instead of crashing when GitHub returns no data', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('DependabotPrsBatch').resolves(undefined);
+
+  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
+  expect(result.isErr()).toBe(true);
+});
+
 interface RepoNodeOptions {
   readonly id?: string;
   readonly owner?: string;

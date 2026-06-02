@@ -288,3 +288,36 @@ test('returns an empty result with no graphql calls when repos is empty', async 
   }
   expect(client.callsTo('graphql')).toHaveLength(0);
 });
+
+// Regression: a 200 with an empty/degraded body makes Octokit's graphql()
+// resolve `undefined`. The client boundary now fails that batch loudly, which
+// must surface as per-repo warnings, not a crash or a silent clean zero.
+test('records per-repo warnings instead of crashing when a batch returns no data', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('RepoMetadataBatch').resolves(undefined);
+
+  const repos = [repoMeta.build({ owner: 'acme', name: 'widgets' })];
+  const result = await listRepoMetadataBatched(client, repos);
+  expect(result.isOk()).toBe(true);
+  if (result.isOk()) {
+    expect(result.value.dependabotConfig).toEqual([]);
+    expect(result.value.branchProtection).toEqual([]);
+    expect(result.value.warnings).toHaveLength(1);
+    expect(result.value.warnings[0]).toMatchObject({ collector: 'repoMetadata', repo: { name: 'widgets' } });
+  }
+});
+
+// Defense in depth: even a non-null body that omits the `nodes` array (e.g. a
+// partial GraphQL payload recovered alongside errors) must not crash the parse.
+test('records warnings instead of crashing when the data object omits nodes', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('RepoMetadataBatch').resolves({});
+
+  const repos = [repoMeta.build({ owner: 'acme', name: 'widgets' })];
+  const result = await listRepoMetadataBatched(client, repos);
+  expect(result.isOk()).toBe(true);
+  if (result.isOk()) {
+    expect(result.value.warnings).toHaveLength(1);
+    expect(result.value.warnings[0]).toMatchObject({ collector: 'repoMetadata', repo: { name: 'widgets' } });
+  }
+});

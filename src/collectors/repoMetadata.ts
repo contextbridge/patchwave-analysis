@@ -92,10 +92,14 @@ function parseBatchResponse(res: RepoMetadataBatchQuery, repos: readonly RepoMet
   const dependabotConfig: DependabotConfigSlice[] = [];
   const branchProtection: BranchProtectionSlice[] = [];
   const warnings: CollectorWarning[] = [];
+  // The codegen type models `nodes` as always present, but a partial GraphQL
+  // payload recovered alongside errors can omit it. Read defensively so a
+  // missing array degrades to per-repo warnings rather than a TypeError.
+  const nodes = Array.isArray(res?.nodes) ? res.nodes : [];
   for (let i = 0; i < repos.length; i += 1) {
     const repo = repos[i];
     if (!repo) continue;
-    const node = res.nodes[i];
+    const node = nodes[i];
     if (!isRepoNode(node)) {
       warnings.push({
         collector: 'repoMetadata',
