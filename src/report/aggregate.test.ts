@@ -17,7 +17,7 @@ import { aggregate } from './aggregate.ts';
 const windowStart = instantFromString('2026-02-21T00:00:00Z');
 const now = instantFromString('2026-05-22T00:00:00Z');
 
-test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
+test('surfaces backlog age buckets and time-to-merge from the walked PRs', () => {
   const data = collectedData.build({
     dependabotPrs: [
       dependabotPr.build({
@@ -35,11 +35,7 @@ test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
   });
 
   const bundle = aggregate(data);
-  expect(bundle.prBacklog).toMatchObject({
-    openCount: 1,
-    mergedInWindowCount: 1,
-    oldestOpenDays: expect.any(Number) as number,
-  });
+  expect(bundle.prBacklog.oldestOpenDays).not.toBeNull();
   // The 263-day-old PR should fall into the 90+ bucket (90 and 180+ are no longer split).
   const oldBucket = bundle.prBacklog.openAgeBuckets.find((b) => b.label === '90+ days');
   expect(oldBucket?.count).toBe(1);

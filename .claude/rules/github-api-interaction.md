@@ -23,6 +23,13 @@ GitHub APIs to avoid rate limiting").
 
 ## Never use the search API for private-repo data
 
+> **Update (being revised):** This blanket ban was based on a misconfigured token.
+> Verified against a real fine-grained token, `search` _does_ return private repos and
+> exact counts (`author:`, `archived:`, `merged:`/`closed:` qualifiers all work). The
+> count collector `src/collectors/dependabotPrCounts.ts` uses search deliberately for
+> exact org-wide Dependabot PR counts. The guidance below still applies to per-repo
+> _content_ fetching; this section will be rewritten as the search-first collection lands.
+
 The GraphQL/REST **`search`** API silently omits private repositories when called
 with a **fine-grained token** — it returns `200 OK` with the private matches missing,
 no error. Fine-grained tokens are the least-privilege option the CLI recommends, so

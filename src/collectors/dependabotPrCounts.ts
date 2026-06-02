@@ -45,6 +45,9 @@ interface CountQueries {
 function buildCountQueries(target: string, kind: TargetKind, windowStartIso: string): CountQueries {
   const scope = kind === 'org' ? `org:${target}` : `user:${target}`;
   const since = windowStartIso.slice(0, 10);
+  // Mirror `filterRepos` (which drops archived repos and forks): `archived:false`
+  // excludes archived repos, and GitHub's issue search already excludes forks by
+  // default — so these counts match the analyzed repo set.
   const base = `is:pr author:app/dependabot archived:false ${scope}`;
   return {
     open: `${base} is:open`,

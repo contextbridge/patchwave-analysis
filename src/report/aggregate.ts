@@ -219,6 +219,8 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     { label: '60–90 days', min: 60, max: 90 },
     { label: '90+ days', min: 90, max: Number.POSITIVE_INFINITY },
   ];
+  // Age buckets and percentiles describe the walked PR subset (`data.dependabotPrs`),
+  // not the exact `prCounts` headline totals — for a sampled org they won't sum to openCount.
   const openAges = openPrs.map((p) => daysBetween(now, instantFromString(p.createdAt)));
   const openAgeBuckets = buckets.map((b) => ({
     label: b.label,

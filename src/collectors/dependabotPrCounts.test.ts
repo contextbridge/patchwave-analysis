@@ -31,7 +31,12 @@ test('uses the user: qualifier for user targets', async () => {
   await listDependabotPrCounts(client, 'blimmer', 'user', '2026-03-04T00:00:00Z');
   const call = client.callsTo('graphql')[0];
   if (call && call.kind === 'graphql') {
-    expect(call.variables.open).toBe('is:pr author:app/dependabot archived:false user:blimmer is:open');
+    expect(call.variables).toEqual({
+      open: 'is:pr author:app/dependabot archived:false user:blimmer is:open',
+      merged: 'is:pr author:app/dependabot archived:false user:blimmer is:merged merged:>=2026-03-04',
+      closedUnmerged:
+        'is:pr author:app/dependabot archived:false user:blimmer is:unmerged is:closed closed:>=2026-03-04',
+    });
   }
 });
 
