@@ -9,6 +9,7 @@ import type {
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
+  DependabotPrCounts,
   DependabotUpdateEntry,
   RepoMeta,
   RepoRef,
@@ -108,11 +109,18 @@ export const collectionContext = Factory.define<CollectionContext>(() => ({
   now: instantFromString('2026-05-22T00:00:00Z'),
 }));
 
+export const dependabotPrCounts = Factory.define<DependabotPrCounts>(() => ({
+  open: 0,
+  mergedInWindow: 0,
+  closedUnmergedInWindow: 0,
+}));
+
 export const collectedData = Factory.define<CollectedData>(() => ({
   ctx: collectionContext.build(),
   repos: [repoMeta.build()],
   dependabotConfig: [dependabotConfigSlice.build()],
   dependabotPrs: [],
+  prCounts: dependabotPrCounts.build(),
   cve: [cveSliceOk.build()],
   branchProtection: [branchProtectionSlice.build()],
   errors: [],

@@ -110,6 +110,7 @@ export interface CollectedData {
   repos: RepoMeta[];
   dependabotConfig: DependabotConfigSlice[];
   dependabotPrs: DependabotPr[];
+  prCounts: DependabotPrCounts;
   cve: CveSlice[];
   branchProtection: BranchProtectionSlice[];
   errors: CollectorWarning[];

@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import { Result, ResultAsync } from 'neverthrow';
 import pMap from 'p-map';
 import { getCveAlerts, getOrgCveAlerts } from './collectors/cve.ts';
+import { listDependabotPrCounts } from './collectors/dependabotPrCounts.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
 import { probePrReadAccess } from './collectors/prReadProbe.ts';
 import { listRepoMetadataBatched } from './collectors/repoMetadata.ts';
@@ -24,6 +25,7 @@ import type {
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
+  DependabotPrCounts,
   PrAccess,
   RepoMeta,
 } from './types.ts';
@@ -343,10 +345,16 @@ async function collectAll(
     return perRepoCrawl();
   })();
 
-  const [metadata, cve, dependabotPrs] = await Promise.all([
+  const [metadata, cve, dependabotPrs, prCounts] = await Promise.all([
     runRepoMetadata(listRepoMetadataBatched(client, repos), warnings),
     cvePromise,
     runResultAsync<DependabotPr[]>(listDependabotPrs(client, repos, windowStartIso), [], warnings, 'dependabotPrs'),
+    runResultAsync<DependabotPrCounts>(
+      listDependabotPrCounts(client, target, targetKind, windowStartIso),
+      { open: 0, mergedInWindow: 0, closedUnmergedInWindow: 0 },
+      warnings,
+      'dependabotPrCounts',
+    ),
   ]);
 
   return {
@@ -354,6 +362,7 @@ async function collectAll(
     repos,
     dependabotConfig: metadata.dependabotConfig,
     dependabotPrs,
+    prCounts,
     cve,
     branchProtection: metadata.branchProtection,
     errors: warnings,
