@@ -90,6 +90,9 @@ test('writes a report when the GitHub calls succeed', async () => {
   githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  githubClient
+    .onGraphql('DependabotPrCounts')
+    .resolves({ open: { issueCount: 0 }, merged: { issueCount: 0 }, closedUnmerged: { issueCount: 0 } });
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -165,6 +168,9 @@ test('excludes forked repos from the crawl', async () => {
   githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  githubClient
+    .onGraphql('DependabotPrCounts')
+    .resolves({ open: { issueCount: 0 }, merged: { issueCount: 0 }, closedUnmerged: { issueCount: 0 } });
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -199,6 +205,9 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
   // Per-repo CVE endpoint — the path Task 4 keeps for user targets.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  githubClient
+    .onGraphql('DependabotPrCounts')
+    .resolves({ open: { issueCount: 0 }, merged: { issueCount: 0 }, closedUnmerged: { issueCount: 0 } });
 
   const result = await main(ctx, ['blimmer']);
   expect(result.kind).toBe('completed');
@@ -233,6 +242,9 @@ test('falls back to the per-repo CVE endpoint when the org-level call fails', as
   // Per-repo endpoint is the fallback so each repo still gets a real status.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  githubClient
+    .onGraphql('DependabotPrCounts')
+    .resolves({ open: { issueCount: 0 }, merged: { issueCount: 0 }, closedUnmerged: { issueCount: 0 } });
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -290,6 +302,9 @@ test('continues with an incomplete report when the token cannot read PRs but the
   githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  githubClient
+    .onGraphql('DependabotPrCounts')
+    .resolves({ open: { issueCount: 0 }, merged: { issueCount: 0 }, closedUnmerged: { issueCount: 0 } });
   prompter.scriptSelect('continue');
 
   const result = await main(ctx, ['acme']);

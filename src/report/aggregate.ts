@@ -251,9 +251,9 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   const timeToMergeP90Days = percentile(ttMergeDays, 90);
 
   return {
-    openCount: openPrs.length,
-    closedInWindowCount: closedNotMergedInWindow.length,
-    mergedInWindowCount: mergedInWindow.length,
+    openCount: data.prCounts.open,
+    closedInWindowCount: data.prCounts.closedUnmergedInWindow,
+    mergedInWindowCount: data.prCounts.mergedInWindow,
     openAgeBuckets,
     oldestOpenDays,
     openAvgAgeDays,

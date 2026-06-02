@@ -11,7 +11,11 @@ import {
   repoMeta,
 } from '../testFactories.ts';
 import { instantFromString } from '../time.ts';
+import type { CollectedData } from '../types.ts';
 import { aggregate } from './aggregate.ts';
+
+const windowStart = instantFromString('2026-02-21T00:00:00Z');
+const now = instantFromString('2026-05-22T00:00:00Z');
 
 test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
   const data = collectedData.build({
@@ -27,6 +31,7 @@ test('counts merged-in-window PRs and surfaces backlog age buckets', () => {
         createdAt: '2025-09-01T00:00:00Z',
       }),
     ],
+    prCounts: { open: 1, mergedInWindow: 1, closedUnmergedInWindow: 0 },
   });
 
   const bundle = aggregate(data);
@@ -344,4 +349,23 @@ test('dependabotCoverage reflects only the live (non-archived) repos', () => {
     reposWithConfig: 1,
     reposWithSecurityUpdates: 1,
   });
+});
+
+test('headline PR counts come from prCounts (search), not the walked PR array', () => {
+  const data = {
+    ctx: { org: 'acme', windowDays: 90, windowStart, now },
+    repos: [],
+    dependabotConfig: [],
+    dependabotPrs: [dependabotPr.build({ state: 'open', createdAt: now.toString() })],
+    prCounts: { open: 40, mergedInWindow: 100, closedUnmergedInWindow: 7 },
+    cve: [],
+    branchProtection: [],
+    errors: [],
+  } satisfies CollectedData;
+
+  const bundle = aggregate(data);
+
+  expect(bundle.prBacklog.openCount).toBe(40);
+  expect(bundle.prBacklog.mergedInWindowCount).toBe(100);
+  expect(bundle.prBacklog.closedInWindowCount).toBe(7);
 });
