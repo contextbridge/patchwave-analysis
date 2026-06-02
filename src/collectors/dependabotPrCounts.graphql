@@ -1,0 +1,11 @@
+query DependabotPrCounts($open: String!, $merged: String!, $closedUnmerged: String!) {
+  open: search(query: $open, type: ISSUE) {
+    issueCount
+  }
+  merged: search(query: $merged, type: ISSUE) {
+    issueCount
+  }
+  closedUnmerged: search(query: $closedUnmerged, type: ISSUE) {
+    issueCount
+  }
+}

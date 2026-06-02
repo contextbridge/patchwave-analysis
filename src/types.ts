@@ -56,6 +56,12 @@ export interface DependabotPr extends RepoRef {
   autoMergeEnabled: boolean;
 }
 
+export interface DependabotPrCounts {
+  open: number;
+  mergedInWindow: number;
+  closedUnmergedInWindow: number;
+}
+
 export type CveSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 export interface CveAlert extends RepoRef {
