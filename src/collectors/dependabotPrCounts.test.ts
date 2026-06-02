@@ -1,19 +1,38 @@
 import { expect, test } from 'bun:test';
 import { FakeGithubClient } from '../testHelpers/index.ts';
-import { buildCountQueries, listDependabotPrCounts } from './dependabotPrCounts.ts';
+import { listDependabotPrCounts } from './dependabotPrCounts.ts';
 
-test('builds org-scoped queries with archived:false and the window date', () => {
-  const q = buildCountQueries('acme', 'org', '2026-03-04T00:00:00Z');
-  expect(q.open).toBe('is:pr author:app/dependabot archived:false org:acme is:open');
-  expect(q.merged).toBe('is:pr author:app/dependabot archived:false org:acme is:merged merged:>=2026-03-04');
-  expect(q.closedUnmerged).toBe(
-    'is:pr author:app/dependabot archived:false org:acme is:unmerged is:closed closed:>=2026-03-04',
-  );
+test('issues archived:false, author-scoped search queries for an org target', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('DependabotPrCounts').resolves({
+    open: { issueCount: 0 },
+    merged: { issueCount: 0 },
+    closedUnmerged: { issueCount: 0 },
+  });
+  await listDependabotPrCounts(client, 'acme', 'org', '2026-03-04T00:00:00Z');
+  const call = client.callsTo('graphql')[0];
+  expect(call).toBeDefined();
+  if (call && call.kind === 'graphql') {
+    expect(call.variables).toEqual({
+      open: 'is:pr author:app/dependabot archived:false org:acme is:open',
+      merged: 'is:pr author:app/dependabot archived:false org:acme is:merged merged:>=2026-03-04',
+      closedUnmerged: 'is:pr author:app/dependabot archived:false org:acme is:unmerged is:closed closed:>=2026-03-04',
+    });
+  }
 });
 
-test('uses the user: qualifier for user targets', () => {
-  const q = buildCountQueries('blimmer', 'user', '2026-03-04T00:00:00Z');
-  expect(q.open).toBe('is:pr author:app/dependabot archived:false user:blimmer is:open');
+test('uses the user: qualifier for user targets', async () => {
+  const client = new FakeGithubClient();
+  client.onGraphql('DependabotPrCounts').resolves({
+    open: { issueCount: 0 },
+    merged: { issueCount: 0 },
+    closedUnmerged: { issueCount: 0 },
+  });
+  await listDependabotPrCounts(client, 'blimmer', 'user', '2026-03-04T00:00:00Z');
+  const call = client.callsTo('graphql')[0];
+  if (call && call.kind === 'graphql') {
+    expect(call.variables.open).toBe('is:pr author:app/dependabot archived:false user:blimmer is:open');
+  }
 });
 
 test('maps the three aliased search counts to DependabotPrCounts', async () => {
