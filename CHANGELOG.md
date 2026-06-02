@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.6...v0.2.7) (2026-06-02)
+
+
+### Bug Fixes
+
+* make Dependabot PR collection work with fine-grained tokens ([#36](https://github.com/contextbridge/patchwave-analysis/issues/36)) ([46acf02](https://github.com/contextbridge/patchwave-analysis/commit/46acf0209d3e20352595f5390b6c1de2c625f8de))
+
 ## [0.2.6](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.5...v0.2.6) (2026-06-01)
 
 
