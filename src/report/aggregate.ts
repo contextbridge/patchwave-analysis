@@ -212,7 +212,6 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   const prs = data.dependabotPrs;
   const openPrs = prs.filter((p) => p.state === 'open');
   const mergedInWindow = prs.filter((p) => p.merged && p.mergedAt && isAtOrAfter(p.mergedAt, windowStart));
-  const closedNotMergedInWindow = prs.filter((p) => !p.merged && p.closedAt && isAtOrAfter(p.closedAt, windowStart));
 
   const buckets = [
     { label: '0–30 days', min: 0, max: 30 },
