@@ -39,14 +39,6 @@ export interface DependabotConfigSlice extends RepoRef {
 
 export type PrState = 'open' | 'closed';
 
-export interface CheckSummary {
-  total: number;
-  success: number;
-  failure: number;
-  pending: number;
-  failedCheckNames: string[];
-}
-
 export interface DependabotPr extends RepoRef {
   number: number;
   title: string;
@@ -62,7 +54,6 @@ export interface DependabotPr extends RepoRef {
   reviewers: string[];
   commenters: string[];
   autoMergeEnabled: boolean;
-  checks: CheckSummary;
 }
 
 export type CveSeverity = 'critical' | 'high' | 'medium' | 'low';
@@ -98,6 +89,15 @@ export interface CollectionContext {
   windowStart: Instant;
   now: Instant;
 }
+
+/**
+ * Whether the token could actually read pull requests, as determined by the
+ * pre-flight probe (`collectors/prReadProbe.ts`). `unreadable` means a repo's
+ * pulls endpoint returned 403/404, so the Dependabot backlog would come back
+ * empty for lack of access rather than because there's nothing to find.
+ * `unknown` means the probe hit an unrelated error and we drew no conclusion.
+ */
+export type PrAccess = 'ok' | 'unreadable' | 'unknown';
 
 export interface CollectedData {
   ctx: CollectionContext;

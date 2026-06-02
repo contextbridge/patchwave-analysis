@@ -152,46 +152,6 @@ test('keeps all CVE repos by severity for frontend truncation', () => {
   }
 });
 
-test('aggregates failing check names across open PRs, sorted by frequency', () => {
-  const prA = dependabotPr.build({
-    state: 'open',
-    checks: {
-      total: 2,
-      success: 0,
-      failure: 2,
-      pending: 0,
-      failedCheckNames: ['test (unit)', 'lint'],
-    },
-  });
-  const prB = dependabotPr.build({
-    state: 'open',
-    checks: {
-      total: 2,
-      success: 1,
-      failure: 1,
-      pending: 0,
-      failedCheckNames: ['test (unit)'],
-    },
-  });
-  const prC = dependabotPr.build({
-    state: 'open',
-    checks: {
-      total: 3,
-      success: 2,
-      failure: 1,
-      pending: 0,
-      failedCheckNames: ['typecheck', 'typecheck'],
-    },
-  });
-
-  const bundle = aggregate(collectedData.build({ dependabotPrs: [prA, prB, prC] }));
-  expect(bundle.prBacklog.failingCheckBreakdown).toEqual([
-    { checkName: 'test (unit)', failingPrCount: 2 },
-    { checkName: 'lint', failingPrCount: 1 },
-    { checkName: 'typecheck', failingPrCount: 1 },
-  ]);
-});
-
 test('builds a cost estimate from human merges and reviews, excluding bot merges', () => {
   const data = collectedData.build({
     dependabotPrs: [

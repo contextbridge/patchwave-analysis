@@ -58,6 +58,7 @@ The following files under `.claude/rules/` carry team conventions enforced for `
 - [Testing Patterns](.claude/rules/testing-patterns.md) — test data comes from Fishery factories (`testFactories.ts`), never hand-rolled `createXxx()` helpers.
 - [Bun-native APIs](.claude/rules/bun-native-apis.md) — reach for `Bun.*` globals before the Node equivalent.
 - [Bun testing](.claude/rules/bun-testing.md) — non-obvious `bun:test` conventions.
+- [GitHub API interaction](.claude/rules/github-api-interaction.md) — batch via GraphQL `nodes(ids:)`, never the search API for private data, tolerate partial responses, keep queries light; fail loudly instead of returning a silent zero.
 
 Beyond the rules:
 

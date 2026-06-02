@@ -1,66 +1,57 @@
-query DependabotPrs($searchQuery: String!, $cursor: String) {
-  search(query: $searchQuery, type: ISSUE, first: 50, after: $cursor) {
-    pageInfo {
-      hasNextPage
-      endCursor
-    }
-    nodes {
-      ... on PullRequest {
-        number
-        title
-        state
-        createdAt
-        closedAt
-        mergedAt
-        url
-        baseRefName
-        headRefName
-        mergedBy {
-          __typename
-          login
+query DependabotPrsBatch($ids: [ID!]!, $cursor: String) {
+  nodes(ids: $ids) {
+    __typename
+    ... on Repository {
+      id
+      owner {
+        login
+      }
+      name
+      pullRequests(
+        first: 30
+        after: $cursor
+        states: [OPEN, MERGED, CLOSED]
+        orderBy: { field: UPDATED_AT, direction: DESC }
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
         }
-        autoMergeRequest {
-          enabledAt
-        }
-        repository {
-          owner {
+        nodes {
+          number
+          title
+          state
+          createdAt
+          updatedAt
+          closedAt
+          mergedAt
+          url
+          baseRefName
+          headRefName
+          author {
+            __typename
             login
           }
-          name
-        }
-        reviews(first: 50) {
-          nodes {
-            author {
-              __typename
-              login
+          mergedBy {
+            __typename
+            login
+          }
+          autoMergeRequest {
+            enabledAt
+          }
+          reviews(first: 20) {
+            nodes {
+              author {
+                __typename
+                login
+              }
             }
           }
-        }
-        comments(first: 50) {
-          nodes {
-            author {
-              __typename
-              login
-            }
-          }
-        }
-        commits(last: 1) {
-          nodes {
-            commit {
-              statusCheckRollup {
-                contexts(first: 100) {
-                  nodes {
-                    __typename
-                    ... on CheckRun {
-                      name
-                      conclusion
-                    }
-                    ... on StatusContext {
-                      context
-                      state
-                    }
-                  }
-                }
+          comments(first: 20) {
+            nodes {
+              author {
+                __typename
+                login
               }
             }
           }

@@ -66,8 +66,6 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
     { bumpType: 'major', count: 28, percentage: 10.2 },
   ],
   devOnlyShare: { count: 80, percentage: 29.3 },
-  ciStatusMix: { green: 50, failing: 30, pending: 22 },
-  failingCheckBreakdown: [],
   timeToMergeP50Days: 2,
   timeToMergeP90Days: 14,
 }));

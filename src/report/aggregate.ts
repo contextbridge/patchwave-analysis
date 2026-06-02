@@ -55,8 +55,6 @@ export interface PrBacklog {
   openAvgAgeDays: number | null;
   bumpTypeSplit: Array<{ bumpType: string; count: number; percentage: number }>;
   devOnlyShare: { count: number; percentage: number };
-  ciStatusMix: { green: number; failing: number; pending: number };
-  failingCheckBreakdown: Array<{ checkName: string; failingPrCount: number }>;
   timeToMergeP50Days: number | null;
   timeToMergeP90Days: number | null;
 }
@@ -245,31 +243,6 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   const devOnlyCount = prs.filter((p) => isDevDependencyBump(p.title)).length;
   const devOnlyShare = { count: devOnlyCount, percentage: pct(devOnlyCount, prs.length) };
 
-  let green = 0;
-  let failing = 0;
-  let pending = 0;
-  const failingPrCountByCheck = new Map<string, number>();
-  for (const pr of openPrs) {
-    if (pr.checks.total === 0) {
-      pending += 1;
-      continue;
-    }
-    if (pr.checks.failure > 0) {
-      failing += 1;
-      const uniqueNames = new Set(pr.checks.failedCheckNames);
-      for (const name of uniqueNames) {
-        failingPrCountByCheck.set(name, (failingPrCountByCheck.get(name) ?? 0) + 1);
-      }
-    } else if (pr.checks.pending > 0) {
-      pending += 1;
-    } else {
-      green += 1;
-    }
-  }
-  const failingCheckBreakdown = [...failingPrCountByCheck.entries()]
-    .map(([checkName, failingPrCount]) => ({ checkName, failingPrCount }))
-    .sort((a, b) => b.failingPrCount - a.failingPrCount || a.checkName.localeCompare(b.checkName));
-
   const ttMergeDays: number[] = mergedInWindow
     .filter((p) => p.mergedAt !== null)
     .map((p) => daysBetween(instantFromString(p.mergedAt as string), instantFromString(p.createdAt)));
@@ -286,8 +259,6 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
     openAvgAgeDays,
     bumpTypeSplit,
     devOnlyShare,
-    ciStatusMix: { green, failing, pending },
-    failingCheckBreakdown,
     timeToMergeP50Days,
     timeToMergeP90Days,
   };
