@@ -41,12 +41,23 @@ Your org has to allow fine-grained tokens for this to reach its repos.
 
 Whichever you pick, the CLI only reads from the API. It never writes.
 
+## Troubleshooting
+
+**The report shows $0, or no Dependabot PRs.** The token can read your security
+alerts but not your pull requests, so the PR backlog comes back empty. A
+fine-grained token needs the **Pull requests: Read** permission; a classic token
+needs the **`repo`** scope. PatchWave checks for this before scanning and lets you
+fix the token, so a $0 you didn't expect almost always means a missing permission.
+
+**Your org isn't in the list to pick from.** Choose **"Other (type a name)"** and
+enter the org's login directly.
+
 ## What it tells you
 
 The report covers:
 
 - **Dependabot coverage:** which repos have config, whether security updates are on, and for which ecosystems
-- **PR backlog:** open vs. merged vs. closed, age buckets, time-to-merge, CI statuses
+- **PR backlog:** open vs. merged vs. closed, age buckets, and time-to-merge
 - **Stalled signals:** repos sitting at Dependabot's PR cap, or configured but quiet
 - **CVE exposure:** open security alerts by severity, plus the oldest unpatched Critical/High
 - **Toil cost:** annualized engineer-time, with assumptions you can adjust right in the browser
@@ -57,7 +68,7 @@ The report covers:
 Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
 
 - The repo list, visibility, and primary language metadata
-- Dependabot PRs in the window, including state, timing, reviews, and CI status
+- Dependabot PRs in the window, including state, timing, and reviews
 - Open Dependabot security alerts (needs the `security_events` scope)
 - Each repo's `.github/dependabot.yml`
 - Branch-protection and ruleset settings on the default branch

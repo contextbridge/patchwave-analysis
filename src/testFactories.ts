@@ -2,7 +2,6 @@ import { Factory } from 'fishery';
 import { instantFromString } from './time.ts';
 import type {
   BranchProtectionSlice,
-  CheckSummary,
   CollectedData,
   CollectionContext,
   CollectorWarning,
@@ -34,14 +33,6 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   dependabotAlertsEnabled: true,
 }));
 
-export const checkSummary = Factory.define<CheckSummary>(() => ({
-  total: 0,
-  success: 0,
-  failure: 0,
-  pending: 0,
-  failedCheckNames: [],
-}));
-
 export const dependabotPr = Factory.define<DependabotPr>(({ sequence }) => ({
   owner: 'acme',
   name: 'widgets',
@@ -59,7 +50,6 @@ export const dependabotPr = Factory.define<DependabotPr>(({ sequence }) => ({
   reviewers: [],
   commenters: [],
   autoMergeEnabled: false,
-  checks: checkSummary.build(),
 }));
 
 export const cveAlert = Factory.define<CveAlert>(({ sequence }) => ({

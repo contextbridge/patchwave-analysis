@@ -93,6 +93,32 @@ export class GithubClientImpl implements GithubClient {
     document: TypedDocumentNode<TResult, TVariables>,
     variables: TVariables,
   ): ResultAsync<TResult, GithubError> {
-    return ResultAsync.fromPromise(this.rest.graphql<TResult>(print(document), variables), toGithubError);
+    // GitHub returns partial `data` alongside `errors` when a token can read
+    // some fields but not others — e.g. a fine-grained token without Checks
+    // access hitting `statusCheckRollup`. Octokit throws on any `errors`, so
+    // recover the partial data; one forbidden sub-field shouldn't sink a query
+    // whose top-level data (the PR list) came back fine.
+    const promise = this.rest.graphql<TResult>(print(document), variables).catch((err: unknown) => {
+      const partial = partialGraphqlData<TResult>(err);
+      if (partial === undefined) throw err;
+      this.log.warn({ errorCount: graphqlErrorCount(err) }, 'GraphQL returned partial data; ignoring forbidden fields');
+      return partial;
+    });
+    return ResultAsync.fromPromise(promise, toGithubError);
   }
+}
+
+// Octokit raises a `GraphqlResponseError` (name set on the instance) that still
+// carries the partial `data` payload. Surface that data instead of erroring.
+export function partialGraphqlData<T>(err: unknown): T | undefined {
+  if (err && typeof err === 'object' && (err as { name?: string }).name === 'GraphqlResponseError') {
+    const data = (err as { data?: unknown }).data;
+    if (data != null) return data as T;
+  }
+  return undefined;
+}
+
+function graphqlErrorCount(err: unknown): number | undefined {
+  const errors = (err as { errors?: unknown }).errors;
+  return Array.isArray(errors) ? errors.length : undefined;
 }

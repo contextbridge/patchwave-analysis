@@ -4,6 +4,7 @@ import { Result, ResultAsync } from 'neverthrow';
 import pMap from 'p-map';
 import { getCveAlerts, getOrgCveAlerts } from './collectors/cve.ts';
 import { listDependabotPrs } from './collectors/dependabotPrs.ts';
+import { probePrReadAccess } from './collectors/prReadProbe.ts';
 import { listRepoMetadataBatched } from './collectors/repoMetadata.ts';
 import { type TargetKind, listTargetRepos } from './collectors/repos.ts';
 import type { Context } from './context.ts';
@@ -23,6 +24,7 @@ import type {
   CveSlice,
   DependabotConfigSlice,
   DependabotPr,
+  PrAccess,
   RepoMeta,
 } from './types.ts';
 
@@ -120,6 +122,26 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     target_prompted: flagOpts.target === null,
   });
 
+  // Resolve the repo list and confirm the token can actually read pull requests
+  // before scanning — the GraphQL PR search silently returns nothing on a token
+  // that can't see them, which would otherwise surface as a confident $0.
+  const preflight = await runPreflight(ctx, opts);
+  if (preflight.kind === 'list-failed') {
+    ctx.prompter.error(formatGithubError(preflight.error));
+    ctx.analytics.capture('run_failed', {
+      error_kind: preflight.error.kind,
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
+    return { kind: 'failed', code: 1 };
+  }
+  if (preflight.kind === 'aborted') {
+    ctx.analytics.capture('run_failed', {
+      error_kind: 'pr-access-declined',
+      duration_ms: elapsedMs(startedAt, ctx.clock.now()),
+    });
+    return { kind: 'failed', code: 1 };
+  }
+
   const spinner = ctx.prompter.spinner();
   spinner.start(`Scanning ${opts.target} (last ${opts.windowDays} days)...`);
 
@@ -131,11 +153,11 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   };
 
   const paths = resolveOutputPaths(opts.outBase);
-  const renderResult = await renderReport(ctx, opts, analyticsEmbed);
+  const renderResult = await renderReport(ctx, opts, analyticsEmbed, preflight);
   if (renderResult.isErr()) {
     const error = renderResult.error;
     spinner.stop('Scan failed.');
-    ctx.prompter.error(error.kind === 'missing-placeholder' ? error.message : formatGithubError(error));
+    ctx.prompter.error(error.message);
     ctx.analytics.capture('run_failed', {
       error_kind: error.kind,
       duration_ms: elapsedMs(startedAt, ctx.clock.now()),
@@ -157,11 +179,15 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   }
 
   spinner.stop(`Scanned ${opts.target}.`);
+  if (preflight.prAccess === 'unreadable') {
+    ctx.prompter.note(PR_ACCESS_INCOMPLETE_NOTE, 'Heads up');
+  }
   ctx.analytics.capture('run_completed', {
     window_days: opts.windowDays,
     repos_total: stats.reposTotal,
     repos_included: stats.reposIncluded,
     dependabot_prs: stats.dependabotPrs,
+    pr_access: preflight.prAccess,
     warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, ctx.clock.now()),
   });
@@ -192,48 +218,104 @@ function renderReport(
   ctx: Context,
   opts: ResolvedOptions,
   analytics: ReportAnalyticsConfig,
-): ResultAsync<RenderedReport, GithubError | RenderError> {
+  preflight: ReadyPreflight,
+): ResultAsync<RenderedReport, RenderError> {
+  const { repos, targetKind } = preflight;
+  const filtered = filterRepos(repos, opts);
   ctx.logger.info(
-    { target: opts.target, windowDays: opts.windowDays },
-    `scanning ${opts.target} (${opts.windowDays}-day window)`,
+    { total: repos.length, included: filtered.length },
+    `found ${repos.length} repos; ${filtered.length} included after filters`,
   );
-  return listTargetRepos(ctx.githubClient, opts.target).andThen(({ kind: targetKind, repos }) => {
-    const filtered = filterRepos(repos, opts);
-    ctx.logger.info(
-      { total: repos.length, included: filtered.length },
-      `found ${repos.length} repos; ${filtered.length} included after filters`,
-    );
-    const now = ctx.clock.now();
-    const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
+  const now = ctx.clock.now();
+  const windowStart = now.subtract(Temporal.Duration.from({ hours: opts.windowDays * 24 }));
 
-    return ResultAsync.fromSafePromise(
-      collectAll(ctx, filtered, opts.target, targetKind, opts.windowDays, windowStart, now),
-    ).andThen((data) => {
-      ctx.logger.info(
-        { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
-        `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
+  return ResultAsync.fromSafePromise(
+    collectAll(ctx, filtered, opts.target, targetKind, opts.windowDays, windowStart, now),
+  ).andThen((data) => {
+    ctx.logger.info(
+      { dependabotPrs: data.dependabotPrs.length, warnings: data.errors.length },
+      `crawled ${data.dependabotPrs.length} Dependabot PRs; rendering report`,
+    );
+    if (data.errors.length > 0) {
+      ctx.logger.warn(
+        { count: data.errors.length },
+        `${data.errors.length} per-repo warnings were suppressed during crawl`,
       );
-      if (data.errors.length > 0) {
-        ctx.logger.warn(
-          { count: data.errors.length },
-          `${data.errors.length} per-repo warnings were suppressed during crawl`,
-        );
-      }
-      const bundle = aggregate(data);
-      return renderHtml(bundle, analytics).map(
-        (report): RenderedReport => ({
-          report,
-          stats: {
-            reposTotal: repos.length,
-            reposIncluded: filtered.length,
-            dependabotPrs: data.dependabotPrs.length,
-            warnings: data.errors.length,
-          },
-        }),
-      );
-    });
+    }
+    const bundle = aggregate(data);
+    return renderHtml(bundle, analytics).map(
+      (report): RenderedReport => ({
+        report,
+        stats: {
+          reposTotal: repos.length,
+          reposIncluded: filtered.length,
+          dependabotPrs: data.dependabotPrs.length,
+          warnings: data.errors.length,
+        },
+      }),
+    );
   });
 }
+
+interface ReadyPreflight {
+  readonly kind: 'ready';
+  readonly repos: RepoMeta[];
+  readonly targetKind: TargetKind;
+  readonly prAccess: PrAccess;
+}
+
+type PreflightResult = ReadyPreflight | { kind: 'list-failed'; error: GithubError } | { kind: 'aborted' };
+
+// Lists the target's repos once and checks the token can read pull requests.
+// The Dependabot backlog comes from a GraphQL repo query whose pullRequests
+// field stays empty when the token can't read PRs, so we probe a real repo's
+// REST pulls endpoint (which does return 403/404) and let the user fix the
+// token before a misleading $0.
+async function runPreflight(ctx: Context, opts: ResolvedOptions): Promise<PreflightResult> {
+  const { githubClient, prompter } = ctx;
+  const listed = await listTargetRepos(githubClient, opts.target);
+  if (listed.isErr()) return { kind: 'list-failed', error: listed.error };
+
+  const { kind: targetKind, repos } = listed.value;
+  const probeTarget = filterRepos(repos, opts)[0];
+  if (!probeTarget) return { kind: 'ready', repos, targetKind, prAccess: 'ok' };
+
+  const verdict = await probePrReadAccess(githubClient, { owner: probeTarget.owner, name: probeTarget.name });
+  if (verdict.readable !== false) {
+    return { kind: 'ready', repos, targetKind, prAccess: verdict.readable === true ? 'ok' : 'unknown' };
+  }
+
+  prompter.warn(PR_ACCESS_WARNING);
+  const choice = await prompter
+    .select<'stop' | 'continue'>({
+      message: 'How do you want to proceed?',
+      choices: [
+        { value: 'stop', label: 'Stop and fix the token', hint: 'recommended' },
+        { value: 'continue', label: 'Continue anyway', hint: 'PR backlog and cost will be incomplete' },
+      ],
+      initialValue: 'stop',
+    })
+    .unwrapOr('stop');
+  if (choice === 'continue') return { kind: 'ready', repos, targetKind, prAccess: 'unreadable' };
+
+  prompter.note(PR_ACCESS_FIX, 'Grant pull-request access');
+  return { kind: 'aborted' };
+}
+
+const PR_ACCESS_WARNING =
+  "This token can't read pull requests, so the Dependabot PR backlog (and the cost built on it) comes back empty.";
+
+const PR_ACCESS_FIX = [
+  'Give the token one of these, then run patchwave-analysis again:',
+  '',
+  '  • Fine-grained token: set "Pull requests" to Read-only',
+  '  • Classic token: tick the "repo" scope',
+].join('\n');
+
+const PR_ACCESS_INCOMPLETE_NOTE = [
+  "You continued without pull-request access, so the report's Dependabot backlog and cost are empty.",
+  'Grant the token pull-request access and run it again for the full picture.',
+].join('\n');
 
 async function collectAll(
   ctx: Context,
@@ -264,7 +346,7 @@ async function collectAll(
   const [metadata, cve, dependabotPrs] = await Promise.all([
     runRepoMetadata(listRepoMetadataBatched(client, repos), warnings),
     cvePromise,
-    runResultAsync<DependabotPr[]>(listDependabotPrs(client, target, windowStartIso), [], warnings, 'dependabotPrs'),
+    runResultAsync<DependabotPr[]>(listDependabotPrs(client, repos, windowStartIso), [], warnings, 'dependabotPrs'),
   ]);
 
   return {

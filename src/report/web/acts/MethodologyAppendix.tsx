@@ -200,20 +200,10 @@ export function MethodologyAppendix() {
                           `p50 ${pr.timeToMergeP50Days ?? 'n/a'}d, p90 ${pr.timeToMergeP90Days ?? 'n/a'}d`,
                         ],
                         ['Dev-only share', `${pr.devOnlyShare.count} PRs (${pr.devOnlyShare.percentage}%)`],
-                        [
-                          'CI status',
-                          `${pr.ciStatusMix.green} green, ${pr.ciStatusMix.failing} failing, ${pr.ciStatusMix.pending} pending`,
-                        ],
                       ]}
                     />
                     <InlineBreakdown label="Open PR age" rows={pr.openAgeBuckets} nameKey="label" valueKey="count" />
                     <InlineBreakdown label="Bump types" rows={pr.bumpTypeSplit} nameKey="bumpType" valueKey="count" />
-                    <InlineBreakdown
-                      label="Failing checks"
-                      rows={pr.failingCheckBreakdown}
-                      nameKey="checkName"
-                      valueKey="failingPrCount"
-                    />
                   </DataPanel>
 
                   <DataPanel title="Stalled signals">

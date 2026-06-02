@@ -70,8 +70,14 @@ function ghInstructions(): string {
     'Pick GitHub.com → HTTPS → "Login with a web browser" and follow the prompts.',
     '',
     'Want least privilege? A read-only fine-grained token works too. Grant these',
-    'repository permissions, all Read-only: Contents, Pull requests, Administration,',
-    'and Dependabot alerts, then export GITHUB_TOKEN.',
+    'repository permissions, all Read-only:',
+    '',
+    '    • Pull requests   ← without this the PR backlog and cost come back empty',
+    '    • Contents',
+    '    • Administration',
+    '    • Dependabot alerts',
+    '',
+    'Then export GITHUB_TOKEN.',
   ].join('\n');
 }
 
@@ -104,8 +110,14 @@ function patInstructions(): string {
     '',
     'Prefer least privilege? A read-only fine-grained token works too, at',
     'https://github.com/settings/personal-access-tokens/new — grant these repository',
-    'permissions, all Read-only: Contents, Pull requests, Administration, and',
-    'Dependabot alerts. Your org must allow fine-grained tokens.',
+    'permissions, all Read-only:',
+    '',
+    '    • Pull requests   ← without this the PR backlog and cost come back empty',
+    '    • Contents',
+    '    • Administration',
+    '    • Dependabot alerts',
+    '',
+    'Your org must allow fine-grained tokens.',
   ].join('\n');
 }
 

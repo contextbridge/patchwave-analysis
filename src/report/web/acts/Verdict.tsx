@@ -19,7 +19,8 @@ export const verdictCopy = {
 
 export function Verdict() {
   const { derived } = useAssumptions();
-  const { openCount } = useEmbeddedData().prBacklog;
+  const { prBacklog } = useEmbeddedData();
+  const { openCount } = prBacklog;
   const analytics = useAnalytics();
 
   return (
