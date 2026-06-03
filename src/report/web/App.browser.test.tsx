@@ -11,7 +11,7 @@ import { riskStoryCopy, riskStoryTestIds } from './acts/RiskStory.tsx';
 import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
-import { assumptionInputTestIds } from './primitives/AssumptionInput.tsx';
+import { costReceiptCopy, costReceiptTestIds } from './primitives/CostReceipt.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
 import type { EmbeddedReportData } from './types.ts';
 
@@ -27,16 +27,51 @@ describe('App report shell', () => {
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
     expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
     // The headline clarifies it excludes the open backlog, which lives in its own section.
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent('not including the 102 still open');
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(
+      'Does not include the 102 Dependabot PRs that are still open',
+    );
+  });
+
+  it('reads as one equation from observed PRs and the assumptions to the headline', () => {
+    renderReport();
+
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    expect(within(receipt).getByTestId(costReceiptTestIds.observed)).toHaveTextContent('162');
+    expect(within(receipt).getByTestId(costReceiptTestIds.observed)).toHaveTextContent(costReceiptCopy.observedBadge);
+    expect(within(receipt).getByTestId(costReceiptTestIds.minutes)).toHaveValue('12');
+    expect(within(receipt).getByTestId(costReceiptTestIds.rate)).toHaveValue('200');
+    expect(within(receipt).getByTestId(costReceiptTestIds.annualize)).toHaveTextContent('4.06');
+    expect(receipt).toHaveTextContent('365 ÷ 90 days');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
+  });
+
+  it('keeps the equation in step with the headline when an assumption changes', () => {
+    renderReport();
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.rate), { target: { value: '300' } });
+
+    // $200 -> $300/hr scales the headline to $39,420/year.
+    expect(within(receipt).getByTestId(costReceiptTestIds.rate)).toHaveValue('300');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
+  });
+
+  it('edits the assumptions in place, with no separate adjust control', () => {
+    renderReport();
+    const section = screen.getByTestId(verdictTestIds.section);
+    expect(within(section).queryByText(/adjust/i)).toBeNull();
+
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '24' } });
+
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$52,560/year');
   });
 
   it('recalculates the headline cost and comparison cards when assumptions change', () => {
     renderReport();
-    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
 
-    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.hourlyRate), {
-      target: { value: '300' },
-    });
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.rate), { target: { value: '300' } });
 
     expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
     expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$39,420/yr');
@@ -47,8 +82,8 @@ describe('App report shell', () => {
 
   it('allows replacing an assumption value by clearing and typing', () => {
     renderReport();
-    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
-    const hourlyRateInput = within(assumptions).getByTestId(assumptionInputTestIds.hourlyRate);
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    const hourlyRateInput = within(receipt).getByTestId(costReceiptTestIds.rate);
 
     fireEvent.focus(hourlyRateInput);
     fireEvent.change(hourlyRateInput, { target: { value: '' } });
@@ -253,12 +288,10 @@ describe('App report shell', () => {
     // 10 reviews x 12 min x $200/hr / 60 = $400 in window at the defaults.
     expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$400');
 
-    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
-    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
-      target: { value: '10' },
-    });
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '10' } });
 
-    // Reviews ride the same minutes-per-PR slider as merges, so editing it reworks the cost:
+    // Reviews ride the same minutes-per-PR assumption as merges, so editing it reworks the cost:
     // 10 reviews x 10 min x $200/hr / 60 = $333.
     expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$333');
   });
@@ -272,11 +305,9 @@ describe('App report shell', () => {
       },
     });
 
-    // The assumptions control lives in the hero, so it stays editable regardless of the appendix tab.
-    const assumptions = screen.getByTestId(assumptionInputTestIds.container);
-    fireEvent.change(within(assumptions).getByTestId(assumptionInputTestIds.minutesPerPr), {
-      target: { value: '10' },
-    });
+    // The assumptions are editable in the hero card, independent of the appendix tab below.
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '10' } });
 
     fireEvent.click(screen.getByText('How this report was calculated'));
     fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
@@ -393,8 +424,7 @@ describe('App analytics', () => {
     const { analytics, events } = createFakeAnalytics();
     renderWithAnalytics(analytics);
 
-    const input = screen.getAllByTestId(assumptionInputTestIds.hourlyRate)[0];
-    if (!input) throw new Error('missing hourly rate input');
+    const input = screen.getByTestId(costReceiptTestIds.rate);
     fireEvent.change(input, { target: { value: '275' } });
     fireEvent.blur(input);
 
