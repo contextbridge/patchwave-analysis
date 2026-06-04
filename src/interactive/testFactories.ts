@@ -1,10 +1,10 @@
 import { Factory } from 'fishery';
 import type { AuthError } from '../github/auth.ts';
-import type { FakeContextHandle } from '../testHelpers/createFakeContext.ts';
+import type { FakeContextHandle } from '../testHelpers/index.ts';
 import { fakeContextHandle } from '../testHelpers/testFactories.ts';
 import type { SharePromptInputs } from './sharePrompt.ts';
 
-export const sharePromptInputs = Factory.define<SharePromptInputs>(() => {
+const sharePromptInputs = Factory.define<SharePromptInputs>(() => {
   const handle = fakeContextHandle.build();
   return {
     context: handle.ctx,

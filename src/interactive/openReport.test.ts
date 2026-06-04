@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { createFakeContext } from '../testHelpers/createFakeContext.ts';
+import { createFakeContext } from '../testHelpers/index.ts';
 import { openReport } from './openReport.ts';
 
 describe('openReport', () => {

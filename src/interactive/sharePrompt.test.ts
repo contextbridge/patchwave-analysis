@@ -29,7 +29,7 @@ describe('report sharing prompt', () => {
     expect(reportReadyNote?.message).toContain('acme');
     expect(reportReadyNote?.message).toContain('/tmp/report.html');
     expect(reportReadyNote?.message).not.toContain('Open it to see what would be sent');
-    expect(handle.prompter.selects[0]?.message).toContain('waitlist');
+    expect(handle.prompter.selects[0]?.message).toContain('call with us');
     expect(handle.prompter.selects[0]?.message).toContain("We'll upload exactly what's on disk");
     expect(handle.prompter.selects[0]?.message).toContain("won't share your data");
     expect(handle.prompter.selects[0]?.choices.map((c) => c.value)).toEqual(['html', 'declined']);
@@ -66,7 +66,7 @@ describe('report sharing prompt', () => {
     });
     expect(new TextDecoder().decode(handle.uploader.calls[0]?.bytes)).toBe('<!doctype html><html></html>');
     expect(handle.analytics.capturedEvents('upload_succeeded')).toHaveLength(1);
-    expect(handle.prompter.outros[0]).toContain("you're on the PatchWave waitlist");
+    expect(handle.prompter.outros[0]).toContain("we've got your report");
     expect(handle.prompter.outros[0]).toContain('ben@example.com');
     expect(handle.prompter.outros[0]?.toLowerCase()).not.toContain('upload id');
     expect(handle.prompter.outros[0]).not.toContain('fake-upload-id');

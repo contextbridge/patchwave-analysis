@@ -3,21 +3,12 @@ import { main } from './cli.ts';
 import { createFakeContext } from './testHelpers/index.ts';
 import type { FakeGithubClient } from './testHelpers/index.ts';
 
-function repoBatchResponse(nodes: unknown[] = []): Record<string, unknown> {
-  return { nodes };
-}
-
-const npmConfigBlob = {
-  __typename: 'Repository',
-  yml: { text: 'updates:\n  - package-ecosystem: "npm"\n' },
-  yaml: null,
-  defaultBranchRef: null,
-};
-
-// The pre-flight probes one repo's pulls endpoint before scanning; stub it as
-// readable so the happy-path tests proceed to the scan.
-function stubPrReadable(githubClient: FakeGithubClient): void {
-  githubClient.onRequest('GET /repos/{owner}/{repo}/pulls').resolves([]);
+// The Dependabot PR search is the only GraphQL call; resolve it empty so the
+// happy-path tests reach the report without exercising the search internals.
+function stubEmptyPrSearch(githubClient: FakeGithubClient): void {
+  githubClient.onGraphql('DependabotPrsSearch').resolves({
+    search: { issueCount: 0, pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+  });
 }
 
 test('prints usage and exits 0 when --help is passed', async () => {
@@ -31,7 +22,6 @@ test('prompts for the target when no positional is provided, picking from the li
   const { ctx, prompter, githubClient } = createFakeContext();
   githubClient.onRequest('GET /user').resolves({ login: 'ben' });
   githubClient.onPaginate('GET /user/orgs').resolves([{ login: 'acme' }]);
-  githubClient.onRequest('GET /user/repos').resolves([]);
   prompter.scriptSelect('acme');
   // The chosen org then drives the real run, which fails the listing — we
   // only care that the select fired and that target_prompted is recorded.
@@ -47,7 +37,6 @@ test('cancelling the target prompt returns failed and tells the user why', async
   const { ctx, prompter, githubClient } = createFakeContext();
   githubClient.onRequest('GET /user').resolves({ login: 'ben' });
   githubClient.onPaginate('GET /user/orgs').resolves([]);
-  githubClient.onRequest('GET /user/repos').resolves([]);
   prompter.scriptSelect({ kind: 'cancelled' });
 
   const result = await main(ctx, []);
@@ -86,10 +75,8 @@ test('writes a report when the GitHub calls succeed', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  stubPrReadable(githubClient);
-  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
-  githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  stubEmptyPrSearch(githubClient);
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -98,9 +85,9 @@ test('writes a report when the GitHub calls succeed', async () => {
 
   // Output lands in a temp dir, not the CWD; locate it via the returned paths.
   expect(result.run.target).toBe('acme');
-  expect(result.run.paths.html.endsWith('patchwave-report.html')).toBe(true);
+  expect(result.run.htmlPath.endsWith('patchwave-report.html')).toBe(true);
 
-  const written = fs.read(result.run.paths.html);
+  const written = fs.read(result.run.htmlPath);
   expect(written).toBeDefined();
   expect(written).toContain('<html');
   const match = /<script type="application\/json" id="patchwave-data">([\s\S]*?)<\/script>/.exec(written ?? '');
@@ -115,8 +102,6 @@ test('writes a report when the GitHub calls succeed', async () => {
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({
     window_days: 90,
-    has_include: false,
-    has_exclude: false,
     target_prompted: false,
   });
   const completed = analytics.capturedEvents('run_completed')[0];
@@ -161,10 +146,8 @@ test('excludes forked repos from the crawl', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  stubPrReadable(githubClient);
-  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
-  githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  stubEmptyPrSearch(githubClient);
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -194,11 +177,9 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  stubPrReadable(githubClient);
-  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
-  // Per-repo CVE endpoint — the path Task 4 keeps for user targets.
+  // Per-repo CVE endpoint — the path kept for user targets.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
-  githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  stubEmptyPrSearch(githubClient);
 
   const result = await main(ctx, ['blimmer']);
   expect(result.kind).toBe('completed');
@@ -224,15 +205,13 @@ test('falls back to the per-repo CVE endpoint when the org-level call fails', as
       pushed_at: '2026-04-01T00:00:00Z',
     },
   ]);
-  stubPrReadable(githubClient);
-  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
   // Org-level endpoint refuses: token can see the org but not its alerts.
   githubClient
     .onPaginate('GET /orgs/{org}/dependabot/alerts', {})
     .fails({ kind: 'forbidden', message: 'no access to org alerts' });
   // Per-repo endpoint is the fallback so each repo still gets a real status.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
-  githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
+  stubEmptyPrSearch(githubClient);
 
   const result = await main(ctx, ['acme']);
   expect(result.kind).toBe('completed');
@@ -242,65 +221,30 @@ test('falls back to the per-repo CVE endpoint when the org-level call fails', as
   expect(paginateRoutes).toContain('GET /repos/{owner}/{repo}/dependabot/alerts');
 });
 
-test('aborts before scanning when the token cannot read PRs and the user chooses to stop', async () => {
+test('aborts before scanning when the token is missing a required scope', async () => {
   const { ctx, githubClient, prompter, analytics } = createFakeContext();
-
-  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
-    {
-      name: 'widgets',
-      node_id: 'R_kgDOwidgets',
-      owner: { login: 'acme' },
-      private: true,
-      visibility: 'private',
-      archived: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
-  ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/pulls').fails({ kind: 'forbidden', message: 'no pulls' });
-  prompter.scriptSelect('stop');
+  githubClient.setOAuthScopes(['read:org']); // missing `repo`
 
   const result = await main(ctx, ['acme']);
 
   expect(result).toMatchObject({ kind: 'failed', code: 1 });
-  // No scan was attempted: the Dependabot PR search never ran.
+  // The gate fires before any repo listing or scan.
+  expect(githubClient.callsTo('paginate')).toHaveLength(0);
   expect(githubClient.callsTo('graphql')).toHaveLength(0);
-  expect(prompter.notes.some((n) => n.title === 'Grant pull-request access')).toBe(true);
-  expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({ error_kind: 'pr-access-declined' });
+  expect(prompter.notes.some((n) => n.title === 'Fix the token')).toBe(true);
+  expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({
+    error_kind: 'token-scope-insufficient',
+  });
 });
 
-test('continues with an incomplete report when the token cannot read PRs but the user proceeds', async () => {
-  const { ctx, githubClient, prompter, analytics } = createFakeContext();
-
-  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
-    {
-      name: 'widgets',
-      node_id: 'R_kgDOwidgets',
-      owner: { login: 'acme' },
-      private: true,
-      visibility: 'private',
-      archived: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
-  ]);
-  githubClient.onRequest('GET /repos/{owner}/{repo}/pulls').fails({ kind: 'forbidden', message: 'no pulls' });
-  githubClient.onGraphql('RepoMetadataBatch').resolves(repoBatchResponse([npmConfigBlob]));
-  githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
-  githubClient.onGraphql('DependabotPrs').resolves({ nodes: [] });
-  prompter.scriptSelect('continue');
+test('rejects a fine-grained token, which carries no scopes header', async () => {
+  const { ctx, githubClient, prompter } = createFakeContext();
+  githubClient.setOAuthScopes(null);
 
   const result = await main(ctx, ['acme']);
-  expect(result.kind).toBe('completed');
 
-  // The report is written, but the CLI warns that it's incomplete — the report
-  // itself carries no permission banner.
-  expect(prompter.notes.some((n) => n.title === 'Heads up')).toBe(true);
-  expect(analytics.capturedEvents('run_completed')[0]?.properties).toMatchObject({
-    pr_access: 'unreadable',
-  });
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+  expect(prompter.notes.some((n) => n.message.includes('classic token'))).toBe(true);
 });
 
 test('captures run_failed when listTargetRepos fails', async () => {

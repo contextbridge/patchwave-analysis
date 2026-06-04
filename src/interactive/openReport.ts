@@ -1,7 +1,7 @@
-import { formatBrowserOpenError } from '../BrowserOpener.ts';
-import type { Context } from '../context.ts';
+import { formatBrowserOpenError } from '../context/BrowserOpener.ts';
+import type { Context } from '../context/index.ts';
 
-export interface OpenReportInputs {
+interface OpenReportInputs {
   readonly context: Context;
   readonly htmlPath: string;
 }

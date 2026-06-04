@@ -1,12 +1,12 @@
-import type { Context } from '../context.ts';
-import { type Prompter, formatPromptError } from '../prompt/Prompter.ts';
-import { formatUploadError } from '../upload/Uploader.ts';
+import type { Context } from '../context/index.ts';
+import { type Prompter, formatPromptError } from '../context/Prompter.ts';
+import { formatUploadError } from '../context/Uploader.ts';
 
 const SUPPORT_LINE = 'Reach us at founders@contextbridge.ai — or learn more at https://patchwave.ai';
 
-export type ShareChoice = 'html' | 'declined';
+type ShareChoice = 'html' | 'declined';
 
-export interface ReportReadyNoticeInputs {
+interface ReportReadyNoticeInputs {
   readonly context: Context;
   readonly target: string;
   readonly htmlPath: string;
@@ -16,7 +16,7 @@ export interface SharePromptInputs extends ReportReadyNoticeInputs {
   readonly htmlContent: string;
 }
 
-export type ShareOutcome =
+type ShareOutcome =
   | { kind: 'shared'; uploadId: string; email: string }
   | { kind: 'declined' }
   | { kind: 'cancelled' }
@@ -49,10 +49,10 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
 
   const choiceResult = await prompter.select<ShareChoice>({
     message:
-      "Share this report with PatchWave? Uploading it bumps your spot on the waitlist. We'll upload exactly what's on disk and won't share your data with anyone.",
+      "Share this report with PatchWave? If you've got a call with us coming up, sharing it first lets us dig into your numbers before we talk. We'll upload exactly what's on disk and won't share your data with anyone.",
     initialValue: 'html',
     choices: [
-      { value: 'html', label: 'Share the HTML report', hint: 'boost your waitlist spot' },
+      { value: 'html', label: 'Share the HTML report', hint: "we'll review it before your call" },
       { value: 'declined', label: 'No thanks — keep it local', hint: 'nothing leaves your machine' },
     ],
   });
@@ -104,9 +104,7 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
   const { uploadId } = uploadResult.value;
   spinner.stop('Uploaded.');
   analytics.capture('upload_succeeded', {});
-  prompter.outro(
-    `Thanks — you're on the PatchWave waitlist. We'll use this report to prioritize early access and follow up at ${email}.`,
-  );
+  prompter.outro(`Thanks — we've got your report. We'll review it before your call and reach you at ${email}.`);
   return { kind: 'shared', uploadId, email };
 }
 
@@ -130,7 +128,7 @@ async function askForEmail(prompter: Prompter): Promise<{ kind: 'ok'; email: str
     placeholder: 'you@example.com',
     validate: (value) => {
       const trimmed = value.trim();
-      if (trimmed.length === 0) return 'Please enter an email address for the waitlist.';
+      if (trimmed.length === 0) return 'Please enter an email address so we can follow up.';
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? undefined : "that doesn't look like an email address";
     },
   });
