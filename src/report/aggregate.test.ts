@@ -1,15 +1,5 @@
 import { expect, test } from 'bun:test';
-import {
-  branchProtectionSlice,
-  collectedData,
-  collectionContext,
-  cveAlert,
-  cveSliceOk,
-  dependabotConfigSlice,
-  dependabotPr,
-  dependabotUpdateEntry,
-  repoMeta,
-} from '../testFactories.ts';
+import { collectedData, collectionContext, cveAlert, cveSliceOk, dependabotPr, repoMeta } from '../testFactories.ts';
 import { instantFromString } from '../time.ts';
 import { aggregate } from './aggregate.ts';
 
@@ -56,17 +46,23 @@ test('averages open PR age and reports null when nothing is open', () => {
   expect(aggregate(noOpen).prBacklog.openAvgAgeDays).toBeNull();
 });
 
-test('rolls org/visibility/language counts up into orgOverview', () => {
+test('rolls org/visibility/language/security-update counts up into orgOverview', () => {
   const data = collectedData.build({
     repos: [
-      repoMeta.build({ name: 'a', visibility: 'public', primaryLanguage: 'TypeScript' }),
-      repoMeta.build({ name: 'b', visibility: 'private', primaryLanguage: 'JavaScript' }),
-      repoMeta.build({ name: 'c', visibility: 'private', primaryLanguage: 'Go' }),
+      repoMeta.build({
+        name: 'a',
+        visibility: 'public',
+        primaryLanguage: 'TypeScript',
+        dependabotSecurityUpdates: true,
+      }),
+      repoMeta.build({
+        name: 'b',
+        visibility: 'private',
+        primaryLanguage: 'JavaScript',
+        dependabotSecurityUpdates: true,
+      }),
+      repoMeta.build({ name: 'c', visibility: 'private', primaryLanguage: 'Go', dependabotSecurityUpdates: false }),
       repoMeta.build({ name: 'd', visibility: 'internal', primaryLanguage: null, archived: true }),
-    ],
-    branchProtection: [
-      branchProtectionSlice.build({ name: 'a', hasProtection: true }),
-      branchProtectionSlice.build({ name: 'b', hasProtection: false }),
     ],
   });
 
@@ -77,8 +73,20 @@ test('rolls org/visibility/language counts up into orgOverview', () => {
     privateCount: 2,
     archivedExcluded: 1,
     nodeTsRepoCount: 2,
-    reposWithBranchProtection: 1,
+    reposWithSecurityUpdates: 2,
   });
+});
+
+test('excludes forks from active repo counts without counting them as archived', () => {
+  const data = collectedData.build({
+    repos: [
+      repoMeta.build({ name: 'a' }),
+      repoMeta.build({ name: 'b', fork: true }),
+      repoMeta.build({ name: 'c', archived: true }),
+    ],
+  });
+
+  expect(aggregate(data).orgOverview).toMatchObject({ repoCount: 1, archivedExcluded: 1 });
 });
 
 test('topLanguages is a repo-count breakdown using primaryLanguage', () => {
@@ -248,100 +256,14 @@ test('mergers excludes bot logins and surfaces per-person window cost', () => {
   expect(alice?.annualCostUsd).toBeGreaterThan(alice?.windowCostUsd ?? 0);
 });
 
-test('cadenceBreakdown counts update entries by schedule interval', () => {
-  const data = collectedData.build({
-    dependabotConfig: [
-      dependabotConfigSlice.build({
-        name: 'a',
-        updates: [
-          dependabotUpdateEntry.build({ ecosystem: 'npm', interval: 'daily' }),
-          dependabotUpdateEntry.build({ ecosystem: 'github-actions', interval: 'weekly' }),
-        ],
-      }),
-      dependabotConfigSlice.build({
-        name: 'b',
-        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', interval: 'weekly' })],
-      }),
-      dependabotConfigSlice.build({
-        name: 'c',
-        updates: [dependabotUpdateEntry.build({ ecosystem: 'docker', interval: null })],
-      }),
-    ],
-  });
-  const bundle = aggregate(data);
-  expect(bundle.dependabotCoverage.cadenceBreakdown).toEqual([
-    { interval: 'daily', entryCount: 1 },
-    { interval: 'weekly', entryCount: 2 },
-    { interval: 'unspecified', entryCount: 1 },
-  ]);
-});
-
-test('reposUsingGroups and reposWithIgnoreRules count repos with any non-zero entry', () => {
-  const data = collectedData.build({
-    dependabotConfig: [
-      dependabotConfigSlice.build({
-        name: 'a',
-        updates: [dependabotUpdateEntry.build({ groupCount: 2, ignoreCount: 0 })],
-      }),
-      dependabotConfigSlice.build({
-        name: 'b',
-        updates: [
-          dependabotUpdateEntry.build({ groupCount: 0, ignoreCount: 0 }),
-          dependabotUpdateEntry.build({ groupCount: 0, ignoreCount: 3 }),
-        ],
-      }),
-      dependabotConfigSlice.build({
-        name: 'c',
-        updates: [dependabotUpdateEntry.build({ groupCount: 1, ignoreCount: 1 })],
-      }),
-    ],
-  });
-  const bundle = aggregate(data);
-  expect(bundle.dependabotCoverage).toMatchObject({
-    reposUsingGroups: 2,
-    reposWithIgnoreRules: 2,
-  });
-});
-
-test("reposAtPrCap uses each repo's effective cap from sum of entry limits", () => {
-  const fiveOpenPrs = (name: string) =>
-    Array.from({ length: 5 }, (_, i) =>
+test('reposAtPrCap lists repos with at least the default open-PR cap of 5', () => {
+  const openPrs = (name: string, count: number) =>
+    Array.from({ length: count }, (_, i) =>
       dependabotPr.build({ name, number: i + 1, state: 'open', createdAt: '2026-05-01T00:00:00Z' }),
     );
   const data = collectedData.build({
-    dependabotConfig: [
-      // repo with a single default-limit entry — cap is 5; 5 open trips it
-      dependabotConfigSlice.build({
-        name: 'capped',
-        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', openPullRequestsLimit: 5 })],
-      }),
-      // repo with a raised limit — cap is 20; 5 open should NOT trip it
-      dependabotConfigSlice.build({
-        name: 'raised',
-        updates: [dependabotUpdateEntry.build({ ecosystem: 'npm', openPullRequestsLimit: 20 })],
-      }),
-    ],
-    dependabotPrs: [...fiveOpenPrs('capped'), ...fiveOpenPrs('raised')],
+    dependabotPrs: [...openPrs('capped', 5), ...openPrs('few', 4)],
   });
   const bundle = aggregate(data);
   expect(bundle.stalledSignals.reposAtPrCap).toEqual([{ repo: 'acme/capped', openPrs: 5 }]);
-});
-
-test('dependabotCoverage reflects only the live (non-archived) repos', () => {
-  const data = collectedData.build({
-    repos: [
-      repoMeta.build({ name: 'a', archived: false, dependabotSecurityUpdates: true }),
-      repoMeta.build({ name: 'b', archived: false, dependabotSecurityUpdates: false }),
-      repoMeta.build({ name: 'c', archived: true, dependabotSecurityUpdates: true }),
-    ],
-    dependabotConfig: [
-      dependabotConfigSlice.build({ name: 'a', hasConfig: true, ecosystems: ['npm'] }),
-      dependabotConfigSlice.build({ name: 'b', hasConfig: false, ecosystems: [] }),
-    ],
-  });
-  const bundle = aggregate(data);
-  expect(bundle.dependabotCoverage).toMatchObject({
-    reposWithConfig: 1,
-    reposWithSecurityUpdates: 1,
-  });
 });

@@ -7,7 +7,7 @@ import type { Endpoints } from '@octokit/types';
 import { print } from 'graphql';
 import { ResultAsync } from 'neverthrow';
 import type { z } from 'zod';
-import type { Logger } from '../logger.ts';
+import type { Logger } from '../context/Logger.ts';
 import { type GithubError, toGithubError } from './errors.ts';
 import { summarizeIssues, validateItems } from './validateItems.ts';
 
@@ -32,9 +32,15 @@ export interface GithubClient {
     document: TypedDocumentNode<TResult, TVariables>,
     variables: TVariables,
   ): ResultAsync<TResult, GithubError>;
+  /**
+   * Returns the classic-token OAuth scopes from the `x-oauth-scopes` response
+   * header, or `null` when the header is absent/empty — the signature of a
+   * fine-grained or unscoped token, which the scope pre-flight rejects.
+   */
+  getOAuthScopes(): ResultAsync<string[] | null, GithubError>;
 }
 
-export interface GithubClientImplOptions {
+interface GithubClientImplOptions {
   readonly token: string;
   readonly logger: Logger;
   readonly userAgent?: string;
@@ -93,18 +99,30 @@ export class GithubClientImpl implements GithubClient {
     document: TypedDocumentNode<TResult, TVariables>,
     variables: TVariables,
   ): ResultAsync<TResult, GithubError> {
-    // GitHub returns partial `data` alongside `errors` when a token can read
-    // some fields but not others — e.g. a fine-grained token without Checks
-    // access hitting `statusCheckRollup`. Octokit throws on any `errors`, so
-    // recover the partial data; one forbidden sub-field shouldn't sink a query
-    // whose top-level data (the PR list) came back fine.
+    // GitHub returns partial `data` alongside an `errors` array — or omits fields
+    // entirely — on timeouts and gateway hiccups. Octokit throws on any `errors`,
+    // so recover the partial data rather than discard a payload whose top-level
+    // result came back fine. A salvaged partial means data was dropped, so log it
+    // at error: it's reported to us (pino -> Sentry), and the collector then reads
+    // the partial defensively. A total timeout (no `data`) rethrows -> a real Err.
     const promise = this.rest.graphql<TResult>(print(document), variables).catch((err: unknown) => {
       const partial = partialGraphqlData<TResult>(err);
       if (partial === undefined) throw err;
-      this.log.warn({ errorCount: graphqlErrorCount(err) }, 'GraphQL returned partial data; ignoring forbidden fields');
+      this.log.error({ errorCount: graphqlErrorCount(err) }, 'GraphQL returned partial data; some fields were dropped');
       return partial;
     });
     return ResultAsync.fromPromise(promise, toGithubError);
+  }
+
+  getOAuthScopes(): ResultAsync<string[] | null, GithubError> {
+    return ResultAsync.fromPromise(this.rest.request('GET /user'), toGithubError).map((res) => {
+      const raw = (res.headers as Record<string, string | undefined>)['x-oauth-scopes'];
+      if (raw == null || raw.trim() === '') return null;
+      return raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    });
   }
 }
 

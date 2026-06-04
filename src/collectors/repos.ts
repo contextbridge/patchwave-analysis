@@ -26,7 +26,7 @@ type RawRepo = z.infer<typeof repoSchema>;
 
 export type TargetKind = 'org' | 'user';
 
-export interface TargetReposResult {
+interface TargetReposResult {
   readonly kind: TargetKind;
   readonly repos: RepoMeta[];
 }

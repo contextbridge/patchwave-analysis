@@ -1,9 +1,9 @@
 import { Factory } from 'fishery';
+import type { ReportAnalyticsConfig } from '../telemetry/Analytics.ts';
 import { instantFromString } from '../time.ts';
 import type {
   CostEstimate,
   CveExposure,
-  DependabotCoverage,
   OrgOverview,
   People,
   PrBacklog,
@@ -13,13 +13,11 @@ import type {
 } from './aggregate.ts';
 import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 import { type EmbeddedReportData, toEmbeddedShape } from './embeddedShape.ts';
-import type { ReportAnalyticsConfig } from './reportAnalyticsConfig.ts';
 
 export const reportMeta = Factory.define<ReportMeta>(() => ({
   org: 'acme',
   windowDays: 90,
   generatedAt: instantFromString('2026-05-22T00:00:00Z'),
-  totalReposScanned: 24,
 }));
 
 export const orgOverview = Factory.define<OrgOverview>(() => ({
@@ -31,24 +29,11 @@ export const orgOverview = Factory.define<OrgOverview>(() => ({
   topLanguages: [{ language: 'TypeScript', repoCount: 18, percentage: 100 }],
   nodeTsRepoCount: 18,
   nodeTsRepoPercentage: 75,
-  reposWithBranchProtection: 14,
-}));
-
-export const dependabotCoverage = Factory.define<DependabotCoverage>(() => ({
-  reposWithConfig: 20,
-  reposWithConfigPercentage: 83.3,
   reposWithSecurityUpdates: 19,
   reposWithSecurityUpdatesPercentage: 79.2,
-  ecosystemBreakdown: [{ ecosystem: 'npm', repoCount: 18 }],
-  cadenceBreakdown: [
-    { interval: 'weekly', entryCount: 16 },
-    { interval: 'daily', entryCount: 4 },
-  ],
-  reposUsingGroups: 5,
-  reposWithIgnoreRules: 3,
 }));
 
-export const prBacklog = Factory.define<PrBacklog>(() => ({
+const prBacklog = Factory.define<PrBacklog>(() => ({
   openCount: 102,
   closedInWindowCount: 14,
   mergedInWindowCount: 273,
@@ -70,9 +55,8 @@ export const prBacklog = Factory.define<PrBacklog>(() => ({
   timeToMergeP90Days: 14,
 }));
 
-export const stalledSignals = Factory.define<StalledSignals>(() => ({
+const stalledSignals = Factory.define<StalledSignals>(() => ({
   reposAtPrCap: [{ repo: 'acme/api', openPrs: 7 }],
-  reposWithConfigButNoRecentPrs: ['acme/old-tool'],
 }));
 
 // Cost figures derive from the real defaults and formulas so the fixtures track
@@ -100,7 +84,7 @@ export const people = Factory.define<People>(() => ({
   commenters: [],
 }));
 
-export const costEstimate = Factory.define<CostEstimate>(() => ({
+const costEstimate = Factory.define<CostEstimate>(() => ({
   humanMergeCount: HUMAN_MERGE_COUNT,
   humanReviewCount: HUMAN_REVIEW_COUNT,
   openCount: 102,
@@ -137,7 +121,6 @@ export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
 export const reportBundle = Factory.define<ReportBundle>(() => ({
   meta: reportMeta.build(),
   orgOverview: orgOverview.build(),
-  dependabotCoverage: dependabotCoverage.build(),
   prBacklog: prBacklog.build(),
   stalledSignals: stalledSignals.build(),
   people: people.build(),
@@ -152,6 +135,6 @@ export const embeddedReportData = Factory.define<EmbeddedReportData>(() => toEmb
 export const reportAnalyticsConfig = Factory.define<ReportAnalyticsConfig>(() => ({
   telemetryDisabled: false,
   reportId: 'report-1234',
-  generatedByAnonId: 'anon-5678',
+  generatedByAnonymousId: 'anon-5678',
   version: '0.0.1',
 }));

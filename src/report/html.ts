@@ -3,9 +3,9 @@
 // the boundary so the rest of this module sees a string.
 import { type Result, err, ok } from 'neverthrow';
 import reportTemplateRaw from '../../dist/report-web/index.html' with { type: 'text' };
+import type { ReportAnalyticsConfig } from '../telemetry/Analytics.ts';
 import type { ReportBundle } from './aggregate.ts';
 import { type EmbeddedReportData, toEmbeddedShape } from './embeddedShape.ts';
-import type { ReportAnalyticsConfig } from './reportAnalyticsConfig.ts';
 
 export { type EmbeddedReportData, toEmbeddedShape };
 

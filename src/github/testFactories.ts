@@ -1,11 +1,5 @@
 import { Factory } from 'fishery';
-
-export interface RequestErrorLike {
-  status: number;
-  message: string;
-  request: { url: string };
-  response: { headers: Record<string, string> };
-}
+import type { RequestErrorLike } from './errors.ts';
 
 // Octokit surfaces failures as an Error carrying status/request/response. Fishery
 // preserves the Error prototype because the generator returns a non-plain object,

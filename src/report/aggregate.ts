@@ -1,12 +1,11 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
 import { type Instant, Temporal, instantFromString } from '../time.ts';
-import type { CollectedData, CveAlert, CveSeverity, DependabotConfigSlice, DependabotPr } from '../types.ts';
+import { type CollectedData, type CveAlert, type CveSeverity, type DependabotPr, isActiveRepo } from '../types.ts';
 import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 
 export interface ReportBundle {
   meta: ReportMeta;
   orgOverview: OrgOverview;
-  dependabotCoverage: DependabotCoverage;
   prBacklog: PrBacklog;
   stalledSignals: StalledSignals;
   people: People;
@@ -18,7 +17,6 @@ export interface ReportMeta {
   org: string;
   windowDays: number;
   generatedAt: Instant;
-  totalReposScanned: number;
 }
 
 export interface OrgOverview {
@@ -30,20 +28,8 @@ export interface OrgOverview {
   topLanguages: Array<{ language: string; repoCount: number; percentage: number }>;
   nodeTsRepoCount: number;
   nodeTsRepoPercentage: number;
-  reposWithBranchProtection: number;
-}
-
-export type CadenceLabel = 'daily' | 'weekly' | 'monthly' | 'unspecified';
-
-export interface DependabotCoverage {
-  reposWithConfig: number;
-  reposWithConfigPercentage: number;
   reposWithSecurityUpdates: number;
   reposWithSecurityUpdatesPercentage: number;
-  ecosystemBreakdown: Array<{ ecosystem: string; repoCount: number }>;
-  cadenceBreakdown: Array<{ interval: CadenceLabel; entryCount: number }>;
-  reposUsingGroups: number;
-  reposWithIgnoreRules: number;
 }
 
 export interface PrBacklog {
@@ -61,7 +47,6 @@ export interface PrBacklog {
 
 export interface StalledSignals {
   reposAtPrCap: Array<{ repo: string; openPrs: number }>;
-  reposWithConfigButNoRecentPrs: string[];
 }
 
 export interface People {
@@ -103,13 +88,11 @@ export function aggregate(data: CollectedData): ReportBundle {
     org: data.ctx.org,
     windowDays: data.ctx.windowDays,
     generatedAt: now,
-    totalReposScanned: data.repos.length,
   };
 
   const orgOverview = buildOrgOverview(data);
-  const dependabotCoverage = buildDependabotCoverage(data);
   const prBacklog = buildPrBacklog(data, now, windowStart);
-  const stalledSignals = buildStalledSignals(data, windowStart);
+  const stalledSignals = buildStalledSignals(data);
   const people = buildPeople(data, data.ctx.windowDays);
   const costEstimate = buildCostEstimate(people, prBacklog.openCount, data.ctx.windowDays);
   const cve = buildCveExposure(data, now);
@@ -117,7 +100,6 @@ export function aggregate(data: CollectedData): ReportBundle {
   return {
     meta,
     orgOverview,
-    dependabotCoverage,
     prBacklog,
     stalledSignals,
     people,
@@ -127,8 +109,8 @@ export function aggregate(data: CollectedData): ReportBundle {
 }
 
 function buildOrgOverview(data: CollectedData): OrgOverview {
-  const repos = data.repos.filter((r) => !r.archived);
-  const archivedExcluded = data.repos.length - repos.length;
+  const repos = data.repos.filter(isActiveRepo);
+  const archivedExcluded = data.repos.filter((r) => r.archived).length;
   const publicCount = repos.filter((r) => r.visibility === 'public').length;
   const privateCount = repos.filter((r) => r.visibility === 'private').length;
   const internalCount = repos.filter((r) => r.visibility === 'internal').length;
@@ -151,7 +133,8 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
   ).length;
 
-  const reposWithBranchProtection = data.branchProtection.filter((b) => b.hasProtection).length;
+  // Security-update coverage comes from the REST repo list (`RepoMeta.dependabotSecurityUpdates`).
+  const reposWithSecurityUpdates = repos.filter((r) => r.dependabotSecurityUpdates === true).length;
 
   return {
     repoCount: repos.length,
@@ -162,49 +145,8 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     topLanguages,
     nodeTsRepoCount,
     nodeTsRepoPercentage: pct(nodeTsRepoCount, repos.length),
-    reposWithBranchProtection,
-  };
-}
-
-function buildDependabotCoverage(data: CollectedData): DependabotCoverage {
-  const liveRepos = data.repos.filter((r) => !r.archived);
-  const reposWithConfig = data.dependabotConfig.filter((c) => c.hasConfig).length;
-  const reposWithSecurity = liveRepos.filter((r) => r.dependabotSecurityUpdates === true).length;
-
-  const ecoCounts = new Map<string, number>();
-  for (const cfg of data.dependabotConfig) {
-    for (const eco of cfg.ecosystems) {
-      ecoCounts.set(eco, (ecoCounts.get(eco) ?? 0) + 1);
-    }
-  }
-  const ecosystemBreakdown = [...ecoCounts.entries()]
-    .map(([ecosystem, repoCount]) => ({ ecosystem, repoCount }))
-    .sort((a, b) => b.repoCount - a.repoCount);
-
-  const cadenceCounts: Record<CadenceLabel, number> = { daily: 0, weekly: 0, monthly: 0, unspecified: 0 };
-  let reposUsingGroups = 0;
-  let reposWithIgnoreRules = 0;
-  for (const cfg of data.dependabotConfig) {
-    for (const update of cfg.updates) {
-      cadenceCounts[update.interval ?? 'unspecified'] += 1;
-    }
-    if (cfg.updates.some((u) => u.groupCount > 0)) reposUsingGroups += 1;
-    if (cfg.updates.some((u) => u.ignoreCount > 0)) reposWithIgnoreRules += 1;
-  }
-  const cadenceOrder: CadenceLabel[] = ['daily', 'weekly', 'monthly', 'unspecified'];
-  const cadenceBreakdown = cadenceOrder
-    .map((interval) => ({ interval, entryCount: cadenceCounts[interval] }))
-    .filter((c) => c.entryCount > 0);
-
-  return {
-    reposWithConfig,
-    reposWithConfigPercentage: pct(reposWithConfig, liveRepos.length),
-    reposWithSecurityUpdates: reposWithSecurity,
-    reposWithSecurityUpdatesPercentage: pct(reposWithSecurity, liveRepos.length),
-    ecosystemBreakdown,
-    cadenceBreakdown,
-    reposUsingGroups,
-    reposWithIgnoreRules,
+    reposWithSecurityUpdates,
+    reposWithSecurityUpdatesPercentage: pct(reposWithSecurityUpdates, repos.length),
   };
 }
 
@@ -264,7 +206,9 @@ function buildPrBacklog(data: CollectedData, now: Instant, windowStart: Instant)
   };
 }
 
-function buildStalledSignals(data: CollectedData, windowStart: Instant): StalledSignals {
+// Repos with at least Dependabot's default open-PR cap (5) outstanding — a signal
+// that the queue is backing up.
+function buildStalledSignals(data: CollectedData): StalledSignals {
   const openByRepo = new Map<string, DependabotPr[]>();
   for (const pr of data.dependabotPrs) {
     if (pr.state !== 'open') continue;
@@ -273,31 +217,12 @@ function buildStalledSignals(data: CollectedData, windowStart: Instant): Stalled
     list.push(pr);
     openByRepo.set(key, list);
   }
-  const configByRepo = new Map<string, DependabotConfigSlice>();
-  for (const cfg of data.dependabotConfig) {
-    configByRepo.set(`${cfg.owner}/${cfg.name}`, cfg);
-  }
   const reposAtPrCap = [...openByRepo.entries()]
-    .filter(([repo, list]) => list.length >= effectivePrCap(configByRepo.get(repo)))
+    .filter(([, list]) => list.length >= DEFAULT_PR_CAP)
     .map(([repo, list]) => ({ repo, openPrs: list.length }))
     .sort((a, b) => b.openPrs - a.openPrs);
 
-  const repoToRecentPrs = new Map<string, number>();
-  for (const pr of data.dependabotPrs) {
-    if (!isAtOrAfter(pr.createdAt, windowStart)) continue;
-    const key = `${pr.owner}/${pr.name}`;
-    repoToRecentPrs.set(key, (repoToRecentPrs.get(key) ?? 0) + 1);
-  }
-  const reposWithConfigButNoRecentPrs = data.dependabotConfig
-    .filter((c) => c.hasConfig)
-    .filter((c) => (repoToRecentPrs.get(`${c.owner}/${c.name}`) ?? 0) === 0)
-    .map((c) => `${c.owner}/${c.name}`)
-    .sort();
-
-  return {
-    reposAtPrCap,
-    reposWithConfigButNoRecentPrs,
-  };
+  return { reposAtPrCap };
 }
 
 function buildPeople(data: CollectedData, windowDays: number): People {
@@ -351,7 +276,7 @@ function buildCostEstimate(people: People, openCount: number, windowDays: number
 
 const BOT_LOGIN_RE = /(\[bot\]$|^dependabot$|^github-actions$|-bot$|^copilot$|^renovate$)/i;
 
-export function isBotLogin(login: string): boolean {
+function isBotLogin(login: string): boolean {
   return BOT_LOGIN_RE.test(login);
 }
 
@@ -409,11 +334,6 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
 
 function severityScore(rec: { critical: number; high: number; medium: number; low: number }): number {
   return rec.critical * 1000 + rec.high * 100 + rec.medium * 10 + rec.low;
-}
-
-function effectivePrCap(config: DependabotConfigSlice | undefined): number {
-  if (!config || config.updates.length === 0) return DEFAULT_PR_CAP;
-  return config.updates.reduce((sum, u) => sum + u.openPullRequestsLimit, 0);
 }
 
 function pct(numerator: number, denominator: number): number {

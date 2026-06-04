@@ -1,23 +1,6 @@
 import { Factory } from 'fishery';
 import { instantFromString } from './time.ts';
-import type {
-  BranchProtectionSlice,
-  CollectedData,
-  CollectionContext,
-  CollectorWarning,
-  CveAlert,
-  CveSlice,
-  DependabotConfigSlice,
-  DependabotPr,
-  DependabotUpdateEntry,
-  RepoMeta,
-  RepoRef,
-} from './types.ts';
-
-export const repoRef = Factory.define<RepoRef>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-}));
+import type { CollectedData, CollectionContext, CveAlert, CveSlice, DependabotPr, RepoMeta } from './types.ts';
 
 export const repoMeta = Factory.define<RepoMeta>(() => ({
   owner: 'acme',
@@ -70,37 +53,6 @@ export const cveSliceOk = Factory.define<Extract<CveSlice, { status: 'ok' }>>(()
   alerts: [],
 }));
 
-export const branchProtectionSlice = Factory.define<BranchProtectionSlice>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  hasProtection: true,
-  sources: ['classic'],
-  requiredApprovingReviewCount: 1,
-  requiresStatusChecks: true,
-}));
-
-export const dependabotUpdateEntry = Factory.define<DependabotUpdateEntry>(() => ({
-  ecosystem: 'npm',
-  interval: 'weekly',
-  openPullRequestsLimit: 5,
-  groupCount: 0,
-  ignoreCount: 0,
-}));
-
-export const dependabotConfigSlice = Factory.define<DependabotConfigSlice>(() => ({
-  owner: 'acme',
-  name: 'widgets',
-  hasConfig: true,
-  ecosystems: ['npm'],
-  updates: [dependabotUpdateEntry.build()],
-}));
-
-export const collectorWarning = Factory.define<CollectorWarning>(() => ({
-  collector: 'branchProtection',
-  repo: { owner: 'acme', name: 'widgets' },
-  message: 'GitHub returned 500',
-}));
-
 export const collectionContext = Factory.define<CollectionContext>(() => ({
   org: 'acme',
   windowDays: 90,
@@ -111,9 +63,7 @@ export const collectionContext = Factory.define<CollectionContext>(() => ({
 export const collectedData = Factory.define<CollectedData>(() => ({
   ctx: collectionContext.build(),
   repos: [repoMeta.build()],
-  dependabotConfig: [dependabotConfigSlice.build()],
   dependabotPrs: [],
   cve: [cveSliceOk.build()],
-  branchProtection: [branchProtectionSlice.build()],
   errors: [],
 }));

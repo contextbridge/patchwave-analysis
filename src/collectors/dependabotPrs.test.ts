@@ -1,34 +1,42 @@
 import { expect, test } from 'bun:test';
-import { repoMeta } from '../testFactories.ts';
-import { FakeGithubClient } from '../testHelpers/index.ts';
+import { createFakeContext } from '../testHelpers/index.ts';
 import { listDependabotPrs } from './dependabotPrs.ts';
 import { rawPullRequest } from './testFactories.ts';
 
-const WINDOW = '2026-01-01T00:00:00Z';
+const WINDOW_START = '2026-05-01T00:00:00Z';
+const NOW = '2026-05-02T00:00:00Z';
 
-test('maps a single repo page of PRs to DependabotPr', async () => {
-  const client = new FakeGithubClient();
-  client.onGraphql('DependabotPrsBatch').resolves(
-    batch([
-      repoNode([
+test('maps PRs, dedupes reviewers/commenters, and drops bots', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  // The open-backlog stream (created) returns nothing; everything comes from the
+  // resolved (closed) stream so the assertions stay focused.
+  githubClient.onGraphql(() => true).resolves(page([]));
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:'))
+    .resolves(
+      page([
         rawPullRequest.build({
           state: 'MERGED',
-          mergedAt: '2026-04-05T00:00:00Z',
+          mergedAt: '2026-05-01T12:00:00Z',
           mergedBy: { __typename: 'User', login: 'alice' },
           reviews: {
             nodes: [
               { author: { __typename: 'User', login: 'bob' } },
               { author: { __typename: 'User', login: 'alice' } },
+              { author: { __typename: 'Bot', login: 'greptile-apps' } },
             ],
           },
-          comments: { nodes: [{ author: { __typename: 'User', login: 'alice' } }] },
+          comments: {
+            nodes: [
+              { author: { __typename: 'User', login: 'alice' } },
+              { author: { __typename: 'Bot', login: 'dependabot' } },
+            ],
+          },
         }),
       ]),
-    ]),
-  );
+    );
 
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
-  expect(result.isOk()).toBe(true);
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
   const prs = result.unwrapOr([]);
   expect(prs).toHaveLength(1);
   expect(prs[0]).toMatchObject({
@@ -42,139 +50,121 @@ test('maps a single repo page of PRs to DependabotPr', async () => {
   });
 });
 
-test('drops bot actors from mergers, reviewers, and commenters', async () => {
-  const client = new FakeGithubClient();
-  client.onGraphql('DependabotPrsBatch').resolves(
-    batch([
-      repoNode([
+test('a bot merger is recorded as no human merger', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([]));
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:'))
+    .resolves(
+      page([
         rawPullRequest.build({
           state: 'MERGED',
-          mergedAt: '2026-04-05T00:00:00Z',
-          // A GitHub App that merged the PR: Bot typename, no [bot] suffix.
+          mergedAt: '2026-05-01T12:00:00Z',
           mergedBy: { __typename: 'Bot', login: 'auto-merge-app' },
-          reviews: {
-            nodes: [
-              { author: { __typename: 'Bot', login: 'greptile-apps' } },
-              { author: { __typename: 'User', login: 'carol' } },
-            ],
-          },
-          comments: { nodes: [{ author: { __typename: 'Bot', login: 'dependabot' } }] },
         }),
       ]),
-    ]),
-  );
-
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
-  expect(result.unwrapOr([])[0]).toMatchObject({
-    mergedBy: null,
-    reviewers: ['carol'],
-    commenters: [],
-  });
-});
-
-test('keeps only Dependabot-authored PRs', async () => {
-  const client = new FakeGithubClient();
-  client
-    .onGraphql('DependabotPrsBatch')
-    .resolves(
-      batch([
-        repoNode([
-          rawPullRequest.build({ number: 1, author: { __typename: 'User', login: 'human' } }),
-          rawPullRequest.build({ number: 2, author: { __typename: 'Bot', login: 'dependabot' } }),
-        ]),
-      ]),
     );
 
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
-  expect(result.unwrapOr([]).map((p) => p.number)).toEqual([2]);
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
+  expect(result.unwrapOr([])[0]).toMatchObject({ mergedBy: null });
 });
 
-test('excludes PRs updated before the window and stops paging at the window edge', async () => {
-  const client = new FakeGithubClient();
-  client.onGraphql('DependabotPrsBatch').resolves(
-    batch([
-      repoNode(
-        [
-          rawPullRequest.build({ number: 1, updatedAt: '2026-04-01T00:00:00Z' }),
-          rawPullRequest.build({ number: 2, updatedAt: '2025-12-01T00:00:00Z' }),
-        ],
-        // Even though the connection claims more pages, the older PR proves we've
-        // crossed the window edge, so no follow-up page is fetched.
-        { hasNextPage: true, endCursor: 'C1' },
-      ),
-    ]),
-  );
+test('uses org: scope for orgs and user: scope for users', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([]));
 
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
-  expect(result.unwrapOr([]).map((p) => p.number)).toEqual([1]);
-  expect(client.callsTo('graphql')).toHaveLength(1);
+  await listDependabotPrs(ctx, 'acme', 'user', WINDOW_START, NOW);
+  const queries = githubClient
+    .callsTo('graphql')
+    .map((c) => (c.kind === 'graphql' ? String(c.variables.searchQuery) : ''));
+  expect(queries.every((q) => q.includes('user:acme'))).toBe(true);
+  expect(queries.some((q) => q.includes('org:'))).toBe(false);
 });
 
-test('pages a single repo when its first page is full of in-window PRs', async () => {
-  const client = new FakeGithubClient();
-  client
-    .onGraphql((_q, vars) => vars.cursor === null)
-    .resolves(batch([repoNode([rawPullRequest.build({ number: 1 })], { hasNextPage: true, endCursor: 'C1' })]));
-  client
-    .onGraphql((_q, vars) => vars.cursor === 'C1')
-    .resolves(batch([repoNode([rawPullRequest.build({ number: 2 })], { hasNextPage: false })]));
+test('bisects the date range when a query exceeds the 1000-result cap', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([]));
+  // Full window is over the cap, so it splits into two single-day sub-queries.
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:2026-05-01..2026-05-02'))
+    .resolves(page([], { issueCount: 2000 }));
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:2026-05-01..2026-05-01'))
+    .resolves(page([rawPullRequest.build({ number: 1 })], { issueCount: 1 }));
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:2026-05-02..2026-05-02'))
+    .resolves(page([rawPullRequest.build({ number: 2 })], { issueCount: 1 }));
 
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
-  expect(result.unwrapOr([]).map((p) => p.number)).toEqual([1, 2]);
-  expect(client.callsTo('graphql')).toHaveLength(2);
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
+  expect(
+    result
+      .unwrapOr([])
+      .map((p) => p.number)
+      .sort(),
+  ).toEqual([1, 2]);
 });
 
-test('collects PRs across multiple repos in one batched query', async () => {
-  const client = new FakeGithubClient();
-  client
-    .onGraphql('DependabotPrsBatch')
-    .resolves(
-      batch([
-        repoNode([rawPullRequest.build({ number: 1 })], { id: 'R_widgets', name: 'widgets' }),
-        repoNode([rawPullRequest.build({ number: 2 })], { id: 'R_gadgets', name: 'gadgets' }),
-      ]),
-    );
+test('logs an error and truncates when a single day exceeds the cap', async () => {
+  const { ctx, githubClient, io } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([]));
+  // windowStart === now means the resolved stream is a single day that can't split.
+  githubClient
+    .onGraphql((_q, v) => String(v.searchQuery).includes('closed:2026-05-02..2026-05-02'))
+    .resolves(page([rawPullRequest.build({ number: 1 })], { issueCount: 2000 }));
 
-  const result = await listDependabotPrs(
-    client,
-    [
-      repoMeta.build({ name: 'widgets', nodeId: 'R_widgets' }),
-      repoMeta.build({ name: 'gadgets', nodeId: 'R_gadgets' }),
-    ],
-    WINDOW,
-  );
-  const prs = result.unwrapOr([]);
-  expect(prs.map((p) => `${p.name}#${p.number}`).sort()).toEqual(['gadgets#2', 'widgets#1']);
-  expect(client.callsTo('graphql')).toHaveLength(1);
+  const result = await listDependabotPrs(ctx, 'acme', 'org', NOW, NOW);
+  expect(result.isOk()).toBe(true);
+  expect(io.stderr.text()).toContain('more than 1000 results for a single day');
 });
 
-test('propagates the error when every batch fails', async () => {
-  const client = new FakeGithubClient();
-  client.onGraphql('DependabotPrsBatch').fails({ kind: 'forbidden', message: 'no access' });
+test('treats a malformed payload as empty and logs an error instead of crashing', async () => {
+  const { ctx, githubClient, io } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves({});
 
-  const result = await listDependabotPrs(client, [repoMeta.build()], WINDOW);
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
+  expect(result.isOk()).toBe(true);
+  expect(result.unwrapOr([])).toEqual([]);
+  expect(io.stderr.text()).toContain('no `search` payload');
+});
+
+test('logs an error when results are reported but none are retrievable', async () => {
+  const { ctx, githubClient, io } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([], { issueCount: 0 }));
+  githubClient.onGraphql((_q, v) => String(v.searchQuery).includes('closed:')).resolves(page([], { issueCount: 5 }));
+
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
+  expect(result.isOk()).toBe(true);
+  expect(io.stderr.text()).toContain('none were retrievable');
+});
+
+test('propagates the error when a search query fails', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  githubClient.onGraphql(() => true).fails({ kind: 'forbidden', message: 'no access' });
+
+  const result = await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
   expect(result.isErr()).toBe(true);
 });
 
-interface RepoNodeOptions {
-  readonly id?: string;
-  readonly owner?: string;
-  readonly name?: string;
+test('does not pass a reserved GraphQL variable name (Octokit rejects `query`)', async () => {
+  const { ctx, githubClient } = createFakeContext();
+  githubClient.onGraphql(() => true).resolves(page([]));
+
+  // The fake throws on a reserved name, mirroring Octokit; reaching the assertions
+  // means the search variable is named safely.
+  await listDependabotPrs(ctx, 'acme', 'org', WINDOW_START, NOW);
+  const vars = githubClient.callsTo('graphql').map((c) => (c.kind === 'graphql' ? c.variables : {}));
+  expect(vars.length).toBeGreaterThan(0);
+  expect(vars.every((v) => !('query' in v))).toBe(true);
+  expect(vars.every((v) => 'searchQuery' in v)).toBe(true);
+});
+
+interface PageOptions {
+  readonly issueCount?: number;
   readonly hasNextPage?: boolean;
   readonly endCursor?: string | null;
 }
 
-function repoNode(prs: unknown[], options: RepoNodeOptions = {}): Record<string, unknown> {
-  const { id = 'R_widgets', owner = 'acme', name = 'widgets', hasNextPage = false, endCursor = null } = options;
-  return {
-    __typename: 'Repository',
-    id,
-    owner: { login: owner },
-    name,
-    pullRequests: { pageInfo: { hasNextPage, endCursor }, nodes: prs },
-  };
-}
-
-function batch(nodes: unknown[]): Record<string, unknown> {
-  return { nodes };
+function page(nodes: unknown[], options: PageOptions = {}): Record<string, unknown> {
+  const { issueCount = nodes.length, hasNextPage = false, endCursor = null } = options;
+  return { search: { issueCount, pageInfo: { hasNextPage, endCursor }, nodes } };
 }

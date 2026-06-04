@@ -9,55 +9,54 @@ How this CLI talks to `api.github.com`. These rules exist because violating them
 silently returns **empty/zero results** (a confident, wrong $0) instead of failing
 loudly — the worst outcome for a diagnostic tool. Most were learned the hard way.
 
-## Batch with GraphQL `nodes(ids: […])`; never one request per repo
+## Classic tokens only; validate scopes up front
 
-A 200-repo org crawled with per-repo REST/GraphQL calls blows past secondary rate
-limits. Collect repo-scoped data in **batched GraphQL queries** keyed on repo node
-IDs (`RepoMeta.nodeId`), the way `repoMetadata.ts` and `dependabotPrs.ts` do. One
-query covers many repos. This is the whole point of PR #29 ("use more performant
-GitHub APIs to avoid rate limiting").
+The CLI requires a **classic PAT** with `repo` and `read:org` (`repo` also covers
+`security_events`). Fine-grained tokens are unsupported: GitHub's `search` API
+silently omits private repos under a fine-grained token, which would surface as a
+confident $0. The scope pre-flight (`cli.ts runPreflight` → `GithubClient.getOAuthScopes`,
+reading the `x-oauth-scopes` header) rejects fine-grained/unscoped tokens before any
+crawl. Don't add token-type branching elsewhere — gate once, up front.
 
-- GraphQL and REST share **one** throttled Octokit client (the retry and throttling
-  plugins are configured in `GithubClient.ts`), so they share a rate-limit budget.
-  Don't construct a second client or bypass `GithubClient`.
+## One throttled client; share its rate-limit budget
 
-## Never use the search API for private-repo data
+GraphQL and REST share **one** Octokit instance (the retry and throttling plugins are
+configured in `GithubClient.ts`), so they share a rate-limit budget and bounded
+secondary-rate-limit backoff. Don't construct a second client or bypass `GithubClient`.
+This is what keeps a large org off the secondary rate limit (PR #29).
 
-The GraphQL/REST **`search`** API silently omits private repositories when called
-with a **fine-grained token** — it returns `200 OK` with the private matches missing,
-no error. Fine-grained tokens are the least-privilege option the CLI recommends, so
-this path produces a confident $0. Use **direct repo access** instead
-(`nodes(ids:) { ... on Repository { pullRequests } }`), which works for both classic
-and fine-grained tokens. Cross-check counts against a classic token and the search
-API when changing collection logic (`gh auth token`); note search's `issueCount` is
-approximate/eventually-consistent, so expect ±1.
+## PR collection: `search`, bisected to beat the 1000-result cap
 
-## Tolerate partial GraphQL responses
+Dependabot PRs come from org-wide GraphQL `search` (`dependabotPrs.ts`), not per-repo
+fan-out — search returns the per-PR review/merge data the cost model needs in one
+stream. But **search returns at most 1000 results per query** (`hasNextPage` stops at
+1000 even when `issueCount` is larger). A single `created:>=`/`closed:>=` query would
+silently undercount a busy org, so `searchAllPrs` **bisects the date range** until every
+sub-query fits under the cap. Never replace this with a single capped query. A single
+day that still exceeds 1000 is `logger.error`'d (truncation we can't avoid), not dropped.
 
-GitHub returns usable `data` **alongside** an `errors` array when a token can read
-some fields but not others — e.g. a fine-grained token without **Checks** access
-hitting `statusCheckRollup` gets `FORBIDDEN` on those leaves while the PR list comes
-back fine. Octokit's `graphql()` throws on _any_ `errors`, which would discard the
-whole payload. `GithubClient.graphql` recovers the partial `data` from the thrown
-`GraphqlResponseError` (`partialGraphqlData`). When you select an optional/permission-
-gated field, assume some tokens can't read it and handle null sub-fields defensively.
+## CVEs: the org-level endpoint, with a per-repo fallback
 
-## Keep GraphQL queries light, or they time out (502/504)
+CVE alerts come from `GET /orgs/{org}/dependabot/alerts` (one call), falling back to
+per-repo only on scope-missing. Keep it that way — per-repo CVE crawls inflate request
+count.
 
-Deeply nested PR queries (PRs × reviews × comments × status-check contexts) exhaust
-GitHub's resolver budget and return a gateway timeout — which, under partial-data
-recovery, can come back as an empty `data` and **silently drop those repos**. Keep
-the per-request work small: modest `BATCH_SIZE` (~10 repos), modest connection
-`first:` counts (PRs ~30, nested ~20). Bigger isn't faster — it fails.
+## Defensively read every GraphQL response; never trust codegen's non-null types
 
-- **Any change to batch size or page `first:` counts must be verified against a real
-  PR-heavy org, not just unit tests.** The mocks can't reproduce a timeout; a config
-  that drops repos still passes `bun run test`. Confirm the live count is unchanged.
+GitHub omits `search`/`nodes` or returns null leaves on timeouts and gateway hiccups,
+even though codegen types them non-null. Read every level through guards
+(`res?.search?.nodes ?? []`, `pageInfo?.endCursor ?? null`, skip a node missing
+`repository`) — never dereference a field the server may omit. `GithubClient.graphql`
+also recovers the partial `data` Octokit would otherwise discard from a thrown
+`GraphqlResponseError`. The cautionary case is the crash
+`TypeError: undefined is not an object (evaluating 'res.nodes')`.
 
-## Fail loudly, never silently empty
+## Fail loudly via `logger.error`, never silently empty
 
-When the data genuinely can't be read, surface it (a warning, a degraded report
-banner, or a pre-flight prompt) rather than returning `[]`. A diagnostic that
-under-reports is worse than one that errors. Partial-failure boundaries log/warn and
-proceed with what succeeded (see `error-handling-neverthrow.md`); they do not
-manufacture a clean-looking zero.
+When data can't be read or a response is malformed, **`logger.error`** it — that's the
+only level wired to Sentry (`pinoIntegration`), so it both surfaces the problem and lets
+us track how often collection degrades. This covers would-be crashes (missing non-null
+fields, an `issueCount > 0` but `0 PRs mapped` mismatch) and data-completeness
+degradation (a repo 403, scope-missing CVE, a salvaged partial response). Then degrade
+gracefully — record a `CollectorWarning` and proceed with what succeeded; do not
+manufacture a clean-looking zero. `logger.warn` is for incidental noise only.

@@ -1,7 +1,7 @@
 import { Result } from 'neverthrow';
 import semver from 'semver';
 
-export type BumpType = 'patch' | 'minor' | 'major' | 'grouped' | 'other';
+type BumpType = 'patch' | 'minor' | 'major' | 'grouped' | 'other';
 
 const BUMP_RE = /[Bb]ump\s+\S+\s+from\s+([^\s]+)\s+to\s+([^\s]+)/;
 const GROUPED_RE = /\bbump the \S+ group\b/i;

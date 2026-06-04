@@ -22,7 +22,6 @@ describe('toEmbeddedShape', () => {
     const bundle = reportBundle.build();
     const shape = toEmbeddedShape(bundle);
     expect(shape.orgOverview).toEqual(bundle.orgOverview);
-    expect(shape.dependabotCoverage).toEqual(bundle.dependabotCoverage);
     expect(shape.prBacklog).toEqual(bundle.prBacklog);
     expect(shape.stalledSignals).toEqual(bundle.stalledSignals);
     expect(shape.people).toEqual(bundle.people);

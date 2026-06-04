@@ -1,146 +1,176 @@
-import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import pMap from 'p-map';
+import { ResultAsync, okAsync } from 'neverthrow';
+import type { Context } from '../context/index.ts';
+import type { Logger } from '../context/Logger.ts';
+import { addDays, dateStr, epochDay, midpoint } from '../dates.ts';
 import type { GithubError } from '../github/errors.ts';
-import type { GithubClient } from '../github/GithubClient.ts';
-import { DependabotPrsBatchDocument, type DependabotPrsBatchQuery } from '../github/graphql/generated.ts';
-import type { DependabotPr, PrState, RepoMeta, RepoRef } from '../types.ts';
+import { DependabotPrsSearchDocument, type DependabotPrsSearchQuery } from '../github/graphql/generated.ts';
+import { type Instant, instantFromString } from '../time.ts';
+import type { DependabotPr, PrState, RepoRef } from '../types.ts';
+import type { TargetKind } from './repos.ts';
 
-// How many repos to ask for per GraphQL request. PR nodes carry nested reviews
-// and comments, so we stay below the `repoMetadata` batch size to avoid GitHub
-// resolver timeouts (502/504) on PR-busy orgs.
-const BATCH_SIZE = 10;
-const BATCH_CONCURRENCY = 5;
-const FOLLOWUP_CONCURRENCY = 5;
+// GitHub's issue/PR search returns at most this many results per query, no matter
+// how large `issueCount` is (`hasNextPage` simply stops at the cap). We bisect the
+// date range until every sub-query fits under it, so we never silently undercount.
+const SEARCH_RESULT_CAP = 1000;
 
-// The Dependabot GitHub App surfaces in GraphQL as a `Bot` actor; unlike the
-// REST API it carries no `[bot]` login suffix. We accept both spellings to be safe.
+// Open Dependabot PRs can be arbitrarily old, so the open-backlog search spans all
+// of history from a fixed floor that predates GitHub-native Dependabot.
+const OPEN_PR_FLOOR = instantFromString('2019-01-01T00:00:00Z');
+
+// The Dependabot GitHub App surfaces in GraphQL as a `Bot` actor; unlike the REST
+// API it carries no `[bot]` login suffix. We accept both spellings to be safe.
 const DEPENDABOT_LOGINS = new Set(['dependabot', 'dependabot[bot]']);
 
-type RepoNode = Extract<NonNullable<DependabotPrsBatchQuery['nodes'][number]>, { __typename: 'Repository' }>;
-type PrConnection = RepoNode['pullRequests'];
-export type PrNode = NonNullable<NonNullable<PrConnection['nodes']>[number]>;
+type SearchConnection = DependabotPrsSearchQuery['search'];
+type SearchNode = NonNullable<NonNullable<SearchConnection['nodes']>[number]>;
+export type PrNode = Extract<SearchNode, { __typename: 'PullRequest' }>;
 
 // GitHub's GraphQL Actor interface, as selected above.
 type Actor = NonNullable<PrNode['mergedBy']>;
 type AuthoredNode = { author: Actor | null } | null;
 
+interface SearchPage {
+  readonly prNodes: PrNode[];
+  readonly issueCount: number | null;
+  readonly hasNextPage: boolean;
+  readonly endCursor: string | null;
+}
+
 /**
- * Lists Dependabot PRs across the window by walking each repo's `pullRequests`
- * connection in batched GraphQL queries.
+ * Lists Dependabot PRs via two org-wide GraphQL `search` streams:
  *
- * We deliberately avoid the `search` API: it silently returns nothing for
- * private repos under a fine-grained token (no error, just empty), which would
- * surface as a confident $0. Direct repo access via `nodes(ids: …)` works with
- * fine-grained tokens, and batching keeps us off the per-repo REST path that
- * blew past rate limits (see PR #29).
+ *   - every currently-open Dependabot PR (the backlog, regardless of age), and
+ *   - every Dependabot PR closed/merged inside the reporting window (the cost basis).
+ *
+ * Search is the simplest transport that returns the per-PR review/merge data the
+ * cost model needs without per-repo fan-out — but it caps at 1000 results per
+ * query, so each stream runs through `searchAllPrs`, which bisects the date range
+ * until no sub-query is truncated. Requires a classic token with `repo`; fine-grained
+ * tokens silently omit private repos from search (handled by the up-front scope gate).
  */
 export function listDependabotPrs(
-  client: GithubClient,
-  repos: readonly RepoMeta[],
+  ctx: Context,
+  target: string,
+  targetKind: TargetKind,
   windowStartIso: string,
+  nowIso: string,
 ): ResultAsync<DependabotPr[], GithubError> {
-  const batches = chunk(repos, BATCH_SIZE);
-  if (batches.length === 0) return okAsync<DependabotPr[], GithubError>([]);
+  const scope = targetKind === 'org' ? `org:${target}` : `user:${target}`;
+  const today = instantFromString(nowIso);
 
-  return ResultAsync.fromSafePromise(
-    pMap(batches, (batch) => Promise.resolve(collectBatch(client, batch, windowStartIso)), {
-      concurrency: BATCH_CONCURRENCY,
-    }),
-  ).andThen((results) => {
-    // Partial failure is tolerated (one heavy batch shouldn't zero the report),
-    // but a total wipeout propagates so the caller records a real warning.
-    const firstError = results.find((r) => r.isErr());
-    if (firstError && firstError.isErr() && results.every((r) => r.isErr())) {
-      return errAsync<DependabotPr[], GithubError>(firstError.error);
-    }
-    return okAsync<DependabotPr[], GithubError>(results.flatMap((r) => (r.isOk() ? r.value : [])));
-  });
+  const openBacklog = searchAllPrs(
+    ctx,
+    `is:pr is:open author:app/dependabot ${scope}`,
+    'created',
+    OPEN_PR_FLOOR,
+    today,
+  );
+  const resolvedInWindow = searchAllPrs(
+    ctx,
+    `is:pr author:app/dependabot ${scope}`,
+    'closed',
+    instantFromString(windowStartIso),
+    today,
+  );
+
+  return ResultAsync.combine([openBacklog, resolvedInWindow]).map(([open, resolved]) =>
+    [...open, ...resolved].filter(isDependabotPr).map(toDependabotPr),
+  );
 }
 
-function collectBatch(
-  client: GithubClient,
-  repos: readonly RepoMeta[],
-  windowStartIso: string,
-): ResultAsync<DependabotPr[], GithubError> {
-  const ids = repos.map((r) => r.nodeId);
-  return client.graphql(DependabotPrsBatchDocument, { ids, cursor: null }).andThen((res) => {
-    const prs: DependabotPr[] = [];
-    const followups: Array<{ id: string; cursor: string }> = [];
-    for (const node of repoNodesOf(res)) {
-      if (!isRepoNode(node)) continue;
-      const repo: RepoRef = { owner: node.owner.login, name: node.name };
-      const { hasMore, endCursor } = collectConnection(node.pullRequests, repo, windowStartIso, prs);
-      if (hasMore && endCursor) followups.push({ id: node.id, cursor: endCursor });
-    }
-    if (followups.length === 0) return okAsync<DependabotPr[], GithubError>(prs);
+// Collects every PR in [start, end] for `dateField`, bisecting the range whenever a
+// query would exceed the 1000-result cap so the union is complete.
+function searchAllPrs(
+  ctx: Context,
+  baseQuery: string,
+  dateField: 'created' | 'closed',
+  start: Instant,
+  end: Instant,
+): ResultAsync<PrNode[], GithubError> {
+  const { logger } = ctx;
+  const query = `${baseQuery} ${dateField}:${dateStr(start)}..${dateStr(end)}`;
 
-    // A few repos have more in-window PRs than one page holds; page just those.
-    return ResultAsync.fromSafePromise(
-      pMap(followups, (f) => Promise.resolve(pageRepo(client, f.id, f.cursor, windowStartIso)), {
-        concurrency: FOLLOWUP_CONCURRENCY,
-      }),
-    ).map((moreResults) => {
-      for (const r of moreResults) if (r.isOk()) prs.push(...r.value);
-      return prs;
+  return searchPage(ctx, query, null).andThen((first) => {
+    const overCap = first.issueCount !== null && first.issueCount > SEARCH_RESULT_CAP;
+    if (overCap && epochDay(start) < epochDay(end)) {
+      const mid = midpoint(start, end);
+      const left = searchAllPrs(ctx, baseQuery, dateField, start, mid);
+      const right = searchAllPrs(ctx, baseQuery, dateField, addDays(mid, 1), end);
+      return ResultAsync.combine([left, right]).map(([a, b]) => [...a, ...b]);
+    }
+    if (overCap) {
+      // A single day with >1000 matches can't be subdivided — we keep what the cap
+      // allows but surface it so we know the report may undercount this date.
+      logger.error(
+        { dateField, day: dateStr(start), issueCount: first.issueCount },
+        'GitHub search returned more than 1000 results for a single day; results for that day are truncated',
+      );
+    }
+    return pageRest(ctx, query, first).map((nodes) => {
+      if (first.issueCount !== null && first.issueCount > 0 && nodes.length === 0) {
+        logger.error(
+          { query, issueCount: first.issueCount },
+          'GitHub search reported results but none were retrievable; treating the page as empty',
+        );
+      }
+      return nodes;
     });
   });
 }
 
-function pageRepo(
-  client: GithubClient,
-  id: string,
-  startCursor: string,
-  windowStartIso: string,
-): ResultAsync<DependabotPr[], GithubError> {
-  const acc: DependabotPr[] = [];
-  const step = (cursor: string): ResultAsync<DependabotPr[], GithubError> =>
-    // A single-id `nodes` query lets us reuse one document; the shared `$cursor`
-    // is unambiguous because there's exactly one connection in play.
-    client.graphql(DependabotPrsBatchDocument, { ids: [id], cursor }).andThen((res) => {
-      const node = repoNodesOf(res).find(isRepoNode);
-      if (!node) return okAsync<DependabotPr[], GithubError>(acc);
-      const repo: RepoRef = { owner: node.owner.login, name: node.name };
-      const { hasMore, endCursor } = collectConnection(node.pullRequests, repo, windowStartIso, acc);
-      if (hasMore && endCursor) return step(endCursor);
-      return okAsync<DependabotPr[], GithubError>(acc);
+// Walks the remaining pages of a single range starting from an already-fetched first page.
+function pageRest(ctx: Context, query: string, first: SearchPage): ResultAsync<PrNode[], GithubError> {
+  const acc = [...first.prNodes];
+  const step = (cursor: string): ResultAsync<PrNode[], GithubError> =>
+    searchPage(ctx, query, cursor).andThen((page) => {
+      acc.push(...page.prNodes);
+      if (page.hasNextPage && page.endCursor) return step(page.endCursor);
+      return okAsync<PrNode[], GithubError>(acc);
     });
-  return step(startCursor);
+  if (first.hasNextPage && first.endCursor) return step(first.endCursor);
+  return okAsync<PrNode[], GithubError>(acc);
 }
 
-// Walks one page of a repo's PRs (ordered by `updatedAt` desc), appending the
-// Dependabot-authored ones inside the window. Returns whether more pages are
-// worth fetching — false once we cross the window edge, since the rest are older.
-function collectConnection(
-  connection: PrConnection,
-  repo: RepoRef,
-  windowStartIso: string,
-  acc: DependabotPr[],
-): { hasMore: boolean; endCursor: string | null } {
-  let reachedWindowEdge = false;
-  for (const node of connection.nodes ?? []) {
-    if (!node) continue;
-    if (node.updatedAt < windowStartIso) {
-      reachedWindowEdge = true;
-      break;
-    }
-    if (isDependabotPr(node)) acc.push(toDependabotPr(node, repo));
+function searchPage(ctx: Context, query: string, cursor: string | null): ResultAsync<SearchPage, GithubError> {
+  const { githubClient, logger } = ctx;
+  // The GraphQL variable is `searchQuery`, not `query`: Octokit reserves `query`
+  // as a request-option name and rejects it as a variable.
+  return githubClient
+    .graphql(DependabotPrsSearchDocument, { searchQuery: query, cursor })
+    .map((res) => parsePage(logger, res, query));
+}
+
+// Reads a search response defensively. GitHub omits `search`/`nodes` or returns null
+// leaves on timeouts and partial responses even though codegen types them non-null,
+// so every level is guarded; an absent payload is logged (reported) and treated as an
+// empty page rather than dereferenced into a crash.
+function parsePage(logger: Logger, res: DependabotPrsSearchQuery, query: string): SearchPage {
+  const search = (res as { search?: SearchConnection | null }).search;
+  if (search == null) {
+    logger.error({ query }, 'GitHub search returned no `search` payload; treating the page as empty');
+    return { prNodes: [], issueCount: null, hasNextPage: false, endCursor: null };
   }
+  const rawNodes = Array.isArray(search.nodes) ? search.nodes : [];
+  const prNodes: PrNode[] = [];
+  for (const node of rawNodes) {
+    if (!isPrNode(node)) continue;
+    if (repoRefOf(node) === null) {
+      logger.error({ query, number: node.number }, 'search returned a PullRequest with no repository; skipping it');
+      continue;
+    }
+    prNodes.push(node);
+  }
+  const pageInfo = search.pageInfo as { hasNextPage?: boolean; endCursor?: string | null } | null | undefined;
   return {
-    hasMore: !reachedWindowEdge && connection.pageInfo.hasNextPage,
-    endCursor: connection.pageInfo.endCursor ?? null,
+    prNodes,
+    issueCount: typeof search.issueCount === 'number' ? search.issueCount : null,
+    hasNextPage: pageInfo?.hasNextPage ?? false,
+    endCursor: pageInfo?.endCursor ?? null,
   };
 }
 
-// Partial responses (a forbidden field, a resolver timeout) can leave `nodes`
-// missing even when the call resolves, so read it defensively rather than
-// trusting the non-null type and crashing the whole crawl.
-function repoNodesOf(res: DependabotPrsBatchQuery): DependabotPrsBatchQuery['nodes'] {
-  const nodes = (res as { nodes?: DependabotPrsBatchQuery['nodes'] }).nodes;
-  return Array.isArray(nodes) ? nodes : [];
-}
-
-function isRepoNode(node: DependabotPrsBatchQuery['nodes'][number]): node is RepoNode {
-  return node?.__typename === 'Repository';
+function isPrNode(node: SearchNode | null): node is PrNode {
+  return node?.__typename === 'PullRequest';
 }
 
 function isDependabotPr(node: PrNode): boolean {
@@ -148,7 +178,8 @@ function isDependabotPr(node: PrNode): boolean {
   return author != null && author.__typename === 'Bot' && DEPENDABOT_LOGINS.has(author.login);
 }
 
-function toDependabotPr(raw: PrNode, repo: RepoRef): DependabotPr {
+function toDependabotPr(raw: PrNode): DependabotPr {
+  const repo = repoRefOf(raw) as RepoRef; // non-null: parsePage dropped nodes without a repo
   const state: PrState = raw.state === 'OPEN' ? 'open' : 'closed';
   const merged = raw.state === 'MERGED';
   return {
@@ -171,6 +202,16 @@ function toDependabotPr(raw: PrNode, repo: RepoRef): DependabotPr {
   };
 }
 
+// Reads the repository owner/name from a PR node, tolerating the null/missing leaves
+// a partial GraphQL response can produce despite the non-null codegen types.
+function repoRefOf(node: PrNode): RepoRef | null {
+  const repo = node.repository as { name?: unknown; owner?: { login?: unknown } | null } | null | undefined;
+  const name = repo?.name;
+  const login = repo?.owner?.login;
+  if (typeof name !== 'string' || typeof login !== 'string') return null;
+  return { owner: login, name };
+}
+
 function uniqueLogins(nodes: ReadonlyArray<AuthoredNode> | null | undefined): string[] {
   const seen = new Set<string>();
   for (const node of nodes ?? []) {
@@ -183,10 +224,4 @@ function uniqueLogins(nodes: ReadonlyArray<AuthoredNode> | null | undefined): st
 
 function isBotActor(actor: Actor): boolean {
   return actor.__typename === 'Bot' || actor.login.endsWith('[bot]');
-}
-
-function chunk<T>(items: readonly T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
 }

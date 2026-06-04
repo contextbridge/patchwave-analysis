@@ -19,22 +19,11 @@ export interface RepoMeta extends RepoRef {
   dependabotAlertsEnabled: boolean | null;
 }
 
-export type DependabotEcosystem = string;
-
-export type DependabotInterval = 'daily' | 'weekly' | 'monthly';
-
-export interface DependabotUpdateEntry {
-  ecosystem: DependabotEcosystem;
-  interval: DependabotInterval | null;
-  openPullRequestsLimit: number;
-  groupCount: number;
-  ignoreCount: number;
-}
-
-export interface DependabotConfigSlice extends RepoRef {
-  hasConfig: boolean;
-  ecosystems: DependabotEcosystem[];
-  updates: DependabotUpdateEntry[];
+// A repo worth analyzing: archived repos generate no new Dependabot toil, and
+// forks track upstream dependencies we don't own. Both the crawl and the report
+// scope to active repos through this single predicate.
+export function isActiveRepo(repo: RepoMeta): boolean {
+  return !repo.archived && !repo.fork;
 }
 
 export type PrState = 'open' | 'closed';
@@ -74,15 +63,6 @@ export type CveSlice = RepoRef &
     | { status: 'not-enabled' }
   );
 
-export type BranchProtectionSource = 'classic' | 'ruleset';
-
-export interface BranchProtectionSlice extends RepoRef {
-  hasProtection: boolean;
-  sources: BranchProtectionSource[];
-  requiredApprovingReviewCount: number | null;
-  requiresStatusChecks: boolean;
-}
-
 export interface CollectionContext {
   org: string;
   windowDays: number;
@@ -90,22 +70,11 @@ export interface CollectionContext {
   now: Instant;
 }
 
-/**
- * Whether the token could actually read pull requests, as determined by the
- * pre-flight probe (`collectors/prReadProbe.ts`). `unreadable` means a repo's
- * pulls endpoint returned 403/404, so the Dependabot backlog would come back
- * empty for lack of access rather than because there's nothing to find.
- * `unknown` means the probe hit an unrelated error and we drew no conclusion.
- */
-export type PrAccess = 'ok' | 'unreadable' | 'unknown';
-
 export interface CollectedData {
   ctx: CollectionContext;
   repos: RepoMeta[];
-  dependabotConfig: DependabotConfigSlice[];
   dependabotPrs: DependabotPr[];
   cve: CveSlice[];
-  branchProtection: BranchProtectionSlice[];
   errors: CollectorWarning[];
 }
 

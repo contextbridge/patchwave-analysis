@@ -7,7 +7,7 @@ export type GithubError =
   | { kind: 'forbidden'; url?: string; message: string }
   | { kind: 'http'; status: number; url?: string; message: string };
 
-interface RequestErrorLike {
+export interface RequestErrorLike {
   status?: number;
   message?: string;
   request?: { url?: string };
