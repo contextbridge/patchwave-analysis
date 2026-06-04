@@ -1,10 +1,10 @@
 import { ResultAsync, errAsync } from 'neverthrow';
+import { type PromptError, type Prompter, formatPromptError } from '../context/Prompter.ts';
 import { type AuthError, formatAuthError, resolveToken } from '../github/auth.ts';
-import { type PromptError, type Prompter, formatPromptError } from '../prompt/Prompter.ts';
 
 const MAX_ATTEMPTS = 3;
 
-export interface InteractiveTokenDeps {
+interface InteractiveTokenDeps {
   readonly prompter: Prompter;
   /** Returns the path to `gh` if installed, null otherwise. Defaults to `Bun.which('gh')`. */
   readonly hasGhCli?: () => boolean;
@@ -12,7 +12,7 @@ export interface InteractiveTokenDeps {
   readonly resolve?: () => ResultAsync<string, AuthError>;
 }
 
-export type InteractiveTokenError =
+type InteractiveTokenError =
   | { kind: 'gave-up'; lastError: AuthError }
   | { kind: 'cancelled' }
   | { kind: 'prompt-failed'; message: string };
@@ -65,19 +65,11 @@ function ghInstructions(): string {
     '',
     'I see the gh CLI installed. In another terminal, run:',
     '',
-    '    gh auth login --scopes "repo,read:org,security_events"',
+    '    gh auth login --scopes "repo,read:org"',
     '',
     'Pick GitHub.com → HTTPS → "Login with a web browser" and follow the prompts.',
     '',
-    'Want least privilege? A read-only fine-grained token works too. Grant these',
-    'repository permissions, all Read-only:',
-    '',
-    '    • Pull requests   ← without this the PR backlog and cost come back empty',
-    '    • Contents',
-    '    • Administration',
-    '    • Dependabot alerts',
-    '',
-    'Then export GITHUB_TOKEN.',
+    'PatchWave needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
   ].join('\n');
 }
 
@@ -108,16 +100,7 @@ function patInstructions(): string {
     '',
     '       export GITHUB_TOKEN=ghp_...',
     '',
-    'Prefer least privilege? A read-only fine-grained token works too, at',
-    'https://github.com/settings/personal-access-tokens/new — grant these repository',
-    'permissions, all Read-only:',
-    '',
-    '    • Pull requests   ← without this the PR backlog and cost come back empty',
-    '    • Contents',
-    '    • Administration',
-    '    • Dependabot alerts',
-    '',
-    'Your org must allow fine-grained tokens.',
+    'Use a classic token (the steps above); fine-grained tokens are not supported due to GitHub API restrictions.',
   ].join('\n');
 }
 

@@ -41,11 +41,10 @@ describe('interactiveResolveToken', () => {
     const note = prompter.notes[0];
     expect(note?.title).toBe('GitHub token required');
     expect(note?.message).toContain('gh auth login --scopes');
-    expect(note?.message).toContain('repo,read:org,security_events');
+    expect(note?.message).toContain('repo,read:org');
     expect(note?.message).not.toContain('github.com/settings/tokens');
-    // also offers the read-only fine-grained alternative
-    expect(note?.message).toContain('fine-grained');
-    expect(note?.message).toContain('Dependabot alerts');
+    // requires a classic token; fine-grained is called out as unsupported
+    expect(note?.message).toContain('classic token');
   });
 
   test('shows PAT instructions matching the GitHub UI when gh is not installed', async () => {
@@ -67,9 +66,8 @@ describe('interactiveResolveToken', () => {
     expect(note?.message).toContain('[x] read:org');
     expect(note?.message).toContain('Generate token');
     expect(note?.message).toContain('export GITHUB_TOKEN=ghp_');
-    // also offers the read-only fine-grained alternative
-    expect(note?.message).toContain('settings/personal-access-tokens/new');
-    expect(note?.message).toContain('Dependabot alerts');
+    // steers the user to a classic token
+    expect(note?.message).toContain('classic token');
   });
 
   test('user declines the retry prompt: returns cancelled', async () => {

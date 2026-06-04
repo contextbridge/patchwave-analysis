@@ -1,6 +1,6 @@
 import { ResultAsync } from 'neverthrow';
+import type { PromptError, Prompter } from '../context/Prompter.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
-import type { PromptError, Prompter } from '../prompt/Prompter.ts';
 
 // GitHub login rules: alphanumeric or single hyphens, no leading/trailing hyphen, max 39 chars.
 // Same shape applies to both users and orgs.
@@ -8,7 +8,7 @@ const GITHUB_LOGIN_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}
 
 const OTHER_VALUE = '__other__';
 
-export interface TargetPromptDeps {
+interface TargetPromptDeps {
   readonly prompter: Prompter;
   readonly githubClient: GithubClient;
 }
@@ -77,35 +77,25 @@ function okString(value: string): ResultAsync<string, PromptError> {
 }
 
 async function loadOptions(client: GithubClient): Promise<TargetOption[]> {
-  // Best-effort. Any call can fail (e.g. token lacks read:org); we fall back
+  // Best-effort. Either call can fail (e.g. token lacks read:org); we fall back
   // to free-text input in that case, so individual errors collapse to "no
   // options" rather than killing the prompt.
-  const [userResult, orgsResult, reposResult] = await Promise.all([
+  const [userResult, orgsResult] = await Promise.all([
     client.request('GET /user'),
     client.paginate('GET /user/orgs', { per_page: 100 }),
-    client.request('GET /user/repos', { per_page: 100, sort: 'pushed' }),
   ]);
 
   const seen = new Set<string>();
   const options: TargetOption[] = [];
-  const addOrg = (login: string): void => {
-    if (seen.has(login)) return;
-    options.push({ login, type: 'org' });
-    seen.add(login);
-  };
-
   if (userResult.isOk()) {
     options.push({ login: userResult.value.login, type: 'user' });
     seen.add(userResult.value.login);
   }
   if (orgsResult.isOk()) {
-    for (const org of orgsResult.value) addOrg(org.login);
-  }
-  // Fine-grained tokens often can't list orgs via /user/orgs even when they can
-  // read an org's repos, so harvest org owners from the accessible repos too.
-  if (reposResult.isOk()) {
-    for (const repo of reposResult.value) {
-      if (repo.owner.type === 'Organization') addOrg(repo.owner.login);
+    for (const org of orgsResult.value) {
+      if (seen.has(org.login)) continue;
+      options.push({ login: org.login, type: 'org' });
+      seen.add(org.login);
     }
   }
   return options;

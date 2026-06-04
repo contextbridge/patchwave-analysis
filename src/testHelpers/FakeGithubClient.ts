@@ -8,7 +8,7 @@ import type { GithubError } from '../github/errors.ts';
 import type { GithubClient, PaginatedItem } from '../github/GithubClient.ts';
 import { validateItems } from '../github/validateItems.ts';
 
-export type GithubCall =
+type GithubCall =
   | { kind: 'paginate'; route: string; params: Record<string, unknown> }
   | { kind: 'request'; route: string; params: Record<string, unknown> }
   | { kind: 'graphql'; query: string; variables: Record<string, unknown> };
@@ -28,7 +28,7 @@ interface GraphqlResponder {
   readonly label: string;
 }
 
-export interface Stub {
+interface Stub {
   resolves(value: unknown): void;
   fails(error: GithubError): void;
 }
@@ -88,6 +88,14 @@ export class FakeGithubClient implements GithubClient {
     variables: TVariables,
   ): ResultAsync<TResult, GithubError> {
     const query = print(document);
+    // Mirror @octokit/graphql: these names are request options, not variables, and
+    // the real client throws if you use them. Replicating it keeps the fake honest
+    // so a reserved-name regression fails in tests instead of silently in production.
+    for (const key of Object.keys(variables)) {
+      if (FORBIDDEN_GRAPHQL_VARIABLE_NAMES.has(key)) {
+        throw new Error(`[@octokit/graphql] "${key}" cannot be used as variable name`);
+      }
+    }
     this.calls.push({ kind: 'graphql', query, variables });
     const responder = this.graphqlResponders.findLast((r) => r.match(query, variables));
     if (!responder) {
@@ -100,6 +108,24 @@ export class FakeGithubClient implements GithubClient {
     return responder.outcome.kind === 'ok'
       ? okAsync(responder.outcome.value as TResult)
       : errAsync(responder.outcome.error);
+  }
+
+  /** Scopes returned by `getOAuthScopes`; default a classic token with the gate's required scopes. */
+  oauthScopes: string[] | null = ['repo', 'read:org'];
+  private oauthScopesError: GithubError | null = null;
+
+  setOAuthScopes(scopes: string[] | null): void {
+    this.oauthScopes = scopes;
+    this.oauthScopesError = null;
+  }
+
+  failOAuthScopes(error: GithubError): void {
+    this.oauthScopesError = error;
+  }
+
+  getOAuthScopes(): ResultAsync<string[] | null, GithubError> {
+    if (this.oauthScopesError) return errAsync(this.oauthScopesError);
+    return okAsync(this.oauthScopes);
   }
 
   callsTo(kind: GithubCall['kind']): GithubCall[] {
@@ -131,6 +157,9 @@ export class FakeGithubClient implements GithubClient {
     return responder.outcome.kind === 'ok' ? okAsync(responder.outcome.value as T) : errAsync(responder.outcome.error);
   }
 }
+
+// @octokit/graphql reserves these as request-option names; they can't be variables.
+const FORBIDDEN_GRAPHQL_VARIABLE_NAMES = new Set(['query', 'method', 'url']);
 
 function matchesParams(matcher: Record<string, unknown>, actual: Record<string, unknown>): boolean {
   for (const [key, expected] of Object.entries(matcher)) {

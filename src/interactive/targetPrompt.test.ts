@@ -11,20 +11,12 @@ function stubOrgs(githubClient: FakeGithubClient, logins: string[]): void {
   githubClient.onPaginate('GET /user/orgs').resolves(logins.map((login) => githubOrg.build({ login })));
 }
 
-function stubRepos(
-  githubClient: FakeGithubClient,
-  owners: Array<{ login: string; type: 'Organization' | 'User' }> = [],
-): void {
-  githubClient.onRequest('GET /user/repos').resolves(owners.map((owner) => ({ owner })));
-}
-
 describe('promptForTarget', () => {
   test('shows viewer + orgs + "Other" in the select and returns the picked value', async () => {
     const prompter = new FakePrompter().scriptSelect('acme');
     const githubClient = new FakeGithubClient();
     stubViewer(githubClient, 'ben');
     stubOrgs(githubClient, ['acme', 'widgets-co']);
-    stubRepos(githubClient);
 
     const result = await promptForTarget({ prompter, githubClient });
 
@@ -39,29 +31,11 @@ describe('promptForTarget', () => {
     expect(prompter.spinnerEvents).not.toContainEqual({ type: 'stop', message: 'Found 3 options.' });
   });
 
-  test('harvests org owners from accessible repos when /user/orgs omits them', async () => {
-    const prompter = new FakePrompter().scriptSelect('contextbridge');
-    const githubClient = new FakeGithubClient();
-    stubViewer(githubClient, 'ben');
-    // Fine-grained token: /user/orgs is empty even though the token can read an org's repos.
-    stubOrgs(githubClient, []);
-    stubRepos(githubClient, [
-      { login: 'contextbridge', type: 'Organization' },
-      { login: 'ben', type: 'User' },
-    ]);
-
-    const result = await promptForTarget({ prompter, githubClient });
-
-    expect(result.unwrapOr('')).toBe('contextbridge');
-    expect((prompter.selects[0]?.choices ?? []).map((c) => c.value)).toEqual(['ben', 'contextbridge', '__other__']);
-  });
-
   test('the "Other" option invites typing an org or user not in the list', async () => {
     const prompter = new FakePrompter().scriptSelect('acme');
     const githubClient = new FakeGithubClient();
     stubViewer(githubClient, 'ben');
     stubOrgs(githubClient, ['acme']);
-    stubRepos(githubClient);
 
     await promptForTarget({ prompter, githubClient });
 
@@ -73,7 +47,6 @@ describe('promptForTarget', () => {
     const githubClient = new FakeGithubClient();
     stubViewer(githubClient, 'ben');
     stubOrgs(githubClient, ['acme']);
-    stubRepos(githubClient);
 
     const result = await promptForTarget({ prompter, githubClient });
 
@@ -87,7 +60,6 @@ describe('promptForTarget', () => {
     const githubClient = new FakeGithubClient();
     stubViewer(githubClient, 'ben');
     stubOrgs(githubClient, ['ben', 'acme']);
-    stubRepos(githubClient);
 
     await promptForTarget({ prompter, githubClient });
 
@@ -100,7 +72,6 @@ describe('promptForTarget', () => {
     const githubClient = new FakeGithubClient();
     githubClient.onRequest('GET /user').fails({ kind: 'http', status: 401, message: 'bad token' });
     githubClient.onPaginate('GET /user/orgs').fails({ kind: 'forbidden', message: 'no read:org' });
-    stubRepos(githubClient);
 
     const result = await promptForTarget({ prompter, githubClient });
 
@@ -115,7 +86,6 @@ describe('promptForTarget', () => {
     const githubClient = new FakeGithubClient();
     stubViewer(githubClient, 'ben');
     stubOrgs(githubClient, ['acme']);
-    stubRepos(githubClient);
 
     const result = await promptForTarget({ prompter, githubClient });
 
@@ -128,7 +98,6 @@ describe('promptForTarget', () => {
     const githubClient = new FakeGithubClient();
     githubClient.onRequest('GET /user').fails({ kind: 'http', status: 401, message: 'bad token' });
     githubClient.onPaginate('GET /user/orgs').fails({ kind: 'forbidden', message: 'no read:org' });
-    stubRepos(githubClient);
 
     await promptForTarget({ prompter, githubClient });
     const validate = prompter.texts[0]?.validate;

@@ -21,33 +21,30 @@ tar -xzf patchwave-analysis_darwin_arm64.tar.gz
 
 ## Setup
 
-Easiest path: run `gh auth login` (via [GitHub CLI](https://cli.github.com)) and you're done. The CLI also reads `GITHUB_TOKEN` and `GH_TOKEN`, so you can pass a token directly instead.
+Easiest path: run `gh auth login --scopes "repo,read:org"` (via [GitHub CLI](https://cli.github.com)) and you're done. The CLI also reads `GITHUB_TOKEN` and `GH_TOKEN`, so you can pass a token directly instead.
 
-Prefer a custom token? Create a [fine-grained token](https://github.com/settings/personal-access-tokens/new) instead and set these repository permissions to read:
+PatchWave needs a **classic** personal access token with two scopes:
 
-- **Contents:** the `dependabot.yml` config
-- **Pull requests:** the Dependabot PR backlog
-- **Administration:** branch-protection and ruleset coverage
-- **Dependabot alerts:** the CVE numbers
+- **`repo`** — your private repos and their pull-request data (this also covers `security_events` for the CVE numbers)
+- **`read:org`** — listing the org's repos
 
-Then export it and run:
+Create one at [github.com/settings/tokens/new](https://github.com/settings/tokens/new), then export it and run:
 
 ```sh
-export GITHUB_TOKEN=github_pat_...
+export GITHUB_TOKEN=ghp_...
 bash -c "$(curl -fsSL https://patchwave.ai/analyze.sh)"
 ```
 
-Your org has to allow fine-grained tokens for this to reach its repos.
+Fine-grained tokens aren't supported, due to GitHub API restrictions. The CLI checks your token's scopes before scanning and tells you how to fix a missing one.
 
-Whichever you pick, the CLI only reads from the API. It never writes.
+The CLI only reads from the API. It never writes.
 
 ## Troubleshooting
 
-**The report shows $0, or no Dependabot PRs.** The token can read your security
-alerts but not your pull requests, so the PR backlog comes back empty. A
-fine-grained token needs the **Pull requests: Read** permission; a classic token
-needs the **`repo`** scope. PatchWave checks for this before scanning and lets you
-fix the token, so a $0 you didn't expect almost always means a missing permission.
+**The report shows $0, or no Dependabot PRs.** The token can't see your private
+repos, usually because it's missing the **`repo`** scope (or it's a fine-grained
+token, which isn't supported). PatchWave checks the token's scopes before scanning,
+so an unexpected $0 almost always means a missing scope.
 
 **Your org isn't in the list to pick from.** Choose **"Other (type a name)"** and
 enter the org's login directly.
@@ -56,9 +53,8 @@ enter the org's login directly.
 
 The report covers:
 
-- **Dependabot coverage:** which repos have config, whether security updates are on, and for which ecosystems
 - **PR backlog:** open vs. merged vs. closed, age buckets, and time-to-merge
-- **Stalled signals:** repos sitting at Dependabot's PR cap, or configured but quiet
+- **Stalled signals:** repos sitting at Dependabot's PR cap
 - **CVE exposure:** open security alerts by severity, plus the oldest unpatched Critical/High
 - **Toil cost:** annualized engineer-time, with assumptions you can adjust right in the browser
 - **Automation upside:** projected savings with [PatchWave](https://patchwave.ai)
@@ -67,13 +63,11 @@ The report covers:
 
 Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
 
-- The repo list, visibility, and primary language metadata
-- Dependabot PRs in the window, including state, timing, and reviews
-- Open Dependabot security alerts (needs the `security_events` scope)
-- Each repo's `.github/dependabot.yml`
-- Branch-protection and ruleset settings on the default branch
+- The repo list, visibility, and primary-language metadata (plus whether Dependabot security updates are enabled)
+- The open Dependabot PR backlog and PRs resolved in the window — state, timing, reviews, and who merged
+- Open Dependabot security alerts, via the org-level endpoint
 
-All calls are read only. It writes nothing back to GitHub and pulls no file contents beyond the Dependabot config.
+All calls are read only. It writes nothing back to GitHub and reads no repository file contents.
 
 ## Output
 
