@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.7...v0.3.0) (2026-06-04)
+
+
+### Features
+
+* Show how we get to the number with our topline assumptions ([#38](https://github.com/contextbridge/patchwave-analysis/issues/38)) ([6a7aad0](https://github.com/contextbridge/patchwave-analysis/commit/6a7aad04df2477ac24d07aa162eaa17783dadf15))
+* validate GitHub token scopes before crawling ([775f4f2](https://github.com/contextbridge/patchwave-analysis/commit/775f4f2ef094a9c4538b155dda459f027a31460e))
+
 ## [0.2.7](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.6...v0.2.7) (2026-06-02)
 
 
