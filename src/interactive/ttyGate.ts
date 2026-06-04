@@ -1,11 +1,11 @@
-import type { Io } from '../BaseIo.ts';
+import type { Io } from '../context/BaseIo.ts';
 
 export const NON_TTY_EXIT_CODE = 2;
 export const NON_TTY_MESSAGE =
   'patchwave-analysis is an interactive CLI and requires a terminal.\n' +
   'Re-run it directly (no pipes/redirects) in an interactive shell.\n';
 
-export type TtyGateResult = { ok: true } | { ok: false; code: number };
+type TtyGateResult = { ok: true } | { ok: false; code: number };
 
 /**
  * Refuses to run when the process isn't attached to an interactive terminal. The CLI is interactive end-to-end —

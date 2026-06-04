@@ -16,13 +16,3 @@ export type Environment = z.infer<typeof EnvironmentSchema>;
 export function getEnvironment(env: NodeJS.ProcessEnv = process.env): Environment {
   return EnvironmentSchema.parse(env);
 }
-
-export interface TelemetryOptOutEnv {
-  readonly DO_NOT_TRACK?: boolean;
-  readonly CONTEXTBRIDGE_TELEMETRY_DISABLED?: boolean;
-  readonly CI?: boolean;
-}
-
-export function isTelemetryDisabled(env: TelemetryOptOutEnv): boolean {
-  return Boolean(env.DO_NOT_TRACK || env.CONTEXTBRIDGE_TELEMETRY_DISABLED || env.CI);
-}

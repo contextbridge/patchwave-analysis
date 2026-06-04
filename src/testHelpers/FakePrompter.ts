@@ -6,7 +6,7 @@ import type {
   Prompter,
   SelectOptions,
   TextOptions,
-} from '../prompt/Prompter.ts';
+} from '../context/Prompter.ts';
 
 type AnswerKind = 'confirm' | 'select' | 'text';
 
@@ -20,7 +20,7 @@ type SelectAnswer = ScriptedAnswer<'select', string>;
 type TextAnswer = ScriptedAnswer<'text', string>;
 type Answer = ConfirmAnswer | SelectAnswer | TextAnswer;
 
-export interface SpinnerEvent {
+interface SpinnerEvent {
   readonly type: 'start' | 'stop' | 'clear';
   readonly message?: string;
 }

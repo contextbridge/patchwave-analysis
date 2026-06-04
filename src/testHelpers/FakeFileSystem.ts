@@ -1,7 +1,7 @@
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import type { FileSystem, FsError } from '../FileSystem.ts';
+import type { FileSystem, FsError } from '../context/FileSystem.ts';
 
-export interface FakeWrite {
+interface FakeWrite {
   readonly path: string;
   readonly contents: string;
 }

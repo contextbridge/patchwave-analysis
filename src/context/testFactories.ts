@@ -11,7 +11,7 @@ export const uploadInput = Factory.define<UploadInput>(() => ({
   timestamp: '2026-05-22T12:00:00Z',
 }));
 
-export interface PresignResponseBody {
+interface PresignResponseBody {
   readonly uploadId: string;
   readonly presignedUrl: string;
   readonly expiresAt: string;

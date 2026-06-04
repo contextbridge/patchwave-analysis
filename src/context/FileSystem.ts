@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ResultAsync } from 'neverthrow';
-import { toError } from './errors.ts';
+import { toError } from '../errors.ts';
 
 export type FsError =
   | { kind: 'write-failed'; path: string; message: string }

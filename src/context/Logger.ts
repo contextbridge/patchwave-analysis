@@ -1,9 +1,9 @@
 import pino, { type LevelWithSilent, type Logger } from 'pino';
 import pinoPretty from 'pino-pretty';
 
-export type { Logger, LevelWithSilent };
+export type { Logger };
 
-export interface CreateLoggerOptions {
+interface CreateLoggerOptions {
   readonly level: LevelWithSilent;
   readonly destination: NodeJS.WritableStream & { isTTY?: boolean };
 }

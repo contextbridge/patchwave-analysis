@@ -1,4 +1,4 @@
-import { BaseIo } from '../BaseIo.ts';
+import { BaseIo } from '../context/BaseIo.ts';
 import { MemoryStream } from './MemoryStream.ts';
 
 export interface FakeIoOptions {

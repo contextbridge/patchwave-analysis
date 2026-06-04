@@ -1,4 +1,4 @@
-import type { Clock } from '../Clock.ts';
+import type { Clock } from '../context/Clock.ts';
 import { type Instant, instantFromString } from '../time.ts';
 
 export class FakeClock implements Clock {

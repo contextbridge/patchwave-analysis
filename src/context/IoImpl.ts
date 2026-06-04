@@ -1,8 +1,6 @@
 import { BaseIo, type Writer } from './BaseIo.ts';
 
-export type { Io, Writer } from './BaseIo.ts';
-
-export interface IoImplOptions {
+interface IoImplOptions {
   readonly stdout?: Writer;
   readonly stderr?: Writer;
 }

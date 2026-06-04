@@ -1,5 +1,5 @@
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import type { BrowserOpenError, BrowserOpener } from '../BrowserOpener.ts';
+import type { BrowserOpenError, BrowserOpener } from '../context/BrowserOpener.ts';
 
 export class FakeBrowserOpener implements BrowserOpener {
   readonly opened: string[] = [];

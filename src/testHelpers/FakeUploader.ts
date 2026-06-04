@@ -1,5 +1,5 @@
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import type { UploadError, UploadInput, UploadResult, Uploader } from '../upload/Uploader.ts';
+import type { UploadError, UploadInput, UploadResult, Uploader } from '../context/Uploader.ts';
 
 export class FakeUploader implements Uploader {
   readonly calls: UploadInput[] = [];

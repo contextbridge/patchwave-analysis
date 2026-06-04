@@ -19,7 +19,7 @@ export interface Io {
   isTty(): boolean;
 }
 
-export interface BaseIoOptions {
+interface BaseIoOptions {
   readonly stdout: Writer;
   readonly stderr: Writer;
   readonly isTty?: boolean;

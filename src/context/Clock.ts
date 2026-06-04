@@ -1,4 +1,4 @@
-import { type Instant, nowInstant } from './time.ts';
+import { type Instant, nowInstant } from '../time.ts';
 
 export interface Clock {
   now(): Instant;

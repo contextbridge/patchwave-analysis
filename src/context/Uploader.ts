@@ -1,7 +1,7 @@
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import { toError } from '../errors.ts';
 
-export const DEFAULT_UPLOAD_ENDPOINT = 'https://api.patchwave.ai/v1/uploads/analysis-bundle';
+const DEFAULT_UPLOAD_ENDPOINT = 'https://api.patchwave.ai/v1/uploads/analysis-bundle';
 
 export type UploadError =
   | { kind: 'presign-request-failed'; message: string }
@@ -28,7 +28,7 @@ export interface Uploader {
 
 export type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
-export interface UploaderImplOptions {
+interface UploaderImplOptions {
   readonly endpoint?: string;
   readonly fetch?: FetchFn;
 }
