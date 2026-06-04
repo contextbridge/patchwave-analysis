@@ -1,7 +1,7 @@
 import pino from 'pino';
-import type { Context } from '../context.ts';
-import type { Environment } from '../environment.ts';
-import type { Logger } from '../logger.ts';
+import type { Environment } from '../context/Environment.ts';
+import type { Context } from '../context/index.ts';
+import type { Logger } from '../context/Logger.ts';
 import { FakeAnalytics } from './FakeAnalytics.ts';
 import { FakeBrowserOpener } from './FakeBrowserOpener.ts';
 import { FakeClock } from './FakeClock.ts';
@@ -24,7 +24,7 @@ export interface FakeContextHandle {
   readonly browserOpener: FakeBrowserOpener;
 }
 
-export interface CreateFakeContextOptions {
+interface CreateFakeContextOptions {
   readonly overrides?: Partial<Context>;
   readonly io?: FakeIoOptions;
 }
@@ -62,7 +62,7 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
     uploader,
     browserOpener,
     appVersion: '0.0.0-test',
-    distinctId: 'fake-anon-id',
+    anonymousId: 'fake-anon-id',
     telemetryDisabled: false,
     ...options.overrides,
   };

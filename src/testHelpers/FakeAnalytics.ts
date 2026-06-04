@@ -1,6 +1,6 @@
-import type { Analytics } from '../Analytics.ts';
+import type { Analytics } from '../telemetry/Analytics.ts';
 
-export interface CaptureCall {
+interface CaptureCall {
   readonly event: string;
   readonly properties?: Record<string, unknown>;
 }
@@ -9,7 +9,7 @@ export class FakeAnalytics implements Analytics {
   readonly captureCalls: CaptureCall[] = [];
   readonly registered: Record<string, unknown> = {};
 
-  identify(_distinctId: string, _properties?: Record<string, unknown>): void {}
+  identify(_anonymousId: string, _properties?: Record<string, unknown>): void {}
 
   capture(event: string, properties?: Record<string, unknown>): void {
     // Mirror AnalyticsImpl: registered super-properties are merged onto every captured event.

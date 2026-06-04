@@ -1,18 +1,23 @@
 import * as Sentry from '@sentry/bun';
 import { ResultAsync } from 'neverthrow';
+import type { Environment } from '../context/Environment.ts';
 
 export interface Telemetry {
   flush(timeoutMs?: number): Promise<void>;
 }
 
-export interface CreateSentryTelemetryOptions {
+interface CreateSentryTelemetryOptions {
   readonly dsn: string;
-  readonly distinctId: string;
+  readonly anonymousId: string;
   readonly version: string;
 }
 
+export function isTelemetryDisabled(env: Environment): boolean {
+  return Boolean(env.DO_NOT_TRACK || env.CONTEXTBRIDGE_TELEMETRY_DISABLED || env.CI);
+}
+
 export function createSentryTelemetry(options: CreateSentryTelemetryOptions): Telemetry {
-  const { dsn, distinctId, version } = options;
+  const { dsn, anonymousId, version } = options;
 
   Sentry.init({
     dsn,
@@ -23,7 +28,7 @@ export function createSentryTelemetry(options: CreateSentryTelemetryOptions): Te
     environment: 'production',
     initialScope: {
       tags: { pw_surface: 'cli' },
-      user: { id: distinctId },
+      user: { id: anonymousId },
     },
     // pinoIntegration subscribes to pino's diagnostics channel; logs at these
     // levels are captured as Sentry error events. Sentry.init must run before
