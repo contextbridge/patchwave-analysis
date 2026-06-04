@@ -1,5 +1,5 @@
-import { type Analytics, createNoopAnalytics } from '../../../Analytics.ts';
-import type { ReportAnalyticsConfig } from '../../reportAnalyticsConfig.ts';
+import { type Analytics, createNoopAnalytics } from '../../../telemetry/Analytics.ts';
+import type { ReportAnalyticsConfig } from '../../../telemetry/Analytics.ts';
 import { type PostHogBrowserClient, createPostHogReportAnalytics } from './postHogAnalytics.ts';
 
 export interface ReportAnalyticsBuildInfo {
@@ -24,7 +24,7 @@ export function createReportAnalytics(options: CreateReportAnalyticsOptions): An
   return createPostHogReportAnalytics({
     buildInfo,
     reportId: config.reportId,
-    generatedByAnonId: config.generatedByAnonId,
+    generatedByAnonymousId: config.generatedByAnonymousId,
     version: config.version || buildInfo.version,
     client,
   });

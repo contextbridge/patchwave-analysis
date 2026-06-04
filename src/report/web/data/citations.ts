@@ -1,4 +1,4 @@
-export interface Citation {
+interface Citation {
   label: string;
   url: string;
 }

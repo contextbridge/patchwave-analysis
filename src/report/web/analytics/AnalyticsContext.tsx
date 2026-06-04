@@ -1,5 +1,5 @@
 import { type ReactNode, createContext, useContext } from 'react';
-import { type Analytics, createNoopAnalytics } from '../../../Analytics.ts';
+import { type Analytics, createNoopAnalytics } from '../../../telemetry/Analytics.ts';
 
 // Defaults to a noop so components (and the dev server / tests that render them without a
 // provider) can call useAnalytics() unconditionally.

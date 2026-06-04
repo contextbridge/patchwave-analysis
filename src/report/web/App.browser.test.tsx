@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Analytics } from '../../Analytics.ts';
+import type { Analytics } from '../../telemetry/Analytics.ts';
 import { cveExposureOk, embeddedReportData } from '../testFactories.ts';
 import { automatedStoryTestIds } from './acts/AutomatedStory.tsx';
 import { callToActionCopy, callToActionTestIds } from './acts/CallToAction.tsx';

@@ -6,7 +6,7 @@ export interface FootnoteRegistration {
   body: ReactNode;
 }
 
-export interface RegisteredFootnote extends FootnoteRegistration {
+interface RegisteredFootnote extends FootnoteRegistration {
   number: number;
 }
 

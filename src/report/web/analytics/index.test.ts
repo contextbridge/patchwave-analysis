@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Factory } from 'fishery';
-import type { ReportAnalyticsConfig } from '../../reportAnalyticsConfig.ts';
+import type { ReportAnalyticsConfig } from '../../../telemetry/Analytics.ts';
 import { type CreateReportAnalyticsOptions, type ReportAnalyticsBuildInfo, createReportAnalytics } from './index.ts';
 import type { PostHogBrowserClient } from './postHogAnalytics.ts';
 
@@ -25,7 +25,7 @@ function createFakeClient() {
 const reportAnalyticsConfig = Factory.define<ReportAnalyticsConfig>(() => ({
   telemetryDisabled: false,
   reportId: 'report-1',
-  generatedByAnonId: 'anon-1',
+  generatedByAnonymousId: 'anon-1',
   version: '1.2.3',
 }));
 

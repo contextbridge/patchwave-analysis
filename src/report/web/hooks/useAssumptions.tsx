@@ -3,12 +3,12 @@ import { deriveCostEstimate, derivePersonCosts } from '../../costFormulas.ts';
 import { assumptionFields } from '../assumptionFields.ts';
 import type { EmbeddedReportData } from '../types.ts';
 
-export interface Assumptions {
+interface Assumptions {
   hourlyRateUsd: number;
   minutesPerPr: number;
 }
 
-export interface DerivedCost {
+interface DerivedCost {
   windowCostUsd: number;
   monthlyCostUsd: number;
   annualCostUsd: number;
@@ -17,7 +17,7 @@ export interface DerivedCost {
   reviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
 }
 
-type ValueUpdate = number | ((prev: number) => number);
+export type ValueUpdate = number | ((prev: number) => number);
 
 interface ContextValue {
   assumptions: Assumptions;

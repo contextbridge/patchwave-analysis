@@ -7,7 +7,7 @@ describe('parseAnalyticsConfig', () => {
       JSON.stringify({
         telemetryDisabled: false,
         reportId: 'report-1',
-        generatedByAnonId: 'anon-1',
+        generatedByAnonymousId: 'anon-1',
         version: '0.0.1',
       }),
     );
@@ -15,7 +15,7 @@ describe('parseAnalyticsConfig', () => {
     expect(config).toEqual({
       telemetryDisabled: false,
       reportId: 'report-1',
-      generatedByAnonId: 'anon-1',
+      generatedByAnonymousId: 'anon-1',
       version: '0.0.1',
     });
   });

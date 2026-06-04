@@ -3,7 +3,7 @@
 // shared math in `../costFormulas.ts` and reach the report via the embedded data;
 // this module owns only what the input control and its clamp need.
 
-export interface AssumptionField {
+interface AssumptionField {
   label: string;
   prefix?: string;
   suffix?: string;

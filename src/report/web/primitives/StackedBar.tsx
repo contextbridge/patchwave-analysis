@@ -14,8 +14,6 @@ export const SEGMENTS = [
   { key: 'low', label: 'Low', cssVar: 'var(--severity-low)' },
 ] as const;
 
-export type SeverityCounts = Record<(typeof SEGMENTS)[number]['key'], number>;
-
 export function StackedBar({ critical, high, medium, low }: Props) {
   const total = critical + high + medium + low;
   if (total === 0) {

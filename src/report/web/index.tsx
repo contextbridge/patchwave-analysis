@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { POSTHOG_HOST, POSTHOG_KEY } from '../../buildInfo.ts';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { createReportAnalytics } from './analytics/index.ts';
+import { readEmbeddedAnalytics } from './analytics/readEmbeddedAnalytics.ts';
 import { App } from './App.tsx';
-import { readEmbeddedAnalytics } from './data/readEmbeddedAnalytics.ts';
 import { readEmbeddedData } from './data/readEmbeddedData.ts';
 import './styles.css';
 

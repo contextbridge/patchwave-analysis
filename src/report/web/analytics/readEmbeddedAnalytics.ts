@@ -1,4 +1,4 @@
-import type { ReportAnalyticsConfig } from '../../reportAnalyticsConfig.ts';
+import type { ReportAnalyticsConfig } from '../../../telemetry/Analytics.ts';
 
 const ELEMENT_ID = 'patchwave-analytics';
 const PLACEHOLDER_PREFIX = '__PATCHWAVE_';
@@ -6,7 +6,7 @@ const PLACEHOLDER_PREFIX = '__PATCHWAVE_';
 const DISABLED: ReportAnalyticsConfig = {
   telemetryDisabled: true,
   reportId: '',
-  generatedByAnonId: '',
+  generatedByAnonymousId: '',
   version: '',
 };
 

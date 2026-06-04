@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { assumptionFields } from '../assumptionFields.ts';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { useAssumptions } from '../hooks/useAssumptions.tsx';
+import { type ValueUpdate, useAssumptions } from '../hooks/useAssumptions.tsx';
 
 export const costReceiptTestIds = {
   container: 'cost-receipt',
@@ -113,8 +113,6 @@ function Factor({
     </div>
   );
 }
-
-type ValueUpdate = number | ((prev: number) => number);
 
 function EditableFactor({
   testId,

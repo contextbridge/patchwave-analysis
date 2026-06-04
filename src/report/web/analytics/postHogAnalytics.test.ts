@@ -28,7 +28,7 @@ function createFakeClient() {
 const postHogReportAnalyticsOptions = Factory.define<Parameters<typeof createPostHogReportAnalytics>[0]>(() => ({
   buildInfo: { postHogKey: 'ph-test', postHogHost: 'https://posthog.example.test', version: '1.2.3' },
   reportId: 'report-123',
-  generatedByAnonId: 'anon-456',
+  generatedByAnonymousId: 'anon-456',
   version: '1.2.3',
 }));
 
@@ -55,9 +55,11 @@ describe('createPostHogReportAnalytics', () => {
     expect(fake.init[0]?.config['before_send']).toBeDefined();
   });
 
-  test('falls back to the report id as the distinct id when no anon id was embedded', () => {
+  test('falls back to the report id as the PostHog identity when no anonymous id was embedded', () => {
     const fake = createFakeClient();
-    createPostHogReportAnalytics(postHogReportAnalyticsOptions.build({ client: fake.client, generatedByAnonId: '' }));
+    createPostHogReportAnalytics(
+      postHogReportAnalyticsOptions.build({ client: fake.client, generatedByAnonymousId: '' }),
+    );
 
     expect(fake.init[0]?.config['bootstrap']).toEqual({ distinctID: 'report-123' });
   });

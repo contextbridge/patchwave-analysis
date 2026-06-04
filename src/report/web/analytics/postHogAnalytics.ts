@@ -1,5 +1,5 @@
 import posthog from 'posthog-js/dist/module.full.no-external';
-import type { Analytics } from '../../../Analytics.ts';
+import type { Analytics } from '../../../telemetry/Analytics.ts';
 import type { ReportAnalyticsBuildInfo } from './index.ts';
 import { createStableUrlRewriter } from './stableUrlRewriter.ts';
 
@@ -12,20 +12,20 @@ export interface PostHogBrowserClient {
   capture(event: Parameters<typeof posthog.capture>[0], properties?: Parameters<typeof posthog.capture>[1]): unknown;
 }
 
-export interface CreatePostHogReportAnalyticsOptions {
+interface CreatePostHogReportAnalyticsOptions {
   readonly buildInfo: ReportAnalyticsBuildInfo;
   readonly reportId: string;
-  readonly generatedByAnonId: string;
+  readonly generatedByAnonymousId: string;
   readonly version: string;
   readonly client?: PostHogBrowserClient;
 }
 
 export function createPostHogReportAnalytics(options: CreatePostHogReportAnalyticsOptions): Analytics {
-  const { buildInfo, reportId, generatedByAnonId, version, client = posthog } = options;
+  const { buildInfo, reportId, generatedByAnonymousId, version, client = posthog } = options;
 
-  // Identify by the generating machine's anon id (the CLI's distinct id too) so a run's CLI events
-  // and report views are one PostHog person. Fall back to the report id for reports with no anon id.
-  const distinctId = generatedByAnonId || reportId;
+  // Identify by the generating machine's anonymous id so a run's CLI events
+  // and report views are one PostHog person. Fall back to the report id when unavailable.
+  const anonymousId = generatedByAnonymousId || reportId;
 
   const superProperties: Record<string, unknown> = {
     pw_surface: 'report',
@@ -36,9 +36,9 @@ export function createPostHogReportAnalytics(options: CreatePostHogReportAnalyti
   client.init(buildInfo.postHogKey, {
     api_host: buildInfo.postHogHost,
     // The report runs from a file:// page with no reliable storage, so keep identity in memory and
-    // seed the distinct id via bootstrap rather than persisting one per viewer.
+    // seed the PostHog identity via bootstrap rather than persisting one per viewer.
     persistence: 'memory',
-    bootstrap: { distinctID: distinctId },
+    bootstrap: { distinctID: anonymousId },
     // Report copy lives in clickable elements; autocapture would leak it via $elements_text.
     autocapture: false,
     capture_pageview: true,

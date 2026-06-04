@@ -26,7 +26,6 @@ export function MethodologyAppendix() {
   const { assumptions, derived } = useAssumptions();
   const { open, setOpen, activeTab, setActiveTab } = useAssumptionsDisclosure();
   const org = data.orgOverview;
-  const cov = data.dependabotCoverage;
   const pr = data.prBacklog;
   const stalled = data.stalledSignals;
   const cve = data.cve;
@@ -157,34 +156,11 @@ export function MethodologyAppendix() {
                           `${org.repoCount} active (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
-                        ['Repos with branch protection', org.reposWithBranchProtection.toLocaleString()],
-                      ]}
-                    />
-                  </DataPanel>
-
-                  <DataPanel title="Dependabot coverage">
-                    <MetricList
-                      rows={[
-                        ['Config coverage', `${cov.reposWithConfig} repos (${cov.reposWithConfigPercentage}%)`],
                         [
                           'Security updates',
-                          `${cov.reposWithSecurityUpdates} repos (${cov.reposWithSecurityUpdatesPercentage}%)`,
+                          `${org.reposWithSecurityUpdates} repos (${org.reposWithSecurityUpdatesPercentage}%)`,
                         ],
-                        ['Repos using groups', cov.reposUsingGroups.toLocaleString()],
-                        ['Repos with ignore rules', cov.reposWithIgnoreRules.toLocaleString()],
                       ]}
-                    />
-                    <InlineBreakdown
-                      label="Ecosystems"
-                      rows={cov.ecosystemBreakdown}
-                      nameKey="ecosystem"
-                      valueKey="repoCount"
-                    />
-                    <InlineBreakdown
-                      label="Cadence"
-                      rows={cov.cadenceBreakdown}
-                      nameKey="interval"
-                      valueKey="entryCount"
                     />
                   </DataPanel>
 
@@ -211,11 +187,6 @@ export function MethodologyAppendix() {
                       label="Repos at PR cap"
                       empty="No repos are currently at the Dependabot PR cap."
                       repos={stalled.reposAtPrCap.map((r) => `${r.repo} (${r.openPrs} open)`)}
-                    />
-                    <RepoList
-                      label="Config present, no recent PRs"
-                      empty="No configured repos were missing recent Dependabot PRs."
-                      repos={stalled.reposWithConfigButNoRecentPrs}
                     />
                   </DataPanel>
 
