@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.3.0...v0.4.0) (2026-06-05)
+
+
+### Features
+
+* sample storybook ([#41](https://github.com/contextbridge/patchwave-analysis/issues/41)) ([928cb8e](https://github.com/contextbridge/patchwave-analysis/commit/928cb8ec72c9771e436125d33e90930484237ba6))
+
 ## [0.3.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.7...v0.3.0) (2026-06-04)
 
 
