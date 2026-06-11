@@ -91,3 +91,41 @@ export function derivePersonCosts(
     };
   });
 }
+
+export interface DerivedHoursEstimate {
+  windowHours: number;
+  monthlyHours: number;
+  annualHours: number;
+}
+
+// Hours stay as unrounded floats — rounding happens once at format time. Rounding at each
+// step (as the USD path does) distorts small values: 32.4 -> 32 -> x4.06 ~ 130, not 131.
+export function deriveHoursEstimate(count: number, windowDays: number, minutesPerPr: number): DerivedHoursEstimate {
+  const windowHours = windowHoursFor(count, minutesPerPr);
+  return {
+    windowHours,
+    monthlyHours: (windowHours * DAYS_PER_MONTH) / Math.max(1, windowDays),
+    annualHours: annualizeHours(windowHours, windowDays),
+  };
+}
+
+export interface DerivedPersonHours {
+  windowHours: number;
+  annualHours: number;
+}
+
+export function derivePersonHours(count: number, windowDays: number, minutesPerPr: number): DerivedPersonHours {
+  const windowHours = windowHoursFor(count, minutesPerPr);
+  return {
+    windowHours,
+    annualHours: annualizeHours(windowHours, windowDays),
+  };
+}
+
+function windowHoursFor(count: number, minutesPerAction: number): number {
+  return (count * minutesPerAction) / 60;
+}
+
+function annualizeHours(windowHours: number, windowDays: number): number {
+  return (windowHours * 365) / Math.max(1, windowDays);
+}
