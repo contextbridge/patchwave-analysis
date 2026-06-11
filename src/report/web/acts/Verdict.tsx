@@ -1,8 +1,7 @@
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtHours } from '../format/hours.ts';
-import { fmtUsd } from '../format/money.ts';
+import { useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type DisplayUnit, useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { CostReceipt } from '../primitives/CostReceipt.tsx';
@@ -22,6 +21,7 @@ export const verdictCopy = {
 export function Verdict() {
   const { derived } = useAssumptions();
   const { unit } = useDisplayUnit();
+  const formatAmount = useFormatAmount();
   const { prBacklog } = useEmbeddedData();
   const { openCount } = prBacklog;
   const analytics = useAnalytics();
@@ -44,7 +44,7 @@ export function Verdict() {
             data-testid={verdictTestIds.annualCost}
             className="text-foreground text-4xl leading-none font-medium tracking-tight tabular-nums sm:text-5xl"
           >
-            ~{unit === 'hours' ? fmtHours(derived.annualHours) : fmtUsd(derived.annualCostUsd)}
+            ~{formatAmount({ hours: derived.annualHours, usd: derived.annualCostUsd })}
             <span className="text-muted-foreground text-xl font-normal sm:text-2xl">/year</span>
           </h1>
         </div>

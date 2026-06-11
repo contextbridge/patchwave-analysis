@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtHours } from '../format/hours.ts';
-import { fmtUsd } from '../format/money.ts';
+import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
-import { type DisplayUnit, useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { reposWithoutSecurityAlertsId } from './RiskStory.tsx';
@@ -218,8 +216,8 @@ export function MethodologyAppendix() {
                   </DataPanel>
 
                   <DataPanel title="People signals">
-                    <PeopleList label="Mergers" rows={derived.mergers} countLabel="merged" />
-                    <PeopleList label="Reviewers" rows={derived.reviewers} countLabel="reviewed" />
+                    <PeopleList label="Mergers" rows={withAnnual(derived.mergers)} countLabel="merged" />
+                    <PeopleList label="Reviewers" rows={withAnnual(derived.reviewers)} countLabel="reviewed" />
                     <PeopleList label="Commenters" rows={data.people.commenters} countLabel="commented" />
                   </DataPanel>
 
@@ -441,10 +439,10 @@ function PeopleList({
   countLabel,
 }: {
   label: string;
-  rows: ReadonlyArray<{ login: string; count: number; annualCostUsd?: number; annualHours?: number }>;
+  rows: ReadonlyArray<{ login: string; count: number; annual?: Amount }>;
   countLabel: string;
 }) {
-  const { unit } = useDisplayUnit();
+  const formatAmount = useFormatAmount();
   return (
     <div>
       <div className="text-muted-foreground mb-1 text-xs font-medium tracking-[0.12em] uppercase">{label}</div>
@@ -461,7 +459,7 @@ function PeopleList({
               <span className="font-mono">{row.login}</span>
               <span className="text-muted-foreground text-right tabular-nums">
                 {row.count} {countLabel}
-                {annualSuffix(unit, row)}
+                {row.annual && `, ${formatAmount(row.annual, '/yr')}`}
               </span>
             </li>
           ))}
@@ -471,9 +469,12 @@ function PeopleList({
   );
 }
 
-function annualSuffix(unit: DisplayUnit, row: { annualCostUsd?: number; annualHours?: number }): string {
-  if (unit === 'hours') {
-    return row.annualHours !== undefined ? `, ${fmtHours(row.annualHours)}/yr` : '';
-  }
-  return row.annualCostUsd !== undefined ? `, ${fmtUsd(row.annualCostUsd)}/yr` : '';
+// Mergers and reviewers always carry an annual figure; commenters never do (cost counts
+// human merge/review work only), so their rows simply omit it.
+function withAnnual(rows: ReadonlyArray<{ login: string; count: number; annualHours: number; annualCostUsd: number }>) {
+  return rows.map(({ login, count, annualHours, annualCostUsd }) => ({
+    login,
+    count,
+    annual: { hours: annualHours, usd: annualCostUsd },
+  }));
 }

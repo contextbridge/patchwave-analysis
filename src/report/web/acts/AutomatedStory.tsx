@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { fmtHours } from '../format/hours.ts';
-import { fmtUsd } from '../format/money.ts';
+import { useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
-import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
 
@@ -29,14 +27,12 @@ const SHARE_STOPS = Array.from(
 
 export function AutomatedStory() {
   const { derived } = useAssumptions();
-  const { unit } = useDisplayUnit();
+  const formatAmount = useFormatAmount();
   const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
-  const todayCost = derived.annualCostUsd;
-  const patchwaveSavings = Math.round(todayCost * (sharePct / 100));
-  const todayHours = derived.annualHours;
-  const savedHours = todayHours * (sharePct / 100);
+  const today = { hours: derived.annualHours, usd: derived.annualCostUsd };
+  const savings = { hours: today.hours * (sharePct / 100), usd: Math.round(today.usd * (sharePct / 100)) };
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -53,11 +49,7 @@ export function AutomatedStory() {
       </p>
 
       <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-[1fr_auto_1fr]">
-        <CompareCard
-          testId={automatedStoryTestIds.todayCost}
-          label="Today"
-          value={unit === 'hours' ? `${fmtHours(todayHours)}/yr` : `${fmtUsd(todayCost)}/yr`}
-        />
+        <CompareCard testId={automatedStoryTestIds.todayCost} label="Today" value={formatAmount(today, '/yr')} />
         <div className="flex flex-col items-center justify-center px-2 py-2">
           <div
             data-testid={automatedStoryTestIds.delta}
@@ -72,7 +64,7 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
-          value={unit === 'hours' ? `${fmtHours(savedHours)}/yr` : `${fmtUsd(patchwaveSavings)}/yr`}
+          value={formatAmount(savings, '/yr')}
           accent
         />
       </div>

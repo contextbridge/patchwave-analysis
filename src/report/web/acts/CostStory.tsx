@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
-import { fmtHours } from '../format/hours.ts';
-import { fmtUsd } from '../format/money.ts';
+import { useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
@@ -28,6 +27,7 @@ export function CostStory() {
   const data = useEmbeddedData();
   const { assumptions, derived } = useAssumptions();
   const { unit } = useDisplayUnit();
+  const formatAmount = useFormatAmount();
 
   const { humanMergeCount } = data.costEstimate;
 
@@ -58,17 +58,17 @@ export function CostStory() {
         <CostCell
           testId={costStoryTestIds.windowCost}
           label={`Last ${data.costEstimate.windowDays} days`}
-          value={unit === 'hours' ? fmtHours(derived.windowHours) : fmtUsd(derived.windowCostUsd)}
+          value={formatAmount({ hours: derived.windowHours, usd: derived.windowCostUsd })}
         />
         <CostCell
           testId={costStoryTestIds.monthlyCost}
           label="Monthly run rate"
-          value={unit === 'hours' ? `${fmtHours(derived.monthlyHours)}/mo` : `${fmtUsd(derived.monthlyCostUsd)}/mo`}
+          value={formatAmount({ hours: derived.monthlyHours, usd: derived.monthlyCostUsd }, '/mo')}
         />
         <CostCell
           testId={costStoryTestIds.annualCost}
           label="Annualized"
-          value={unit === 'hours' ? `${fmtHours(derived.annualHours)}/yr` : `${fmtUsd(derived.annualCostUsd)}/yr`}
+          value={formatAmount({ hours: derived.annualHours, usd: derived.annualCostUsd }, '/yr')}
           emphasize
         />
       </div>
@@ -107,6 +107,7 @@ function CostCell({
 function PeopleTable({ windowDays }: { windowDays: number }) {
   const { derived } = useAssumptions();
   const { unit } = useDisplayUnit();
+  const formatAmount = useFormatAmount();
   const [expanded, setExpanded] = useState(false);
   const people = combinedPeopleRows(derived.mergers, derived.reviewers);
   const visiblePeople = expanded ? people : people.slice(0, INITIAL_PEOPLE_COUNT);
@@ -145,8 +146,8 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
                 login={r.login}
                 mergedCount={r.mergedCount}
                 reviewedCount={r.reviewedCount}
-                windowValue={unit === 'hours' ? fmtHours(r.windowHours) : fmtUsd(r.windowCostUsd)}
-                annualValue={unit === 'hours' ? fmtHours(r.annualHours) : fmtUsd(r.annualCostUsd)}
+                windowValue={formatAmount({ hours: r.windowHours, usd: r.windowCostUsd })}
+                annualValue={formatAmount({ hours: r.annualHours, usd: r.annualCostUsd })}
               />
             ))}
             {hiddenCount > 0 || expanded ? (
