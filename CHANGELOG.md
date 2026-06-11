@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.3.0...v0.4.0) (2026-06-11)
+
+
+### Features
+
+* allow switching the report between hours and dollars ([1eaed34](https://github.com/contextbridge/patchwave-analysis/commit/1eaed3466f9a3bcc7444f5bb075eab847b7305e6))
+
 ## [0.3.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.2.7...v0.3.0) (2026-06-04)
 
 
