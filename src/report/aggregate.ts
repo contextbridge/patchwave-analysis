@@ -65,7 +65,6 @@ export interface CostEstimate {
   windowCostUsd: number;
   monthlyCostUsd: number;
   annualCostUsd: number;
-  savingsScenarios: Array<{ autoMergeRate: number; monthlySavingsUsd: number; annualSavingsUsd: number }>;
 }
 
 export interface CveExposure {

@@ -5,8 +5,6 @@
 export const ASSUMED_HOURLY_RATE_USD = 200;
 export const ASSUMED_MIN_PER_PR = 12;
 
-const AUTO_MERGE_SCENARIO_RATES = [0.5, 0.6, 0.7, 0.8] as const;
-
 const DAYS_PER_MONTH = 365 / 12;
 
 function windowCostFor(count: number, minutesPerAction: number, hourlyRateUsd: number): number {
@@ -21,12 +19,6 @@ function annualizeWindow(windowCostUsd: number, windowDays: number): number {
   return Math.round((windowCostUsd * 365) / Math.max(1, windowDays));
 }
 
-interface SavingsScenario {
-  autoMergeRate: number;
-  monthlySavingsUsd: number;
-  annualSavingsUsd: number;
-}
-
 interface CostAssumptions {
   hourlyRateUsd: number;
   minutesPerPr: number;
@@ -36,7 +28,6 @@ interface DerivedCostEstimate {
   windowCostUsd: number;
   monthlyCostUsd: number;
   annualCostUsd: number;
-  savingsScenarios: SavingsScenario[];
 }
 
 interface CountedPerson {
@@ -47,17 +38,6 @@ interface CountedPerson {
 interface DerivedPersonCost extends CountedPerson {
   windowCostUsd: number;
   annualCostUsd: number;
-}
-
-function savingsScenariosFor(monthlyCostUsd: number): SavingsScenario[] {
-  return AUTO_MERGE_SCENARIO_RATES.map((autoMergeRate) => {
-    const monthlySavingsUsd = Math.round(monthlyCostUsd * autoMergeRate);
-    return {
-      autoMergeRate,
-      monthlySavingsUsd,
-      annualSavingsUsd: monthlySavingsUsd * 12,
-    };
-  });
 }
 
 export function deriveCostEstimate(
@@ -71,7 +51,6 @@ export function deriveCostEstimate(
     windowCostUsd,
     monthlyCostUsd,
     annualCostUsd: monthlyCostUsd * 12,
-    savingsScenarios: savingsScenariosFor(monthlyCostUsd),
   };
 }
 

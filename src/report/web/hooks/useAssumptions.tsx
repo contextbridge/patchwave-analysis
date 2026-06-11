@@ -26,7 +26,6 @@ interface DerivedCost extends DerivedHoursEstimate {
   windowCostUsd: number;
   monthlyCostUsd: number;
   annualCostUsd: number;
-  savingsScenarios: Array<{ autoMergeRate: number; monthlySavingsUsd: number; annualSavingsUsd: number }>;
   mergers: PersonCost[];
   reviewers: PersonCost[];
 }

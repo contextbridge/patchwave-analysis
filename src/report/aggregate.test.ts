@@ -189,10 +189,6 @@ test('builds a cost estimate from human merges and reviews, excluding bot merges
   expect(bundle.costEstimate.monthlyCostUsd).toBeGreaterThan(1300);
   expect(bundle.costEstimate.monthlyCostUsd).toBeLessThan(1400);
   expect(bundle.costEstimate.annualCostUsd).toBe(bundle.costEstimate.monthlyCostUsd * 12);
-  expect(bundle.costEstimate.savingsScenarios.map((s) => s.autoMergeRate)).toEqual([0.5, 0.6, 0.7, 0.8]);
-  expect(bundle.costEstimate.savingsScenarios[0]?.annualSavingsUsd).toBe(
-    (bundle.costEstimate.savingsScenarios[0]?.monthlySavingsUsd ?? 0) * 12,
-  );
 });
 
 test('counts a reviewer who also merged the PR once, but credits a review when someone else merged', () => {
