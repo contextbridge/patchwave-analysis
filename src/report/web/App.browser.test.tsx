@@ -218,13 +218,13 @@ describe('automation savings', () => {
       unit: 'hours',
       today: '131 hrs/yr',
       savings: '108 hrs/yr',
-      breakdown: '85 hrs auto-merged + 23 hrs accelerated reviews',
+      breakdown: '85 hrs from auto-merge + 23 hrs from accelerated reviews',
     },
     {
       unit: 'usd',
       today: '$26,280/yr',
       savings: '$21,681/yr',
-      breakdown: '$17,082 auto-merged + $4,599 accelerated reviews',
+      breakdown: '$17,082 from auto-merge + $4,599 from accelerated reviews',
     },
   ] as const)(
     'compares today against PatchWave in $unit at the default share',
@@ -239,8 +239,8 @@ describe('automation savings', () => {
   );
 
   it.each([
-    { unit: 'hours', savings: '99 hrs/yr', breakdown: '66 hrs auto-merged + 33 hrs accelerated reviews' },
-    { unit: 'usd', savings: '$19,710/yr', breakdown: '$13,140 auto-merged + $6,570 accelerated reviews' },
+    { unit: 'hours', savings: '99 hrs/yr', breakdown: '66 hrs from auto-merge + 33 hrs from accelerated reviews' },
+    { unit: 'usd', savings: '$19,710/yr', breakdown: '$13,140 from auto-merge + $6,570 from accelerated reviews' },
   ] as const)('rescales the $unit savings when the auto-merge share drops to 50%', ({ unit, savings, breakdown }) => {
     renderReport({ unit });
 

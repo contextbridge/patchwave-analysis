@@ -49,37 +49,31 @@ export function AutomatedStory() {
       </h2>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        PatchWave reviews each update, merges the ones it can clear safely, and sends the rest to a human with its
-        analysis attached. Here's how much engineering time your team would get back.
+        PatchWave reviews each update and merges the ones it can clear safely. For the rest, it posts its analysis on
+        the PR to accelerate the human review. Here's how much engineering time your team would get back.
       </p>
 
-      <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
         <CompareCard testId={automatedStoryTestIds.todayCost} label="Today" value={formatAmount(today, '/yr')} />
-        <div className="flex flex-col items-center justify-center px-2 py-2">
-          <div
-            data-testid={automatedStoryTestIds.delta}
-            className="text-primary text-4xl font-semibold tabular-nums sm:text-5xl"
-          >
-            {sharePct}%
-          </div>
-          <div className="text-muted-foreground mt-1 text-xs font-medium tracking-[0.14em] uppercase">
-            PRs auto-merged
-          </div>
-        </div>
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
           value={formatAmount(savings, '/yr')}
-          detail={`${formatAmount(autoMerged)} auto-merged + ${formatAmount(accelerated)} accelerated reviews`}
+          detail={`${formatAmount(autoMerged)} from auto-merge + ${formatAmount(accelerated)} from accelerated reviews`}
           detailTestId={automatedStoryTestIds.savingsBreakdown}
           accent
         />
       </div>
 
       <div className="border-border bg-card mt-5 rounded-md border p-4 no-print">
-        <label htmlFor="automerge-share" className="text-foreground text-sm font-medium">
-          Assumed auto-merge share
-        </label>
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="automerge-share" className="text-foreground text-sm font-medium">
+            PRs auto-merged
+          </label>
+          <span data-testid={automatedStoryTestIds.delta} className="text-primary text-sm font-semibold tabular-nums">
+            {sharePct}%
+          </span>
+        </div>
         <input
           id="automerge-share"
           data-testid={automatedStoryTestIds.shareSlider}
@@ -105,12 +99,6 @@ export function AutomatedStory() {
           <span>{SHARE_MAX}%</span>
         </div>
       </div>
-
-      <p className="text-muted-foreground mt-5 text-sm leading-relaxed">
-        Savings count two things: the PRs PatchWave merges outright, and half the review time on the rest. It posts its
-        analysis on every PR it hands to a human, which we assume cuts that review time in half. That second part is the
-        accelerated reviews in the breakdown above.
-      </p>
 
       <p className="text-muted-foreground mt-7 text-sm leading-relaxed">
         Most Dependabot PRs arrive with no signal that the upgrade is safe. On actively maintained JavaScript projects,
