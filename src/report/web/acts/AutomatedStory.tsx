@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { useFormatAmount } from '../format/amount.ts';
+import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
@@ -11,6 +12,7 @@ export const automatedStoryTestIds = {
   todayCost: 'automated-story-today-cost',
   patchwaveCost: 'automated-story-patchwave-cost',
   delta: 'automated-story-delta',
+  savingsBreakdown: 'automated-story-savings-breakdown',
   shareSlider: 'automated-story-share-slider',
   waitlistCta: 'automated-story-waitlist-cta',
 } as const;
@@ -32,7 +34,10 @@ export function AutomatedStory() {
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const today = { hours: derived.annualHours, usd: derived.annualCostUsd };
-  const savings = { hours: today.hours * (sharePct / 100), usd: Math.round(today.usd * (sharePct / 100)) };
+  const share = sharePct / 100;
+  const autoMerged = part(today, share);
+  const accelerated = part(today, (1 - share) * ASSUMED_REVIEW_SPEEDUP);
+  const savings = { hours: autoMerged.hours + accelerated.hours, usd: autoMerged.usd + accelerated.usd };
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -44,35 +49,31 @@ export function AutomatedStory() {
       </h2>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        PatchWave reviews each update, merges the ones it can clear safely, and sends the rest to a human. Here's how
-        much engineering time your team would get back.
+        PatchWave reviews each update and merges the ones it can clear safely. For the rest, it posts its analysis on
+        the PR to accelerate the human review. Here's how much engineering time your team would get back.
       </p>
 
-      <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-[1fr_auto_1fr]">
+      <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
         <CompareCard testId={automatedStoryTestIds.todayCost} label="Today" value={formatAmount(today, '/yr')} />
-        <div className="flex flex-col items-center justify-center px-2 py-2">
-          <div
-            data-testid={automatedStoryTestIds.delta}
-            className="text-primary text-4xl font-semibold tabular-nums sm:text-5xl"
-          >
-            {sharePct}%
-          </div>
-          <div className="text-muted-foreground mt-1 text-xs font-medium tracking-[0.14em] uppercase">
-            PRs auto-merged
-          </div>
-        </div>
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
           value={formatAmount(savings, '/yr')}
+          detail={`${formatAmount(autoMerged)} from auto-merge + ${formatAmount(accelerated)} from accelerated reviews`}
+          detailTestId={automatedStoryTestIds.savingsBreakdown}
           accent
         />
       </div>
 
       <div className="border-border bg-card mt-5 rounded-md border p-4 no-print">
-        <label htmlFor="automerge-share" className="text-foreground text-sm font-medium">
-          Assumed auto-merge share
-        </label>
+        <div className="flex items-baseline justify-between">
+          <label htmlFor="automerge-share" className="text-foreground text-sm font-medium">
+            PRs auto-merged
+          </label>
+          <span data-testid={automatedStoryTestIds.delta} className="text-primary text-sm font-semibold tabular-nums">
+            {sharePct}%
+          </span>
+        </div>
         <input
           id="automerge-share"
           data-testid={automatedStoryTestIds.shareSlider}
@@ -123,11 +124,15 @@ function CompareCard({
   label,
   value,
   testId,
+  detail,
+  detailTestId,
   accent = false,
 }: {
   label: string;
   value: string;
   testId: string;
+  detail?: string;
+  detailTestId?: string;
   accent?: boolean;
 }) {
   return (
@@ -139,6 +144,18 @@ function CompareCard({
       >
         {value}
       </div>
+      {detail && (
+        <div data-testid={detailTestId} className="text-muted-foreground mt-2 text-xs">
+          {detail}
+        </div>
+      )}
     </div>
   );
+}
+
+// Round each part here so the savings headline (their sum) always equals the breakdown the
+// card displays. Formatters round again at display time, so summing unrounded parts could
+// render a headline one off from its visible components.
+function part(amount: Amount, rate: number): Amount {
+  return { hours: Math.round(amount.hours * rate), usd: Math.round(amount.usd * rate) };
 }

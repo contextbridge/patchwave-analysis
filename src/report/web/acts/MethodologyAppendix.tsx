@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
@@ -122,7 +123,7 @@ export function MethodologyAppendix() {
                         />
                         <FormulaRow
                           label="Savings model"
-                          value="Savings scenarios model the monthly cost recovered at 50% through 80% auto-merge share, annualized over 12 months."
+                          value={`Savings = annual cost × auto-merge share, plus annual cost × the remaining share × ${ASSUMED_REVIEW_SPEEDUP * 100}%. The ${ASSUMED_REVIEW_SPEEDUP * 100}% assumes PatchWave's posted analysis halves review time on the PRs it can't merge (accelerated reviews). The auto-merge share is adjustable from 50–80% in the comparison section.`}
                         />
                         <FormulaRow
                           label="People counts"

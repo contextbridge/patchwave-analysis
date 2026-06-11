@@ -5,6 +5,10 @@
 export const ASSUMED_HOURLY_RATE_USD = 200;
 export const ASSUMED_MIN_PER_PR = 12;
 
+// PatchWave posts its analysis on PRs it can't auto-merge; we assume that
+// halves the human review time on those ("accelerated reviews").
+export const ASSUMED_REVIEW_SPEEDUP = 0.5;
+
 const DAYS_PER_MONTH = 365 / 12;
 
 function windowCostFor(count: number, minutesPerAction: number, hourlyRateUsd: number): number {
