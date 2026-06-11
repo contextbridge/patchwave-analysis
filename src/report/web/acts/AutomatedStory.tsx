@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
+import { fmtHours } from '../format/hours.ts';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
+import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
 
@@ -26,12 +28,15 @@ const SHARE_STOPS = Array.from(
 );
 
 export function AutomatedStory() {
-  const { assumptions, derived } = useAssumptions();
+  const { derived } = useAssumptions();
+  const { unit } = useDisplayUnit();
   const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const todayCost = derived.annualCostUsd;
   const patchwaveSavings = Math.round(todayCost * (sharePct / 100));
+  const todayHours = derived.annualHours;
+  const savedHours = todayHours * (sharePct / 100);
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -51,8 +56,7 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.todayCost}
           label="Today"
-          value={`${fmtUsd(todayCost)}/yr`}
-          sub={quarterHoursLabel(todayCost, assumptions.hourlyRateUsd)}
+          value={unit === 'hours' ? `${fmtHours(todayHours)}/yr` : `${fmtUsd(todayCost)}/yr`}
         />
         <div className="flex flex-col items-center justify-center px-2 py-2">
           <div
@@ -68,8 +72,7 @@ export function AutomatedStory() {
         <CompareCard
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
-          value={`${fmtUsd(patchwaveSavings)}/yr`}
-          sub={quarterHoursSavedLabel(patchwaveSavings, assumptions.hourlyRateUsd)}
+          value={unit === 'hours' ? `${fmtHours(savedHours)}/yr` : `${fmtUsd(patchwaveSavings)}/yr`}
           accent
         />
       </div>
@@ -127,18 +130,16 @@ export function AutomatedStory() {
 function CompareCard({
   label,
   value,
-  sub,
   testId,
   accent = false,
 }: {
   label: string;
   value: string;
-  sub: string;
   testId: string;
   accent?: boolean;
 }) {
   return (
-    <div className="border-border bg-card flex flex-col rounded-md border p-5">
+    <div className="border-border bg-card flex flex-col justify-center rounded-md border p-5">
       <div className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
       <div
         data-testid={testId}
@@ -146,19 +147,6 @@ function CompareCard({
       >
         {value}
       </div>
-      <div className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{sub}</div>
     </div>
   );
-}
-
-function quarterHoursLabel(costUsd: number, hourlyRateUsd: number): string {
-  const hours = Math.round(costUsd / hourlyRateUsd / 4);
-  if (hours <= 0) return 'under an hour of engineer time per quarter';
-  return `~${hours.toLocaleString()} ${hours === 1 ? 'hour' : 'hours'} of engineer time per quarter`;
-}
-
-function quarterHoursSavedLabel(savingsUsd: number, hourlyRateUsd: number): string {
-  const hours = Math.round(savingsUsd / hourlyRateUsd / 4);
-  if (hours <= 0) return 'under an hour of engineer time saved per quarter';
-  return `~${hours.toLocaleString()} ${hours === 1 ? 'hour' : 'hours'} of engineer time saved per quarter`;
 }

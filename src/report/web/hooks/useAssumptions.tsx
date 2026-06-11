@@ -1,5 +1,12 @@
 import { type ReactNode, createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { deriveCostEstimate, derivePersonCosts } from '../../costFormulas.ts';
+import {
+  type DerivedHoursEstimate,
+  type DerivedPersonHours,
+  deriveCostEstimate,
+  deriveHoursEstimate,
+  derivePersonCosts,
+  derivePersonHours,
+} from '../../costFormulas.ts';
 import { assumptionFields } from '../assumptionFields.ts';
 import type { EmbeddedReportData } from '../types.ts';
 
@@ -8,13 +15,20 @@ interface Assumptions {
   minutesPerPr: number;
 }
 
-interface DerivedCost {
+interface PersonCost extends DerivedPersonHours {
+  login: string;
+  count: number;
+  windowCostUsd: number;
+  annualCostUsd: number;
+}
+
+interface DerivedCost extends DerivedHoursEstimate {
   windowCostUsd: number;
   monthlyCostUsd: number;
   annualCostUsd: number;
   savingsScenarios: Array<{ autoMergeRate: number; monthlySavingsUsd: number; annualSavingsUsd: number }>;
-  mergers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
-  reviewers: Array<{ login: string; count: number; windowCostUsd: number; annualCostUsd: number }>;
+  mergers: PersonCost[];
+  reviewers: PersonCost[];
 }
 
 export type ValueUpdate = number | ((prev: number) => number);
@@ -68,8 +82,17 @@ export function AssumptionsProvider({ data, children }: { data: EmbeddedReportDa
     const cost = deriveCostEstimate(totalActions, windowDays, assumptions);
     return {
       ...cost,
-      mergers: derivePersonCosts(data.people.mergers, windowDays, minutesPerPr, hourlyRateUsd),
-      reviewers: derivePersonCosts(data.people.reviewers, windowDays, minutesPerPr, hourlyRateUsd),
+      ...deriveHoursEstimate(totalActions, windowDays, minutesPerPr),
+      mergers: withPersonHours(
+        derivePersonCosts(data.people.mergers, windowDays, minutesPerPr, hourlyRateUsd),
+        windowDays,
+        minutesPerPr,
+      ),
+      reviewers: withPersonHours(
+        derivePersonCosts(data.people.reviewers, windowDays, minutesPerPr, hourlyRateUsd),
+        windowDays,
+        minutesPerPr,
+      ),
     };
   }, [assumptions, data]);
 
@@ -83,6 +106,10 @@ export function useAssumptions(): ContextValue {
     throw new Error('useAssumptions called outside AssumptionsProvider');
   }
   return v;
+}
+
+function withPersonHours(rows: ReturnType<typeof derivePersonCosts>, windowDays: number, minutesPerPr: number) {
+  return rows.map((row) => ({ ...row, ...derivePersonHours(row.count, windowDays, minutesPerPr) }));
 }
 
 function resolve(next: ValueUpdate, prev: number): number {

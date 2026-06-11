@@ -3,6 +3,7 @@ import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { assumptionFields } from '../assumptionFields.ts';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { type ValueUpdate, useAssumptions } from '../hooks/useAssumptions.tsx';
+import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 
 export const costReceiptTestIds = {
   container: 'cost-receipt',
@@ -23,6 +24,7 @@ export const costReceiptCopy = {
 
 export function CostReceipt() {
   const { assumptions, setHourlyRate, setMinutesPerPr } = useAssumptions();
+  const { unit } = useDisplayUnit();
   const { costEstimate } = useEmbeddedData();
   const analytics = useAnalytics();
   const observed = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
@@ -50,19 +52,23 @@ export function CostReceipt() {
         min={assumptionFields.minutesPerPr.min}
         max={assumptionFields.minutesPerPr.max}
       />
-      <Operator>×</Operator>
-      <EditableFactor
-        testId={costReceiptTestIds.rate}
-        value={assumptions.hourlyRateUsd}
-        onChange={setHourlyRate}
-        onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
-        ariaLabel={assumptionFields.hourlyRateUsd.label}
-        prefix={assumptionFields.hourlyRateUsd.prefix}
-        suffix={assumptionFields.hourlyRateUsd.suffix}
-        label={costReceiptCopy.rateLabel}
-        min={assumptionFields.hourlyRateUsd.min}
-        max={assumptionFields.hourlyRateUsd.max}
-      />
+      {unit === 'usd' && (
+        <>
+          <Operator>×</Operator>
+          <EditableFactor
+            testId={costReceiptTestIds.rate}
+            value={assumptions.hourlyRateUsd}
+            onChange={setHourlyRate}
+            onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
+            ariaLabel={assumptionFields.hourlyRateUsd.label}
+            prefix={assumptionFields.hourlyRateUsd.prefix}
+            suffix={assumptionFields.hourlyRateUsd.suffix}
+            label={costReceiptCopy.rateLabel}
+            min={assumptionFields.hourlyRateUsd.min}
+            max={assumptionFields.hourlyRateUsd.max}
+          />
+        </>
+      )}
       <Operator>×</Operator>
       <Factor
         testId={costReceiptTestIds.annualize}

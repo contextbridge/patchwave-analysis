@@ -1,7 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Analytics } from '../../telemetry/Analytics.ts';
-import { cveExposureOk, embeddedReportData } from '../testFactories.ts';
+import { FakeAnalytics } from '../../testHelpers/FakeAnalytics.ts';
+import {
+  cveExposureOk,
+  cveExposureScopeMissing,
+  embeddedReportData,
+  people,
+  personActivity,
+  prBacklog,
+} from '../testFactories.ts';
 import { automatedStoryTestIds } from './acts/AutomatedStory.tsx';
 import { callToActionCopy, callToActionTestIds } from './acts/CallToAction.tsx';
 import { costStoryCopy, costStoryTestIds } from './acts/CostStory.tsx';
@@ -11,29 +18,50 @@ import { riskStoryCopy, riskStoryTestIds } from './acts/RiskStory.tsx';
 import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
+import type { DisplayUnit } from './hooks/useDisplayUnit.tsx';
 import { costReceiptCopy, costReceiptTestIds } from './primitives/CostReceipt.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
 import type { EmbeddedReportData } from './types.ts';
 
-describe('App report shell', () => {
-  afterEach(() => {
-    cleanup();
-  });
+afterEach(() => {
+  cleanup();
+});
 
-  it('renders the headline annual cost from the embedded data', () => {
+describe('report header', () => {
+  it('names the org the report covers', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn);
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costTrailer);
-    // The headline clarifies it excludes the open backlog, which lives in its own section.
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(
-      'Does not include the 102 Dependabot PRs that are still open',
-    );
+    expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for acme');
   });
 
-  it('reads as one equation from observed PRs and the assumptions to the headline', () => {
+  it('defaults to hours and hides the hourly-rate factor', () => {
     renderReport();
+
+    expect(screen.getByTestId(appTestIds.unitHours)).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(verdictCopy.costLeadIn('hours'));
+    expect(screen.queryByTestId(costReceiptTestIds.rate)).toBeNull();
+  });
+
+  it('reveals the hourly-rate factor once dollars is selected', () => {
+    renderReport({ unit: 'usd' });
+
+    expect(screen.getByTestId(appTestIds.unitUsd)).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId(costReceiptTestIds.rate)).toBeInTheDocument();
+  });
+
+  it('flips the unit with arrow keys and moves focus to the active radio', () => {
+    renderReport();
+
+    fireEvent.keyDown(screen.getByTestId(appTestIds.unitHours), { key: 'ArrowRight' });
+
+    expect(screen.getByTestId(appTestIds.unitUsd)).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId(appTestIds.unitUsd)).toHaveFocus();
+  });
+});
+
+describe('cost headline', () => {
+  it('reads as one equation from observed PRs through the editable assumptions', () => {
+    renderReport({ unit: 'usd' });
 
     const receipt = screen.getByTestId(costReceiptTestIds.container);
     expect(within(receipt).getByTestId(costReceiptTestIds.observed)).toHaveTextContent('162');
@@ -42,134 +70,211 @@ describe('App report shell', () => {
     expect(within(receipt).getByTestId(costReceiptTestIds.rate)).toHaveValue('200');
     expect(within(receipt).getByTestId(costReceiptTestIds.annualize)).toHaveTextContent('4.06');
     expect(receipt).toHaveTextContent('365 ÷ 90 days');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$26,280/year');
   });
 
-  it('keeps the equation in step with the headline when an assumption changes', () => {
-    renderReport();
-    const receipt = screen.getByTestId(costReceiptTestIds.container);
+  it.each([
+    { unit: 'hours', leadIn: verdictCopy.costLeadIn('hours'), headline: '~131 hrs/year' },
+    { unit: 'usd', leadIn: verdictCopy.costLeadIn('usd'), headline: '~$26,280/year' },
+  ] as const)('frames the headline as $unit', ({ unit, leadIn, headline }) => {
+    renderReport({ unit });
 
-    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.rate), { target: { value: '300' } });
-
-    // $200 -> $300/hr scales the headline to $39,420/year.
-    expect(within(receipt).getByTestId(costReceiptTestIds.rate)).toHaveValue('300');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(`${leadIn} ${verdictCopy.costTrailer}`);
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent(headline);
   });
 
-  it('edits the assumptions in place, with no separate adjust control', () => {
+  it('notes that the headline excludes the open backlog', () => {
     renderReport();
+
+    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(
+      'Does not include the 102 Dependabot PRs that are still open',
+    );
+  });
+
+  it('edits the assumptions inline, with no separate adjust control', () => {
+    renderReport({ unit: 'usd' });
+
     const section = screen.getByTestId(verdictTestIds.section);
     expect(within(section).queryByText(/adjust/i)).toBeNull();
-
-    const receipt = screen.getByTestId(costReceiptTestIds.container);
-    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '24' } });
-
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$52,560/year');
+    expect(within(section).getByTestId(costReceiptTestIds.minutes)).toBeInTheDocument();
+    expect(within(section).getByTestId(costReceiptTestIds.rate)).toBeInTheDocument();
   });
 
-  it('recalculates the headline cost and comparison cards when assumptions change', () => {
-    renderReport();
+  it('ripples a rate change through the headline and every comparison card', () => {
+    renderReport({ unit: 'usd' });
     const receipt = screen.getByTestId(costReceiptTestIds.container);
 
     fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.rate), { target: { value: '300' } });
 
+    expect(within(receipt).getByTestId(costReceiptTestIds.rate)).toHaveValue('300');
     expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
     expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$39,420/yr');
-    // "Today" mirrors the headline; "PatchWave savings" is the recovered cost at the default 65% share.
     expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$39,420/yr');
+    // PatchWave savings is the recovered cost at the default 65% auto-merge share.
     expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$25,623/yr');
   });
 
-  it('allows replacing an assumption value by clearing and typing', () => {
-    renderReport();
+  it.each([
+    { unit: 'hours', headline: '~263 hrs/year' },
+    { unit: 'usd', headline: '~$52,560/year' },
+  ] as const)('recalculates the $unit headline when minutes-per-PR doubles to 24', ({ unit, headline }) => {
+    renderReport({ unit });
     const receipt = screen.getByTestId(costReceiptTestIds.container);
-    const hourlyRateInput = within(receipt).getByTestId(costReceiptTestIds.rate);
 
-    fireEvent.focus(hourlyRateInput);
-    fireEvent.change(hourlyRateInput, { target: { value: '' } });
-    expect(hourlyRateInput).toHaveValue('');
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '24' } });
 
-    fireEvent.change(hourlyRateInput, { target: { value: '275' } });
-    fireEvent.blur(hourlyRateInput);
-
-    expect(hourlyRateInput).toHaveValue('275');
-    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$36,132/year');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent(headline);
   });
 
-  it('recalculates the PatchWave savings card when the auto-merge share changes', () => {
+  it('replaces a rate by clearing the field and typing a new value', () => {
+    renderReport({ unit: 'usd' });
+    const rate = within(screen.getByTestId(costReceiptTestIds.container)).getByTestId(costReceiptTestIds.rate);
+
+    fireEvent.focus(rate);
+    fireEvent.change(rate, { target: { value: '' } });
+    expect(rate).toHaveValue('');
+
+    fireEvent.change(rate, { target: { value: '275' } });
+    fireEvent.blur(rate);
+
+    expect(rate).toHaveValue('275');
+    expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('~$36,132/year');
+  });
+});
+
+describe('cost breakdown', () => {
+  it.each([
+    { unit: 'hours', window: '32 hrs', monthly: '11 hrs/mo', annual: '131 hrs/yr' },
+    { unit: 'usd', window: '$6,480', monthly: '$2,190/mo', annual: '$26,280/yr' },
+  ] as const)('shows the window, monthly, and annual cells in $unit', ({ unit, window: w, monthly, annual }) => {
+    renderReport({ unit });
+
+    expect(screen.getByTestId(costStoryTestIds.windowCost)).toHaveTextContent(w);
+    expect(screen.getByTestId(costStoryTestIds.monthlyCost)).toHaveTextContent(monthly);
+    expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent(annual);
+  });
+
+  it('collapses a person who both merged and reviewed into a single row', () => {
     renderReport();
 
-    // Default 65% share starts in the middle of the modeled range.
+    // getByTestId throws on duplicates, so resolving a single row proves the merge/review collapse.
+    const aliceRow = screen.getByTestId(`${costStoryTestIds.peopleRow}-alice`);
+    expect(aliceRow).toHaveTextContent('90');
+    expect(aliceRow).toHaveTextContent('merged');
+    expect(aliceRow).toHaveTextContent('12');
+    expect(aliceRow).toHaveTextContent('reviewed');
+  });
+
+  it.each([
+    { unit: 'hours', header: 'Time over last 90 days', window: '20 hrs', annual: '83 hrs' },
+    { unit: 'usd', header: 'Cost over last 90 days', window: '$4,080', annual: '$16,547' },
+  ] as const)('labels the people table and values a person in $unit', ({ unit, header, window: w, annual }) => {
+    renderReport({ unit });
+
+    expect(screen.getByTestId(costStoryTestIds.peopleValueHeader)).toHaveTextContent(header);
+
+    const aliceRow = screen.getByTestId(`${costStoryTestIds.peopleRow}-alice`);
+    expect(aliceRow).toHaveTextContent(w);
+    expect(aliceRow).toHaveTextContent(annual);
+  });
+
+  it('limits the people table to the top five with an optional expansion', () => {
+    const mergers = Array.from({ length: 6 }, (_, i) => personActivity.build({ login: `person-${i + 1}` }));
+    renderReport({ people: people.build({ mergers, reviewers: [], commenters: [] }) });
+
+    expect(screen.getByTestId(`${costStoryTestIds.peopleRow}-person-5`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`${costStoryTestIds.peopleRow}-person-6`)).toBeNull();
+
+    fireEvent.click(screen.getByTestId(costStoryTestIds.peopleToggle));
+
+    expect(screen.getByTestId(`${costStoryTestIds.peopleRow}-person-6`)).toBeInTheDocument();
+  });
+
+  it('recomputes a person cost when the minutes-per-PR assumption changes', () => {
+    const reviewers = [personActivity.build({ login: 'carol', count: 10 })];
+    renderReport({ unit: 'usd', people: people.build({ mergers: [], reviewers, commenters: [] }) });
+
+    // 10 reviews x 12 min x $200/hr / 60 = $400 at the defaults.
+    expect(screen.getByTestId(`${costStoryTestIds.peopleRow}-carol`)).toHaveTextContent('$400');
+
+    const receipt = screen.getByTestId(costReceiptTestIds.container);
+    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '10' } });
+
+    // 10 reviews x 10 min x $200/hr / 60 = $333.
+    expect(screen.getByTestId(`${costStoryTestIds.peopleRow}-carol`)).toHaveTextContent('$333');
+  });
+
+  it('falls back to an empty-state note when nobody merged or reviewed by hand', () => {
+    renderReport({ people: people.build({ mergers: [], reviewers: [], commenters: [] }) });
+
+    expect(screen.queryByTestId(costStoryTestIds.peopleTable)).toBeNull();
+    expect(screen.getByTestId(costStoryTestIds.section)).toHaveTextContent(/No human merge or review activity/);
+  });
+});
+
+describe('automation savings', () => {
+  it.each([
+    { unit: 'hours', today: '131 hrs/yr', savings: '85 hrs/yr' },
+    { unit: 'usd', today: '$26,280/yr', savings: '$17,082/yr' },
+  ] as const)('compares today against PatchWave in $unit at the default share', ({ unit, today, savings }) => {
+    renderReport({ unit });
+
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$17,082/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent(today);
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent(savings);
+  });
+
+  it.each([
+    { unit: 'hours', savings: '66 hrs/yr' },
+    { unit: 'usd', savings: '$13,140/yr' },
+  ] as const)('rescales the $unit savings when the auto-merge share drops to 50%', ({ unit, savings }) => {
+    renderReport({ unit });
 
     fireEvent.change(screen.getByTestId(automatedStoryTestIds.shareSlider), { target: { value: '50' } });
 
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('50%');
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$13,140/yr');
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent(savings);
   });
+});
 
-  it('lists footnotes in ascending first-appearance order', () => {
+describe('open PR backlog', () => {
+  it('summarizes the backlog with stats, age buckets, and time-to-merge', () => {
     renderReport();
 
-    fireEvent.click(screen.getByText('How this report was calculated'));
+    const section = screen.getByTestId(openPrAgeStoryTestIds.section);
+    expect(section).toHaveTextContent(openPrAgeStoryCopy.heading);
+    expect(section).toHaveTextContent('102');
+    expect(section).toHaveTextContent('still open');
+    expect(section).toHaveTextContent('74 days');
+    expect(section).toHaveTextContent('average age');
 
-    const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
-    // The solution section leads the report, so its Mohayeji citation is the first footnote.
-    expect(sources).toHaveTextContent('1. Mohayeji et al. 2025');
-    expect(sources).toHaveTextContent('2. VulnCheck, May 2026');
-    expect(sources).toHaveTextContent('3. Anthropic, "Project Glasswing');
-    expect(sources).toHaveTextContent('4. Anthropic, Coordinated Vulnerability Disclosure dashboard');
-    expect(sources).toHaveTextContent('5. Atlassian State of Developer Experience Report 2025.');
+    const breakdown = screen.getByTestId(openPrAgeStoryTestIds.breakdown);
+    expect(breakdown).toHaveTextContent('0–30 days');
+    expect(breakdown).toHaveTextContent('40');
+    expect(breakdown).toHaveTextContent('Time-to-merge in your data: p50 2d, p90 14d');
   });
 
-  it('opens the appendix source note instead of navigating directly when a citation is clicked', () => {
-    renderReport();
-    const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
-    expect(details).toBeTruthy();
-    expect(details).not.toHaveAttribute('open');
+  it('uses neutral copy when there is no open backlog', () => {
+    renderReport({
+      prBacklog: prBacklog.build({ openCount: 0, oldestOpenDays: null, openAvgAgeDays: null, openAgeBuckets: [] }),
+    });
 
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getAllByTestId(footnoteReferenceTestId)[0] as HTMLElement);
-    restore();
-
-    expect(details).toHaveAttribute('open');
-    expect(screen.getByTestId(methodologyAppendixTestIds.sources)).toHaveTextContent('VulnCheck, May 2026');
-    expect(
-      screen.getByRole('link', { name: 'https://www.vulncheck.com/blog/ai-assisted-vulnerability-discovery' }),
-    ).toBeInTheDocument();
+    const section = screen.getByTestId(openPrAgeStoryTestIds.section);
+    expect(section).toHaveTextContent(openPrAgeStoryCopy.emptyHeading);
+    expect(section).not.toHaveTextContent(openPrAgeStoryCopy.heading);
+    expect(section).not.toHaveTextContent('average age');
   });
+});
 
-  it('renders the ok CVE state with severity counts', () => {
+describe('security exposure', () => {
+  it('reports the open alert count with a severity bar and top repos', () => {
     renderReport();
 
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent('7 open security alerts');
     expect(screen.getByTestId(riskStoryTestIds.severityBar)).toBeInTheDocument();
+    expect(screen.getByTestId(riskStoryTestIds.topReposTable)).toBeInTheDocument();
   });
 
-  it('summarizes repos with security alerts disabled and links to the appendix table', () => {
-    renderReport({ cve: cveExposureOk.build({ reposWithSecurityAlertsDisabled: ['acme/a', 'acme/b'] }) });
-
-    const warning = screen.getByTestId(riskStoryTestIds.disabledAlertsWarning);
-    expect(warning).toHaveTextContent(
-      'Did you know: 2 of your 24 repos do not have Dependabot security alerts enabled',
-    );
-
-    const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
-    expect(details).not.toHaveAttribute('open');
-
-    const restore = suppressNavigation();
-    fireEvent.click(within(warning).getByTestId(riskStoryTestIds.disabledAlertsLink));
-    restore();
-
-    // The link opens the collapsed appendix on the Calculation tab, where the repos render as a table.
-    expect(details).toHaveAttribute('open');
-    const table = screen.getByTestId(methodologyAppendixTestIds.disabledAlertsRepos);
-    expect(table).toHaveTextContent('acme/a');
-    expect(table).toHaveTextContent('acme/b');
-  });
-
-  it('limits the top repos by severity table to the top five with an optional expansion', () => {
+  it('limits the top-repos table to five with an optional expansion', () => {
     renderReport({
       cve: cveExposureOk.build({
         topReposBySeverity: Array.from({ length: 6 }, (_, i) => ({
@@ -182,207 +287,218 @@ describe('App report shell', () => {
       }),
     });
 
-    const table = screen.getByTestId(riskStoryTestIds.topReposTable);
-    expect(within(table).getByText('repo-5')).toBeInTheDocument();
-    expect(within(table).queryByText('repo-6')).not.toBeInTheDocument();
+    expect(screen.getByTestId(`${riskStoryTestIds.topReposRow}-acme/repo-5`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`${riskStoryTestIds.topReposRow}-acme/repo-6`)).toBeNull();
 
     fireEvent.click(screen.getByTestId(riskStoryTestIds.topReposToggle));
 
-    expect(within(table).getByText('repo-6')).toBeInTheDocument();
+    expect(screen.getByTestId(`${riskStoryTestIds.topReposRow}-acme/repo-6`)).toBeInTheDocument();
     expect(screen.getByTestId(riskStoryTestIds.topReposToggle)).toHaveTextContent('Show top 5');
   });
 
-  it('renders the scope-missing CVE state', () => {
-    renderReport({
-      cve: {
-        status: 'scope-missing',
-        requiredScope: 'security_events',
-        totalOpenAlerts: 0,
-        bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
-        topReposBySeverity: [],
-        oldestCriticalDays: null,
-        oldestHighDays: null,
-        reposWithSecurityAlertsDisabled: [],
-      },
-    });
+  it('warns about repos with alerts disabled and links into the appendix list', () => {
+    renderReport({ cve: cveExposureOk.build({ reposWithSecurityAlertsDisabled: ['acme/a', 'acme/b'] }) });
+
+    const warning = screen.getByTestId(riskStoryTestIds.disabledAlertsWarning);
+    expect(warning).toHaveTextContent(
+      'Did you know: 2 of your 24 repos do not have Dependabot security alerts enabled',
+    );
+
+    const details = appendixDetails();
+    expect(details).not.toHaveAttribute('open');
+
+    const restore = suppressNavigation();
+    fireEvent.click(within(warning).getByTestId(riskStoryTestIds.disabledAlertsLink));
+    restore();
+
+    expect(details).toHaveAttribute('open');
+    const repos = screen.getByTestId(methodologyAppendixTestIds.disabledAlertsRepos);
+    expect(repos).toHaveTextContent('acme/a');
+    expect(repos).toHaveTextContent('acme/b');
+  });
+
+  it('shows the no-alerts state when nothing is open', () => {
+    renderReport({ cve: cveExposureOk.build({ totalOpenAlerts: 0 }) });
+
+    expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent(riskStoryCopy.noAlertsHeading);
+    expect(screen.queryByTestId(riskStoryTestIds.severityBar)).toBeNull();
+  });
+
+  it('explains how to grant the scope when CVE data could not be read', () => {
+    renderReport({ cve: cveExposureScopeMissing.build() });
 
     expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent(riskStoryCopy.scopeMissingHeading);
     expect(screen.getByTestId(riskStoryTestIds.scopeRefreshCommand)).toHaveTextContent(
       'gh auth refresh -s security_events',
     );
   });
+});
 
-  it('renders the primary sections and CTAs', () => {
+describe('methodology appendix', () => {
+  it('stays collapsed until opened, then exposes the calculation and raw-data tabs', () => {
+    renderReport();
+    expect(appendixDetails()).not.toHaveAttribute('open');
+
+    openAppendix();
+
+    expect(appendixDetails()).toHaveAttribute('open');
+    expect(screen.getByTestId(`${methodologyAppendixTestIds.tab}-calculation`)).toBeInTheDocument();
+    expect(screen.getByTestId(`${methodologyAppendixTestIds.tab}-data`)).toBeInTheDocument();
+  });
+
+  it('lists the cited sources in first-appearance order', () => {
+    renderReport();
+    openAppendix();
+
+    const sources = screen.getByTestId(methodologyAppendixTestIds.sources);
+    expect(sources).toHaveTextContent('1. Mohayeji et al. 2025');
+    expect(sources).toHaveTextContent('2. VulnCheck, May 2026');
+    expect(sources).toHaveTextContent('3. Anthropic, "Project Glasswing');
+    expect(sources).toHaveTextContent('4. Anthropic, Coordinated Vulnerability Disclosure');
+    expect(sources).toHaveTextContent('5. Atlassian State of Developer Experience Report 2025');
+  });
+
+  it('opens the appendix when a citation marker is clicked', () => {
+    renderReport();
+    expect(appendixDetails()).not.toHaveAttribute('open');
+
+    const restore = suppressNavigation();
+    fireEvent.click(screen.getAllByTestId(footnoteReferenceTestId)[0] as HTMLElement);
+    restore();
+
+    expect(appendixDetails()).toHaveAttribute('open');
+  });
+
+  it.each([
+    { unit: 'hours', bob: '49 hrs/yr' },
+    { unit: 'usd', bob: '$9,733/yr' },
+  ] as const)('shows per-person annual figures in $unit on the raw-data tab', ({ unit, bob }) => {
+    renderReport({ unit });
+    openRawDataTab();
+
+    expect(screen.getByTestId(`${methodologyAppendixTestIds.rawDataPerson}-merged-bob`)).toHaveTextContent(bob);
+  });
+
+  it('credits the generators with links to the repo and ContextBridge', () => {
     renderReport();
 
-    expect(screen.getByTestId(appTestIds.header)).toBeInTheDocument();
-    expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for acme');
-    expect(screen.getByTestId(verdictTestIds.section)).not.toHaveTextContent('PatchWave Analysis');
+    expect(screen.getByTestId(methodologyAppendixTestIds.repoLink)).toHaveAttribute(
+      'href',
+      'https://github.com/contextbridge/patchwave-analysis',
+    );
+    expect(screen.getByTestId(methodologyAppendixTestIds.contextbridgeLink)).toHaveAttribute(
+      'href',
+      'https://contextbridge.ai',
+    );
+  });
+});
+
+describe('sections and calls to action', () => {
+  it('renders every primary section', () => {
+    renderReport();
+
+    expect(screen.getByTestId(verdictTestIds.section)).toBeInTheDocument();
+    expect(screen.getByTestId(automatedStoryTestIds.section)).toBeInTheDocument();
     expect(screen.getByTestId(costStoryTestIds.section)).toHaveTextContent(costStoryCopy.heading);
     expect(screen.getByTestId(openPrAgeStoryTestIds.section)).toHaveTextContent(openPrAgeStoryCopy.heading);
     expect(screen.getByTestId(riskStoryTestIds.section)).toHaveTextContent(riskStoryCopy.eyebrow);
     expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent(callToActionCopy.heading);
-    expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveTextContent(verdictCopy.primaryCta);
-    expect(screen.getByTestId(verdictTestIds.primaryCta)).toHaveAttribute('data-variant', 'default');
-    expect(screen.getByTestId(callToActionTestIds.cta)).toHaveTextContent(callToActionCopy.ctaLabel);
-
-    fireEvent.click(screen.getByText('How this report was calculated'));
-    expect(screen.getByTestId(methodologyAppendixTestIds.tabList)).toBeInTheDocument();
-    expect(screen.getByTestId(methodologyAppendixTestIds.sources)).toHaveTextContent('Sources and notes');
-    expect(screen.getByRole('link', { name: 'patchwave-analysis' })).toHaveAttribute(
-      'href',
-      'https://github.com/contextbridge/patchwave-analysis',
-    );
-    expect(screen.getByRole('link', { name: 'ContextBridge' })).toHaveAttribute('href', 'https://contextbridge.ai');
-    expect(screen.getByTestId(methodologyAppendixTestIds.section)).not.toHaveTextContent('patchwave.ai');
+    expect(screen.getByTestId(methodologyAppendixTestIds.section)).toBeInTheDocument();
   });
 
-  it('combines person merge and review rows and labels the cost window', () => {
+  it.each([
+    { name: 'verdict', testId: verdictTestIds.primaryCta, label: verdictCopy.primaryCta },
+    { name: 'automation waitlist', testId: automatedStoryTestIds.waitlistCta, label: callToActionCopy.ctaLabel },
+    { name: 'call to action', testId: callToActionTestIds.cta, label: callToActionCopy.ctaLabel },
+  ])('points the $name CTA at patchwave.ai', ({ testId, label }) => {
     renderReport();
 
-    const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    expect(within(table).getByRole('columnheader', { name: 'Cost over last 90 days' })).toBeInTheDocument();
-    const aliceCells = within(table).getAllByText('alice');
-    expect(aliceCells).toHaveLength(1);
-    // alice merged and reviewed, so her two activity rows collapse into one combined row.
-    const aliceRow = aliceCells[0]?.closest('tr');
-    expect(aliceRow).toHaveTextContent('90');
-    expect(aliceRow).toHaveTextContent('merged');
-    expect(aliceRow).toHaveTextContent('12');
-    expect(aliceRow).toHaveTextContent('reviewed');
-  });
-
-  it('limits the people table to the top five with an optional expansion', () => {
-    renderReport({
-      people: {
-        mergers: Array.from({ length: 6 }, (_, i) => ({
-          login: `person-${i + 1}`,
-          count: 10 - i,
-          windowCostUsd: 100 - i,
-          annualCostUsd: 1000 - i,
-        })),
-        reviewers: [],
-        commenters: [],
-      },
-    });
-
-    const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    expect(within(table).getByText('person-5')).toBeInTheDocument();
-    expect(within(table).queryByText('person-6')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId(costStoryTestIds.peopleToggle));
-
-    expect(within(table).getByText('person-6')).toBeInTheDocument();
-  });
-
-  it('reworks per-person review costs when the minutes-per-PR assumption changes', () => {
-    renderReport({
-      people: {
-        mergers: [],
-        reviewers: [{ login: 'carol', count: 10, windowCostUsd: 0, annualCostUsd: 0 }],
-        commenters: [],
-      },
-    });
-
-    const table = screen.getByTestId(costStoryTestIds.peopleTable);
-    // 10 reviews x 12 min x $200/hr / 60 = $400 in window at the defaults.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$400');
-
-    const receipt = screen.getByTestId(costReceiptTestIds.container);
-    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '10' } });
-
-    // Reviews ride the same minutes-per-PR assumption as merges, so editing it reworks the cost:
-    // 10 reviews x 10 min x $200/hr / 60 = $333.
-    expect(within(table).getByText('carol').closest('tr')).toHaveTextContent('$333');
-  });
-
-  it('reworks the raw-data per-person costs when an assumption changes', () => {
-    renderReport({
-      people: {
-        mergers: [],
-        reviewers: [{ login: 'carol', count: 10, windowCostUsd: 0, annualCostUsd: 0 }],
-        commenters: [],
-      },
-    });
-
-    // The assumptions are editable in the hero card, independent of the appendix tab below.
-    const receipt = screen.getByTestId(costReceiptTestIds.container);
-    fireEvent.change(within(receipt).getByTestId(costReceiptTestIds.minutes), { target: { value: '10' } });
-
-    fireEvent.click(screen.getByText('How this report was calculated'));
-    fireEvent.click(screen.getByRole('tab', { name: 'Raw data' }));
-
-    // 10 reviews x 10 min x $200/hr / 60 = $333 window, annualized to $1,351/yr.
-    const rawData = screen.getByTestId(methodologyAppendixTestIds.rawData);
-    expect(within(rawData).getByText('carol').closest('li')).toHaveTextContent('$1,351/yr');
-  });
-
-  it('renders the open PR age buckets as a separate section with count-only rows', () => {
-    renderReport();
-
-    const section = screen.getByTestId(openPrAgeStoryTestIds.section);
-    const breakdown = screen.getByTestId(openPrAgeStoryTestIds.breakdown);
-    expect(section).toHaveTextContent(openPrAgeStoryCopy.heading);
-    // Headline backlog stats summarize the section before the per-bucket bars.
-    expect(section).toHaveTextContent('102');
-    expect(section).toHaveTextContent('still open');
-    expect(section).toHaveTextContent('74 days');
-    expect(section).toHaveTextContent('average age');
-    expect(breakdown).toHaveTextContent('0–30 days');
-    expect(breakdown).toHaveTextContent('40');
-    expect(breakdown).toHaveTextContent('Time-to-merge in your data: p50 2d, p90 14d');
-    expect(breakdown).not.toHaveTextContent('38 open Dependabot PRs are more than 90 days old');
-    expect(breakdown).not.toHaveTextContent('39%');
-  });
-
-  it('uses neutral open PR copy when there is no backlog', () => {
-    renderReport({
-      prBacklog: {
-        ...embeddedReportData.build().prBacklog,
-        openCount: 0,
-        oldestOpenDays: null,
-        openAvgAgeDays: null,
-        openAgeBuckets: [],
-      },
-    });
-
-    const section = screen.getByTestId(openPrAgeStoryTestIds.section);
-    expect(section).toHaveTextContent(openPrAgeStoryCopy.emptyHeading);
-    expect(section).not.toHaveTextContent(openPrAgeStoryCopy.heading);
-    expect(section).not.toHaveTextContent('Volume is trending up, not down');
-    expect(section).not.toHaveTextContent('average age');
+    const cta = screen.getByTestId(testId);
+    expect(cta).toHaveTextContent(label);
+    expect(cta).toHaveAttribute('href', 'https://patchwave.ai');
   });
 });
 
-function renderReport(overrides: Partial<EmbeddedReportData> = {}) {
+describe('analytics', () => {
+  it.each([
+    { name: 'verdict', testId: verdictTestIds.primaryCta, which: 'verdict_primary' },
+    { name: 'automation waitlist', testId: automatedStoryTestIds.waitlistCta, which: 'automated_story_waitlist' },
+    { name: 'call to action', testId: callToActionTestIds.cta, which: 'call_to_action_primary' },
+  ])('captures cta_clicked for the $name CTA', ({ testId, which }) => {
+    const analytics = new FakeAnalytics();
+    renderWithAnalytics(analytics);
+
+    const restore = suppressNavigation();
+    fireEvent.click(screen.getByTestId(testId));
+    restore();
+
+    expect(analytics.captureCalls).toContainEqual({ event: 'cta_clicked', properties: { which } });
+  });
+
+  it.each([
+    { field: 'hourly_rate', testId: costReceiptTestIds.rate, value: 275 },
+    { field: 'minutes_per_pr', testId: costReceiptTestIds.minutes, value: 24 },
+  ])('captures assumption_changed when $field is committed', ({ field, testId, value }) => {
+    const analytics = new FakeAnalytics();
+    renderWithAnalytics(analytics, { unit: 'usd' });
+
+    const input = screen.getByTestId(testId);
+    fireEvent.change(input, { target: { value: String(value) } });
+    fireEvent.blur(input);
+
+    expect(analytics.captureCalls).toContainEqual({ event: 'assumption_changed', properties: { field, value } });
+  });
+
+  it('captures display_unit_changed only when the unit actually changes', () => {
+    const analytics = new FakeAnalytics();
+    renderWithAnalytics(analytics);
+
+    // Hours is already active, so re-selecting it captures nothing.
+    fireEvent.click(screen.getByTestId(appTestIds.unitHours));
+    expect(analytics.capturedEvents('display_unit_changed')).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId(appTestIds.unitUsd));
+    expect(analytics.captureCalls).toContainEqual({ event: 'display_unit_changed', properties: { unit: 'usd' } });
+  });
+});
+
+function renderReport({ unit = 'hours', ...overrides }: Partial<EmbeddedReportData> & { unit?: DisplayUnit } = {}) {
   render(<App data={{ ...embeddedReportData.build(), ...overrides }} />);
+  if (unit === 'usd') {
+    switchToDollars();
+  }
 }
 
-interface RecordedEvent {
-  event: string;
-  properties?: Record<string, unknown>;
-}
-
-function createFakeAnalytics() {
-  const events: RecordedEvent[] = [];
-  const analytics: Analytics = {
-    identify: () => {},
-    capture: (event, properties) => {
-      events.push({ event, properties });
-    },
-    register: () => {},
-    flush: () => Promise.resolve(),
-    shutdown: () => Promise.resolve(),
-  };
-  return { analytics, events };
-}
-
-function renderWithAnalytics(analytics: Analytics) {
+function renderWithAnalytics(analytics: FakeAnalytics, { unit = 'hours' }: { unit?: DisplayUnit } = {}) {
   render(
     <AnalyticsProvider value={analytics}>
       <App data={embeddedReportData.build()} />
     </AnalyticsProvider>,
   );
+  if (unit === 'usd') {
+    switchToDollars();
+  }
+}
+
+function switchToDollars() {
+  fireEvent.click(screen.getByTestId(appTestIds.unitUsd));
+}
+
+function openAppendix() {
+  fireEvent.click(screen.getByTestId(methodologyAppendixTestIds.summary));
+}
+
+function openRawDataTab() {
+  openAppendix();
+  fireEvent.click(screen.getByTestId(`${methodologyAppendixTestIds.tab}-data`));
+}
+
+function appendixDetails(): HTMLDetailsElement {
+  const details = screen.getByTestId(methodologyAppendixTestIds.section).querySelector('details');
+  if (!details) {
+    throw new Error('appendix <details> not found');
+  }
+  return details;
 }
 
 // Clicking a real <a href> would navigate the test page away. Cancel the default in the capture
@@ -392,45 +508,3 @@ function suppressNavigation(): () => void {
   document.addEventListener('click', handler, true);
   return () => document.removeEventListener('click', handler, true);
 }
-
-describe('App analytics', () => {
-  afterEach(() => {
-    cleanup();
-  });
-
-  it('captures cta_clicked when the verdict primary CTA is clicked', () => {
-    const { analytics, events } = createFakeAnalytics();
-    renderWithAnalytics(analytics);
-
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getByTestId(verdictTestIds.primaryCta));
-    restore();
-
-    expect(events).toContainEqual({ event: 'cta_clicked', properties: { which: 'verdict_primary' } });
-  });
-
-  it('captures cta_clicked when the call-to-action CTA is clicked', () => {
-    const { analytics, events } = createFakeAnalytics();
-    renderWithAnalytics(analytics);
-
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getByTestId(callToActionTestIds.cta));
-    restore();
-
-    expect(events).toContainEqual({ event: 'cta_clicked', properties: { which: 'call_to_action_primary' } });
-  });
-
-  it('captures assumption_changed when an assumption input is committed', () => {
-    const { analytics, events } = createFakeAnalytics();
-    renderWithAnalytics(analytics);
-
-    const input = screen.getByTestId(costReceiptTestIds.rate);
-    fireEvent.change(input, { target: { value: '275' } });
-    fireEvent.blur(input);
-
-    expect(events).toContainEqual({
-      event: 'assumption_changed',
-      properties: { field: 'hourly_rate', value: 275 },
-    });
-  });
-});

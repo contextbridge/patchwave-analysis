@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
+import { fmtHours } from '../format/hours.ts';
 import { fmtUsd } from '../format/money.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
+import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
 
 export const costStoryTestIds = {
@@ -10,6 +12,8 @@ export const costStoryTestIds = {
   monthlyCost: 'cost-story-monthly-cost',
   annualCost: 'cost-story-annual-cost',
   peopleTable: 'cost-story-people-table',
+  peopleValueHeader: 'cost-story-people-value-header',
+  peopleRow: 'cost-story-person',
   peopleToggle: 'cost-story-people-toggle',
 } as const;
 
@@ -23,6 +27,7 @@ export const costStoryCopy = {
 export function CostStory() {
   const data = useEmbeddedData();
   const { assumptions, derived } = useAssumptions();
+  const { unit } = useDisplayUnit();
 
   const { humanMergeCount } = data.costEstimate;
 
@@ -39,25 +44,31 @@ export function CostStory() {
         In the last {data.meta.windowDays} days, your team merged{' '}
         <span className="font-semibold tabular-nums">{humanMergeCount.toLocaleString()}</span> Dependabot PRs by hand.
         Anything a bot auto-merged is left out. At{' '}
-        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR and{' '}
-        <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>, that comes out to:
+        <span className="font-semibold tabular-nums">{assumptions.minutesPerPr}</span> minutes per PR
+        {unit === 'usd' && (
+          <>
+            {' '}
+            and <span className="font-semibold tabular-nums">${assumptions.hourlyRateUsd}/hr</span>
+          </>
+        )}
+        , that comes out to:
       </p>
 
       <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
         <CostCell
           testId={costStoryTestIds.windowCost}
           label={`Last ${data.costEstimate.windowDays} days`}
-          value={fmtUsd(derived.windowCostUsd)}
+          value={unit === 'hours' ? fmtHours(derived.windowHours) : fmtUsd(derived.windowCostUsd)}
         />
         <CostCell
           testId={costStoryTestIds.monthlyCost}
           label="Monthly run rate"
-          value={`${fmtUsd(derived.monthlyCostUsd)}/mo`}
+          value={unit === 'hours' ? `${fmtHours(derived.monthlyHours)}/mo` : `${fmtUsd(derived.monthlyCostUsd)}/mo`}
         />
         <CostCell
           testId={costStoryTestIds.annualCost}
           label="Annualized"
-          value={`${fmtUsd(derived.annualCostUsd)}/yr`}
+          value={unit === 'hours' ? `${fmtHours(derived.annualHours)}/yr` : `${fmtUsd(derived.annualCostUsd)}/yr`}
           emphasize
         />
       </div>
@@ -94,7 +105,8 @@ function CostCell({
 }
 
 function PeopleTable({ windowDays }: { windowDays: number }) {
-  const { assumptions, derived } = useAssumptions();
+  const { derived } = useAssumptions();
+  const { unit } = useDisplayUnit();
   const [expanded, setExpanded] = useState(false);
   const people = combinedPeopleRows(derived.mergers, derived.reviewers);
   const visiblePeople = expanded ? people : people.slice(0, INITIAL_PEOPLE_COUNT);
@@ -119,8 +131,9 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
             <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
-              <th className="px-3 py-2.5 text-right">Time (hrs)</th>
-              <th className="px-3 py-2.5 text-right">Cost over last {windowDays} days</th>
+              <th data-testid={costStoryTestIds.peopleValueHeader} className="px-3 py-2.5 text-right">
+                {unit === 'hours' ? 'Time' : 'Cost'} over last {windowDays} days
+              </th>
               <th className="px-3 py-2.5 text-right">Annualized</th>
             </tr>
           </thead>
@@ -128,17 +141,17 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
             {visiblePeople.map((r) => (
               <PersonRow
                 key={r.login}
+                testId={`${costStoryTestIds.peopleRow}-${r.login}`}
                 login={r.login}
                 mergedCount={r.mergedCount}
                 reviewedCount={r.reviewedCount}
-                windowHours={Math.round(r.windowCostUsd / assumptions.hourlyRateUsd)}
-                windowCostUsd={r.windowCostUsd}
-                annualCostUsd={r.annualCostUsd}
+                windowValue={unit === 'hours' ? fmtHours(r.windowHours) : fmtUsd(r.windowCostUsd)}
+                annualValue={unit === 'hours' ? fmtHours(r.annualHours) : fmtUsd(r.annualCostUsd)}
               />
             ))}
             {hiddenCount > 0 || expanded ? (
               <tr className="border-border border-t">
-                <td colSpan={5} className="px-3 py-2.5 text-center">
+                <td colSpan={4} className="px-3 py-2.5 text-center">
                   <button
                     type="button"
                     data-testid={costStoryTestIds.peopleToggle}
@@ -162,6 +175,8 @@ interface ActivityCost {
   count: number;
   windowCostUsd: number;
   annualCostUsd: number;
+  windowHours: number;
+  annualHours: number;
 }
 
 interface CombinedPersonRow {
@@ -170,6 +185,8 @@ interface CombinedPersonRow {
   reviewedCount: number;
   windowCostUsd: number;
   annualCostUsd: number;
+  windowHours: number;
+  annualHours: number;
 }
 
 function combinedPeopleRows(mergers: readonly ActivityCost[], reviewers: readonly ActivityCost[]): CombinedPersonRow[] {
@@ -181,6 +198,8 @@ function combinedPeopleRows(mergers: readonly ActivityCost[], reviewers: readonl
       reviewedCount: 0,
       windowCostUsd: m.windowCostUsd,
       annualCostUsd: m.annualCostUsd,
+      windowHours: m.windowHours,
+      annualHours: m.annualHours,
     });
   }
   for (const r of reviewers) {
@@ -192,10 +211,14 @@ function combinedPeopleRows(mergers: readonly ActivityCost[], reviewers: readonl
         reviewedCount: 0,
         windowCostUsd: 0,
         annualCostUsd: 0,
+        windowHours: 0,
+        annualHours: 0,
       } satisfies CombinedPersonRow);
     row.reviewedCount += r.count;
     row.windowCostUsd += r.windowCostUsd;
     row.annualCostUsd += r.annualCostUsd;
+    row.windowHours += r.windowHours;
+    row.annualHours += r.annualHours;
     rows.set(r.login, row);
   }
   return [...rows.values()].sort(

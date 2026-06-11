@@ -33,7 +33,7 @@ export const orgOverview = Factory.define<OrgOverview>(() => ({
   reposWithSecurityUpdatesPercentage: 79.2,
 }));
 
-const prBacklog = Factory.define<PrBacklog>(() => ({
+export const prBacklog = Factory.define<PrBacklog>(() => ({
   openCount: 102,
   closedInWindowCount: 14,
   mergedInWindowCount: 273,
@@ -64,6 +64,15 @@ const stalledSignals = Factory.define<StalledSignals>(() => ({
 const COST_WINDOW_DAYS = 90;
 const HUMAN_MERGE_COUNT = 150;
 const HUMAN_REVIEW_COUNT = 12;
+
+// A single merger/reviewer row. The window/annual cost fields are recomputed from `count`
+// by the assumptions hook, so they default to 0 here and only `login`/`count` matter.
+export const personActivity = Factory.define<People['mergers'][number]>(({ sequence }) => ({
+  login: `person-${sequence}`,
+  count: 1,
+  windowCostUsd: 0,
+  annualCostUsd: 0,
+}));
 
 export const people = Factory.define<People>(() => ({
   mergers: derivePersonCosts(

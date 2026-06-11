@@ -11,6 +11,7 @@ export const riskStoryTestIds = {
   scopeRefreshCommand: 'risk-story-scope-refresh-command',
   severityBar: 'risk-story-severity-bar',
   topReposTable: 'risk-story-top-repos-table',
+  topReposRow: 'risk-story-top-repos-row',
   topReposToggle: 'risk-story-top-repos-toggle',
   disabledAlertsWarning: 'risk-story-disabled-alerts-warning',
   disabledAlertsLink: 'risk-story-disabled-alerts-link',
@@ -192,7 +193,10 @@ function RepoSeverityBar({ repo, maxTotal }: { repo: RepoSeverityRow; maxTotal: 
   const total = repoTotal(repo);
   const counts = { critical: repo.critical, high: repo.high, medium: repo.medium, low: repo.low };
   return (
-    <div className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-sm">
+    <div
+      data-testid={`${riskStoryTestIds.topReposRow}-${repo.repo}`}
+      className="grid grid-cols-[minmax(0,10rem)_1fr_2.5rem] items-center gap-3 text-sm"
+    >
       <div className="text-foreground truncate font-mono text-xs" title={repo.repo}>
         {repoShortName(repo.repo)}
       </div>
