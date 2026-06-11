@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
 import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
-import { useFormatAmount } from '../format/amount.ts';
+import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { callToActionCopy } from './CallToAction.tsx';
@@ -11,6 +12,7 @@ export const automatedStoryTestIds = {
   todayCost: 'automated-story-today-cost',
   patchwaveCost: 'automated-story-patchwave-cost',
   delta: 'automated-story-delta',
+  savingsBreakdown: 'automated-story-savings-breakdown',
   shareSlider: 'automated-story-share-slider',
   waitlistCta: 'automated-story-waitlist-cta',
 } as const;
@@ -32,7 +34,10 @@ export function AutomatedStory() {
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const today = { hours: derived.annualHours, usd: derived.annualCostUsd };
-  const savings = { hours: today.hours * (sharePct / 100), usd: Math.round(today.usd * (sharePct / 100)) };
+  const share = sharePct / 100;
+  const autoMerged = part(today, share);
+  const accelerated = part(today, (1 - share) * ASSUMED_REVIEW_SPEEDUP);
+  const savings = { hours: autoMerged.hours + accelerated.hours, usd: autoMerged.usd + accelerated.usd };
 
   return (
     <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
@@ -44,8 +49,8 @@ export function AutomatedStory() {
       </h2>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        PatchWave reviews each update, merges the ones it can clear safely, and sends the rest to a human. Here's how
-        much engineering time your team would get back.
+        PatchWave reviews each update, merges the ones it can clear safely, and sends the rest to a human with its
+        analysis attached. Here's how much engineering time your team would get back.
       </p>
 
       <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-[1fr_auto_1fr]">
@@ -65,6 +70,8 @@ export function AutomatedStory() {
           testId={automatedStoryTestIds.patchwaveCost}
           label="PatchWave savings"
           value={formatAmount(savings, '/yr')}
+          detail={`${formatAmount(autoMerged)} auto-merged + ${formatAmount(accelerated)} accelerated reviews`}
+          detailTestId={automatedStoryTestIds.savingsBreakdown}
           accent
         />
       </div>
@@ -99,6 +106,12 @@ export function AutomatedStory() {
         </div>
       </div>
 
+      <p className="text-muted-foreground mt-5 text-sm leading-relaxed">
+        Savings count two things: the PRs PatchWave merges outright, and half the review time on the rest. It posts its
+        analysis on every PR it hands to a human, which we assume cuts that review time in half. That second part is the
+        accelerated reviews in the breakdown above.
+      </p>
+
       <p className="text-muted-foreground mt-7 text-sm leading-relaxed">
         Most Dependabot PRs arrive with no signal that the upgrade is safe. On actively maintained JavaScript projects,
         43% of security PRs never get merged. Maintainers hold back over compatibility worries, not because the bot is
@@ -123,11 +136,15 @@ function CompareCard({
   label,
   value,
   testId,
+  detail,
+  detailTestId,
   accent = false,
 }: {
   label: string;
   value: string;
   testId: string;
+  detail?: string;
+  detailTestId?: string;
   accent?: boolean;
 }) {
   return (
@@ -139,6 +156,18 @@ function CompareCard({
       >
         {value}
       </div>
+      {detail && (
+        <div data-testid={detailTestId} className="text-muted-foreground mt-2 text-xs">
+          {detail}
+        </div>
+      )}
     </div>
   );
+}
+
+// Round each part here so the savings headline (their sum) always equals the breakdown the
+// card displays. Formatters round again at display time, so summing unrounded parts could
+// render a headline one off from its visible components.
+function part(amount: Amount, rate: number): Amount {
+  return { hours: Math.round(amount.hours * rate), usd: Math.round(amount.usd * rate) };
 }

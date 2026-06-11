@@ -109,8 +109,9 @@ describe('cost headline', () => {
     expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent('$39,420/year');
     expect(screen.getByTestId(costStoryTestIds.annualCost)).toHaveTextContent('$39,420/yr');
     expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent('$39,420/yr');
-    // PatchWave savings is the recovered cost at the default 65% auto-merge share.
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$25,623/yr');
+    // PatchWave savings at the default 65% share: auto-merged ($25,623) plus half the
+    // review time on the remaining 35% ($6,899) = $32,522.
+    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent('$32,522/yr');
   });
 
   it.each([
@@ -213,26 +214,41 @@ describe('cost breakdown', () => {
 
 describe('automation savings', () => {
   it.each([
-    { unit: 'hours', today: '131 hrs/yr', savings: '85 hrs/yr' },
-    { unit: 'usd', today: '$26,280/yr', savings: '$17,082/yr' },
-  ] as const)('compares today against PatchWave in $unit at the default share', ({ unit, today, savings }) => {
-    renderReport({ unit });
+    {
+      unit: 'hours',
+      today: '131 hrs/yr',
+      savings: '108 hrs/yr',
+      breakdown: '85 hrs auto-merged + 23 hrs accelerated reviews',
+    },
+    {
+      unit: 'usd',
+      today: '$26,280/yr',
+      savings: '$21,681/yr',
+      breakdown: '$17,082 auto-merged + $4,599 accelerated reviews',
+    },
+  ] as const)(
+    'compares today against PatchWave in $unit at the default share',
+    ({ unit, today, savings, breakdown }) => {
+      renderReport({ unit });
 
-    expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
-    expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent(today);
-    expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent(savings);
-  });
+      expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('65%');
+      expect(screen.getByTestId(automatedStoryTestIds.todayCost)).toHaveTextContent(today);
+      expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent(savings);
+      expect(screen.getByTestId(automatedStoryTestIds.savingsBreakdown)).toHaveTextContent(breakdown);
+    },
+  );
 
   it.each([
-    { unit: 'hours', savings: '66 hrs/yr' },
-    { unit: 'usd', savings: '$13,140/yr' },
-  ] as const)('rescales the $unit savings when the auto-merge share drops to 50%', ({ unit, savings }) => {
+    { unit: 'hours', savings: '99 hrs/yr', breakdown: '66 hrs auto-merged + 33 hrs accelerated reviews' },
+    { unit: 'usd', savings: '$19,710/yr', breakdown: '$13,140 auto-merged + $6,570 accelerated reviews' },
+  ] as const)('rescales the $unit savings when the auto-merge share drops to 50%', ({ unit, savings, breakdown }) => {
     renderReport({ unit });
 
     fireEvent.change(screen.getByTestId(automatedStoryTestIds.shareSlider), { target: { value: '50' } });
 
     expect(screen.getByTestId(automatedStoryTestIds.delta)).toHaveTextContent('50%');
     expect(screen.getByTestId(automatedStoryTestIds.patchwaveCost)).toHaveTextContent(savings);
+    expect(screen.getByTestId(automatedStoryTestIds.savingsBreakdown)).toHaveTextContent(breakdown);
   });
 });
 
