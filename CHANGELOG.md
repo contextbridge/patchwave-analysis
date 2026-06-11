@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.4.0...v0.5.0) (2026-06-11)
+
+
+### Features
+
+* credit accelerated reviews in the PatchWave savings estimate ([#45](https://github.com/contextbridge/patchwave-analysis/issues/45)) ([328c243](https://github.com/contextbridge/patchwave-analysis/commit/328c243fea4d069ea2b81a1f15364d8dbeb44d8e))
+
 ## [0.4.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.3.0...v0.4.0) (2026-06-11)
 
 
