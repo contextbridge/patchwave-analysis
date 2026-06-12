@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.5.0...v0.6.0) (2026-06-12)
+
+
+### Features
+
+* Filter repos in tui before script runs ([#49](https://github.com/contextbridge/patchwave-analysis/issues/49)) ([d9cc6e1](https://github.com/contextbridge/patchwave-analysis/commit/d9cc6e1625eaa0e776d0bf8955fc3e7900b069dc))
+* report inaccessible CVE data instead of a false "no open alerts" ([#48](https://github.com/contextbridge/patchwave-analysis/issues/48)) ([01adcff](https://github.com/contextbridge/patchwave-analysis/commit/01adcff9d9146930f90b4b556ef1166815b6d449))
+
 ## [0.5.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.4.0...v0.5.0) (2026-06-11)
 
 
