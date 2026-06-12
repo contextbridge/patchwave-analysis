@@ -10,6 +10,15 @@ export interface SelectChoice<T extends string> {
   readonly hint?: string;
 }
 
+export interface MultiSelectOptions<T extends string> {
+  readonly message: string;
+  readonly choices: readonly SelectChoice<T>[];
+  readonly initialValues?: readonly T[];
+  readonly required?: boolean;
+  readonly maxItems?: number;
+  readonly placeholder?: string;
+}
+
 export interface ConfirmOptions {
   readonly message: string;
   readonly defaultValue?: boolean;
@@ -45,6 +54,7 @@ export interface Prompter {
   confirm(opts: ConfirmOptions): ResultAsync<boolean, PromptError>;
   select<T extends string>(opts: SelectOptions<T>): ResultAsync<T, PromptError>;
   text(opts: TextOptions): ResultAsync<string, PromptError>;
+  multiSelect<T extends string>(opts: MultiSelectOptions<T>): ResultAsync<T[], PromptError>;
   spinner(): PromptSpinner;
 }
 
@@ -85,12 +95,13 @@ export class PrompterImpl implements Prompter {
   }
 
   select<T extends string>(opts: SelectOptions<T>): ResultAsync<T, PromptError> {
-    const options = opts.choices.map((c) => {
-      const option: { value: T; label: string; hint?: string } = { value: c.value, label: c.label };
-      if (c.hint !== undefined) option.hint = c.hint;
-      return option;
-    }) as Parameters<typeof clack.select<T>>[0]['options'];
-    return wrap(clack.select<T>({ message: opts.message, initialValue: opts.initialValue, options }));
+    return wrap(
+      clack.select<T>({
+        message: opts.message,
+        initialValue: opts.initialValue,
+        options: toClackOptions(opts.choices) as Parameters<typeof clack.select<T>>[0]['options'],
+      }),
+    );
   }
 
   text(opts: TextOptions): ResultAsync<string, PromptError> {
@@ -104,10 +115,35 @@ export class PrompterImpl implements Prompter {
     );
   }
 
+  multiSelect<T extends string>(opts: MultiSelectOptions<T>): ResultAsync<T[], PromptError> {
+    const options = toClackOptions(opts.choices) as unknown as Parameters<
+      typeof clack.autocompleteMultiselect<T>
+    >[0]['options'];
+
+    return wrap(
+      clack.autocompleteMultiselect<T>({
+        message: opts.message,
+        options,
+        initialValues: [...(opts.initialValues ?? [])],
+        required: opts.required,
+        maxItems: opts.maxItems,
+        placeholder: opts.placeholder,
+      }),
+    );
+  }
+
   spinner(): PromptSpinner {
     const s = clack.spinner();
     return { start: (m) => s.start(m), stop: (m) => s.stop(m), clear: () => s.clear() };
   }
+}
+
+function toClackOptions<T extends string>(choices: readonly SelectChoice<T>[]) {
+  return choices.map((c) => {
+    const option: { value: T; label: string; hint?: string } = { value: c.value, label: c.label };
+    if (c.hint !== undefined) option.hint = c.hint;
+    return option;
+  });
 }
 
 export function formatPromptError(err: PromptError): string {

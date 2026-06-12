@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { toEmbeddedShape } from '../embeddedShape.ts';
 import { cveExposureOk, cveExposureScopeMissing, orgOverview, people, reportBundle } from '../testFactories.ts';
 import { App } from './App.tsx';
+import type { EmbeddedReportData } from './types.ts';
 
 // A representative report, built from the same fishery factories the tests use.
 // Defaults cover most of the page; the overrides here only fill the spots that
@@ -66,6 +67,34 @@ const sampleReport = toEmbeddedShape(
   }),
 );
 
+const scopedReport: EmbeddedReportData = {
+  ...sampleReport,
+  meta: {
+    ...sampleReport.meta,
+    repositoryScope: {
+      mode: 'selected',
+      selectedRepoKeys: Array.from({ length: 12 }, (_, i) => `acme/repo-${i}`),
+      availableActiveRepoCount: 84,
+    },
+  },
+  orgOverview: {
+    ...sampleReport.orgOverview,
+    repoCount: 12,
+    publicCount: 1,
+    privateCount: 11,
+    internalCount: 0,
+    topLanguages: [
+      { language: 'TypeScript', repoCount: 7, percentage: 58.3 },
+      { language: 'Go', repoCount: 3, percentage: 25 },
+      { language: 'Python', repoCount: 2, percentage: 16.7 },
+    ],
+    nodeTsRepoCount: 7,
+    nodeTsRepoPercentage: 58.3,
+    reposWithSecurityUpdates: 10,
+    reposWithSecurityUpdatesPercentage: 83.3,
+  },
+};
+
 const meta = {
   title: 'Report/App',
   component: App,
@@ -92,6 +121,12 @@ export const Dark: Story = {
   },
   parameters: {
     theme: 'dark',
+  },
+};
+
+export const SelectedRepositories: Story = {
+  args: {
+    data: scopedReport,
   },
 };
 

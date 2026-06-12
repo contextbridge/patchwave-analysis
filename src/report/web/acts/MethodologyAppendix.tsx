@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { type Amount, useFormatAmount } from '../format/amount.ts';
+import { reposScannedLabel } from '../format/scope.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
@@ -35,6 +36,8 @@ export function MethodologyAppendix() {
   const pr = data.prBacklog;
   const stalled = data.stalledSignals;
   const cve = data.cve;
+
+  const scannedLabel = reposScannedLabel(data.meta.repositoryScope, org.repoCount);
 
   return (
     <section
@@ -163,7 +166,7 @@ export function MethodologyAppendix() {
                         ['Window', `${data.meta.windowDays} days ending ${data.meta.generatedAt.slice(0, 10)}`],
                         [
                           'Repos scanned',
-                          `${org.repoCount} active (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
+                          `${scannedLabel} (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
                         [

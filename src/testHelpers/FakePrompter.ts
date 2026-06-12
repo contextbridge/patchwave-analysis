@@ -1,6 +1,7 @@
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type {
   ConfirmOptions,
+  MultiSelectOptions,
   PromptError,
   PromptSpinner,
   Prompter,
@@ -8,7 +9,7 @@ import type {
   TextOptions,
 } from '../context/Prompter.ts';
 
-type AnswerKind = 'confirm' | 'select' | 'text';
+type AnswerKind = 'confirm' | 'select' | 'text' | 'multiSelect';
 
 interface ScriptedAnswer<K extends AnswerKind, V> {
   readonly kind: K;
@@ -18,7 +19,8 @@ interface ScriptedAnswer<K extends AnswerKind, V> {
 type ConfirmAnswer = ScriptedAnswer<'confirm', boolean>;
 type SelectAnswer = ScriptedAnswer<'select', string>;
 type TextAnswer = ScriptedAnswer<'text', string>;
-type Answer = ConfirmAnswer | SelectAnswer | TextAnswer;
+type MultiSelectAnswer = ScriptedAnswer<'multiSelect', string[]>;
+type Answer = ConfirmAnswer | SelectAnswer | TextAnswer | MultiSelectAnswer;
 
 interface SpinnerEvent {
   readonly type: 'start' | 'stop' | 'clear';
@@ -35,6 +37,7 @@ export class FakePrompter implements Prompter {
   readonly confirms: ConfirmOptions[] = [];
   readonly selects: SelectOptions<string>[] = [];
   readonly texts: TextOptions[] = [];
+  readonly multiSelects: MultiSelectOptions<string>[] = [];
   readonly spinnerEvents: SpinnerEvent[] = [];
 
   readonly #answers: Answer[] = [];
@@ -51,6 +54,11 @@ export class FakePrompter implements Prompter {
 
   scriptText(value: string | PromptError): this {
     this.#answers.push({ kind: 'text', value });
+    return this;
+  }
+
+  scriptMultiSelect(value: string[] | PromptError): this {
+    this.#answers.push({ kind: 'multiSelect', value });
     return this;
   }
 
@@ -97,6 +105,13 @@ export class FakePrompter implements Prompter {
     const next = this.#shift('text');
     if (isPromptError(next.value)) return errAsync(next.value);
     return okAsync(next.value);
+  }
+
+  multiSelect<T extends string>(opts: MultiSelectOptions<T>): ResultAsync<T[], PromptError> {
+    this.multiSelects.push(opts);
+    const next = this.#shift('multiSelect');
+    if (isPromptError(next.value)) return errAsync(next.value);
+    return okAsync(next.value as T[]);
   }
 
   spinner(): PromptSpinner {

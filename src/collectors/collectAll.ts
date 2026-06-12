@@ -10,7 +10,9 @@ import {
   type CveSlice,
   type DependabotPr,
   type RepoMeta,
-  isActiveRepo,
+  type RepositorySelection,
+  activeReposInSelection,
+  repoKey,
 } from '../types.ts';
 import { getCveAlerts, getOrgCveAlerts } from './cve.ts';
 import { listDependabotPrs } from './dependabotPrs.ts';
@@ -23,30 +25,39 @@ interface CollectInput {
   readonly windowDays: number;
   readonly windowStart: Instant;
   readonly now: Instant;
+  readonly repositorySelection: RepositorySelection;
 }
 
 // Crawls every data slice for the target, tolerating per-slice failures: a failed
 // collector records a `CollectorWarning` and degrades to empty rather than aborting
 // the whole run (see error-handling-neverthrow.md's partial-failure boundary).
 export async function collectAll(ctx: Context, input: CollectInput): Promise<CollectedData> {
-  const { repos, target, targetKind, windowDays, windowStart, now } = input;
+  const { repos, target, targetKind, windowDays, windowStart, now, repositorySelection } = input;
   const { githubClient } = ctx;
   const warnings: CollectorWarning[] = [];
 
-  // `repos` is the raw listing; the CVE crawl scopes to active repos so we don't
-  // spend calls on archived/forked ones. The report keeps the full list and does
-  // its own active/excluded accounting.
-  const cvePromise = collectCve(githubClient, target, targetKind, repos.filter(isActiveRepo), warnings);
-  const prsPromise = collectFallible(
-    listDependabotPrs(ctx, target, targetKind, windowStart.toString(), now.toString()),
-    [] as DependabotPr[],
-    warnings,
-    'dependabotPrs',
-  );
+  const selectedRepos = activeReposInSelection(repos, repositorySelection);
+  const selectedKeys = new Set(selectedRepos.map(repoKey));
+
+  const cvePromise =
+    selectedRepos.length > 0
+      ? collectCve(githubClient, target, targetKind, selectedRepos, warnings)
+      : Promise.resolve([] as CveSlice[]);
+
+  const prsPromise =
+    selectedRepos.length > 0
+      ? collectFallible(
+          listDependabotPrs(ctx, target, targetKind, windowStart.toString(), now.toString()),
+          [] as DependabotPr[],
+          warnings,
+          'dependabotPrs',
+        ).then((prs) => prs.filter((pr) => selectedKeys.has(repoKey(pr))))
+      : Promise.resolve([] as DependabotPr[]);
+
   const [cve, dependabotPrs] = await Promise.all([cvePromise, prsPromise]);
 
   return {
-    ctx: { org: target, windowDays, windowStart, now },
+    ctx: { org: target, windowDays, windowStart, now, repositorySelection },
     repos,
     dependabotPrs,
     cve,

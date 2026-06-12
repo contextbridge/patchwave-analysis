@@ -63,11 +63,37 @@ export type CveSlice = RepoRef &
     | { status: 'not-enabled' }
   );
 
+export type RepositorySelectionMode = 'all' | 'selected';
+
+export interface RepositorySelection {
+  readonly mode: RepositorySelectionMode;
+  readonly selectedRepoKeys: readonly string[];
+  readonly availableActiveRepoCount: number;
+}
+
+export function repoKey(ref: RepoRef): string {
+  return `${ref.owner}/${ref.name}`;
+}
+
+export function allActiveRepositorySelection(repos: readonly RepoMeta[]): RepositorySelection {
+  const keys = repos.filter(isActiveRepo).map(repoKey).sort();
+  return { mode: 'all', selectedRepoKeys: keys, availableActiveRepoCount: keys.length };
+}
+
+export function activeReposInSelection(repos: readonly RepoMeta[], selection: RepositorySelection): RepoMeta[] {
+  if (selection.mode === 'all') {
+    return repos.filter(isActiveRepo);
+  }
+  const selected = new Set(selection.selectedRepoKeys);
+  return repos.filter((r) => isActiveRepo(r) && selected.has(repoKey(r)));
+}
+
 export interface CollectionContext {
   org: string;
   windowDays: number;
   windowStart: Instant;
   now: Instant;
+  repositorySelection: RepositorySelection;
 }
 
 export interface CollectedData {

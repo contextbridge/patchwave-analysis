@@ -61,7 +61,7 @@ The report covers:
 
 ## What it reads from GitHub
 
-Everything comes from `api.github.com` over a fixed 90-day window. For the org and its repos (archived repos and forks are skipped), it reads:
+Everything comes from `api.github.com` over a fixed 90-day window. After choosing a target, PatchWave asks whether to analyze all active repositories or choose a subset. For the selected repos (archived repos and forks are always skipped), it reads:
 
 - The repo list, visibility, and primary-language metadata (plus whether Dependabot security updates are enabled)
 - The open Dependabot PR backlog and PRs resolved in the window — state, timing, reviews, and who merged

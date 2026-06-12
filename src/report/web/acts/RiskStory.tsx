@@ -27,8 +27,9 @@ const INITIAL_REPO_COUNT = 5;
 export const reposWithoutSecurityAlertsId = 'repos-without-security-alerts';
 
 export function RiskStory() {
-  const { cve, orgOverview } = useEmbeddedData();
+  const { cve, orgOverview, meta } = useEmbeddedData();
   const { reveal } = useAssumptionsDisclosure();
+  const isScoped = meta.repositoryScope.mode === 'selected';
 
   if (cve.status === 'scope-missing') {
     return (
@@ -135,7 +136,8 @@ export function RiskStory() {
           <span className="text-foreground font-semibold tabular-nums">
             {cve.reposWithSecurityAlertsDisabled.length}
           </span>{' '}
-          of your <span className="text-foreground font-semibold tabular-nums">{orgOverview.repoCount}</span> repos{' '}
+          of {isScoped ? 'the selected' : 'your'}{' '}
+          <span className="text-foreground font-semibold tabular-nums">{orgOverview.repoCount}</span> repos{' '}
           {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'does' : 'do'} not have Dependabot security alerts
           enabled. New CVEs in {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'that repo' : 'those repos'} will not
           appear in this report.{' '}

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
 import type { CveAlert, CveSeverity, CveSlice, RepoMeta, RepoRef } from '../types.ts';
+import { repoKey } from '../types.ts';
 
 // `security_vulnerability` is null on alerts GitHub can't attribute to a
 // concrete vulnerability (e.g. auto-dismissed); those carry no severity or
@@ -130,8 +131,4 @@ function normalizeSeverity(raw: string): CveSeverity {
   if (v === 'high') return 'high';
   if (v === 'medium' || v === 'moderate') return 'medium';
   return 'low';
-}
-
-function repoKey(ref: RepoRef): string {
-  return `${ref.owner}/${ref.name}`;
 }

@@ -2,6 +2,35 @@ import { Factory } from 'fishery';
 import { instantFromString } from './time.ts';
 import type { CollectedData, CollectionContext, CveAlert, CveSlice, DependabotPr, RepoMeta } from './types.ts';
 
+// Raw GitHub REST API response shape (snake_case) for `GET /orgs/{org}/repos`
+// and `GET /users/{username}/repos`. Used in CLI/integration tests that stub
+// the GitHub client's paginate responses before they are parsed by repos.ts.
+export interface GithubRepoResponse {
+  name: string;
+  node_id: string;
+  owner: { login: string };
+  private: boolean;
+  visibility: string;
+  archived?: boolean;
+  fork?: boolean;
+  default_branch: string;
+  language: string | null;
+  pushed_at: string | null;
+}
+
+export const githubRepoResponse = Factory.define<GithubRepoResponse>(() => ({
+  name: 'widgets',
+  node_id: 'R_kgDOwidgets',
+  owner: { login: 'acme' },
+  private: true,
+  visibility: 'private',
+  archived: false,
+  fork: false,
+  default_branch: 'main',
+  language: 'TypeScript',
+  pushed_at: '2026-04-01T00:00:00Z',
+}));
+
 export const repoMeta = Factory.define<RepoMeta>(() => ({
   owner: 'acme',
   name: 'widgets',
@@ -58,6 +87,7 @@ export const collectionContext = Factory.define<CollectionContext>(() => ({
   windowDays: 90,
   windowStart: instantFromString('2026-02-21T00:00:00Z'),
   now: instantFromString('2026-05-22T00:00:00Z'),
+  repositorySelection: { mode: 'all', selectedRepoKeys: ['acme/widgets'], availableActiveRepoCount: 1 },
 }));
 
 export const collectedData = Factory.define<CollectedData>(() => ({

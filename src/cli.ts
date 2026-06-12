@@ -7,6 +7,7 @@ import type { Context } from './context/index.ts';
 import { formatPromptError } from './context/Prompter.ts';
 import { getErrorMessage } from './errors.ts';
 import { formatGithubError } from './github/errors.ts';
+import { promptForRepositorySelection } from './interactive/repositorySelectionPrompt.ts';
 import { checkTokenScopes } from './interactive/scopeGate.ts';
 import { promptForTarget } from './interactive/targetPrompt.ts';
 import { buildReport } from './report/buildReport.ts';
@@ -85,6 +86,13 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   }
   const { kind: targetKind, repos } = listed.value;
 
+  const selectionResult = await promptForRepositorySelection({ prompter, repos });
+  if (selectionResult.isErr()) {
+    prompter.error(`couldn't read repository selection: ${formatPromptError(selectionResult.error)}`);
+    return failRun(ctx, startedAt, `repository-selection-${selectionResult.error.kind}`);
+  }
+  const repositorySelection = selectionResult.value;
+
   const spinner = prompter.spinner();
   spinner.start(`Scanning ${target} (last ${WINDOW_DAYS} days)...`);
 
@@ -99,6 +107,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     target,
     targetKind,
     repos,
+    repositorySelection,
     windowDays: WINDOW_DAYS,
     analytics: analyticsConfig,
   });
@@ -121,6 +130,8 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     window_days: WINDOW_DAYS,
     repos_total: stats.reposTotal,
     repos_included: stats.reposIncluded,
+    repository_selection_mode: repositorySelection.mode,
+    repos_available_active: repositorySelection.availableActiveRepoCount,
     dependabot_prs: stats.dependabotPrs,
     warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, clock.now()),
