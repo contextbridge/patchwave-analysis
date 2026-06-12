@@ -72,6 +72,11 @@ export function getCveAlerts(client: GithubClient, ref: RepoRef): ResultAsync<Cv
       if (err.kind === 'forbidden' && /alerts are disabled/i.test(err.message)) {
         return okAsync<CveSlice, GithubError>({ owner: ref.owner, name: ref.name, status: 'not-enabled' });
       }
+      // Any other 403 means we can see the repo but lack permission to read its
+      // alerts (the non-admin case). Surface it rather than drop it as a zero.
+      if (err.kind === 'forbidden') {
+        return okAsync<CveSlice, GithubError>({ owner: ref.owner, name: ref.name, status: 'no-access' });
+      }
       return errAsync<CveSlice, GithubError>(err);
     });
 }

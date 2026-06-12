@@ -81,7 +81,11 @@ async function collectCve(
   // determination instead of an empty list.
   const orgResult = await getOrgCveAlerts(client, target, repos);
   if (orgResult.isOk()) return orgResult.value;
-  warnings.push({ collector: 'cve', message: formatGithubError(orgResult.error) });
+  // A 404/403 means we don't run this org; the per-repo fallback marks each repo
+  // `no-access` and the report surfaces that. Only warn on genuine anomalies.
+  if (orgResult.error.kind !== 'not-found' && orgResult.error.kind !== 'forbidden') {
+    warnings.push({ collector: 'cve', message: formatGithubError(orgResult.error) });
+  }
   return perRepo();
 }
 
