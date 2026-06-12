@@ -8,6 +8,7 @@ import {
 } from '../../../testFactories.ts';
 import { instantFromString } from '../../../time.ts';
 import type { CollectedData, CveSlice, DependabotPr, RepoMeta } from '../../../types.ts';
+import { allActiveRepositorySelection } from '../../../types.ts';
 import { aggregate } from '../../aggregate.ts';
 import { toEmbeddedShape } from '../../embeddedShape.ts';
 import type { EmbeddedReportData } from '../types.ts';
@@ -84,7 +85,10 @@ function buildCollectedData(inputs: SampleInputs): CollectedData {
   const closed = Math.round(repoCount * CLOSED_PRS_PER_REPO);
 
   return collectedData.build({
-    ctx: collectionContext.build({ org: inputs.orgName }),
+    ctx: collectionContext.build({
+      org: inputs.orgName,
+      repositorySelection: allActiveRepositorySelection(repos),
+    }),
     repos,
     dependabotPrs: buildPrs(owner, repos, merged, open, closed),
     cve: buildCve(owner, repos),

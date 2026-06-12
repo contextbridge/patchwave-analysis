@@ -1,6 +1,14 @@
 import { classifyBumpType, isDevDependencyBump } from '../heuristics/bumpType.ts';
 import { type Instant, Temporal, instantFromString } from '../time.ts';
-import { type CollectedData, type CveAlert, type CveSeverity, type DependabotPr, isActiveRepo } from '../types.ts';
+import {
+  type CollectedData,
+  type CveAlert,
+  type CveSeverity,
+  type DependabotPr,
+  type RepositorySelection,
+  activeReposInSelection,
+  repoKey,
+} from '../types.ts';
 import { ASSUMED_HOURLY_RATE_USD, ASSUMED_MIN_PER_PR, deriveCostEstimate, derivePersonCosts } from './costFormulas.ts';
 
 export interface ReportBundle {
@@ -17,6 +25,7 @@ export interface ReportMeta {
   org: string;
   windowDays: number;
   generatedAt: Instant;
+  repositoryScope: RepositorySelection;
 }
 
 export interface OrgOverview {
@@ -83,10 +92,13 @@ const DEFAULT_PR_CAP = 5;
 export function aggregate(data: CollectedData): ReportBundle {
   const now = data.ctx.now;
   const windowStart = data.ctx.windowStart;
+  const selection: RepositorySelection = data.ctx.repositorySelection;
+
   const meta: ReportMeta = {
     org: data.ctx.org,
     windowDays: data.ctx.windowDays,
     generatedAt: now,
+    repositoryScope: selection,
   };
 
   const orgOverview = buildOrgOverview(data);
@@ -108,7 +120,7 @@ export function aggregate(data: CollectedData): ReportBundle {
 }
 
 function buildOrgOverview(data: CollectedData): OrgOverview {
-  const repos = data.repos.filter(isActiveRepo);
+  const repos = activeReposInSelection(data.repos, data.ctx.repositorySelection);
   const archivedExcluded = data.repos.filter((r) => r.archived).length;
   const publicCount = repos.filter((r) => r.visibility === 'public').length;
   const privateCount = repos.filter((r) => r.visibility === 'private').length;
@@ -211,7 +223,7 @@ function buildStalledSignals(data: CollectedData): StalledSignals {
   const openByRepo = new Map<string, DependabotPr[]>();
   for (const pr of data.dependabotPrs) {
     if (pr.state !== 'open') continue;
-    const key = `${pr.owner}/${pr.name}`;
+    const key = repoKey(pr);
     const list = openByRepo.get(key) ?? [];
     list.push(pr);
     openByRepo.set(key, list);
@@ -295,14 +307,14 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
   }
 
   const okSlices = data.cve.filter((s) => s.status === 'ok');
-  const disabledRepos = data.cve.filter((s) => s.status === 'not-enabled').map((s) => `${s.owner}/${s.name}`);
+  const disabledRepos = data.cve.filter((s) => s.status === 'not-enabled').map(repoKey);
   const allAlerts: CveAlert[] = okSlices.flatMap((s) => (s.status === 'ok' ? s.alerts : []));
   const bySeverity: Record<CveSeverity, number> = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const a of allAlerts) bySeverity[a.severity] += 1;
 
   const byRepo = new Map<string, Record<CveSeverity, number>>();
   for (const a of allAlerts) {
-    const key = `${a.owner}/${a.name}`;
+    const key = repoKey(a);
     let rec = byRepo.get(key);
     if (!rec) {
       rec = { critical: 0, high: 0, medium: 0, low: 0 };

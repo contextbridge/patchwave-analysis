@@ -18,6 +18,11 @@ export const reportMeta = Factory.define<ReportMeta>(() => ({
   org: 'acme',
   windowDays: 90,
   generatedAt: instantFromString('2026-05-22T00:00:00Z'),
+  repositoryScope: {
+    mode: 'all',
+    selectedRepoKeys: Array.from({ length: 24 }, (_, i) => `acme/repo-${i}`),
+    availableActiveRepoCount: 24,
+  },
 }));
 
 export const orgOverview = Factory.define<OrgOverview>(() => ({

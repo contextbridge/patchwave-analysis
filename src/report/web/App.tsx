@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import type { RepositorySelection } from '../../types.ts';
 import { AutomatedStory } from './acts/AutomatedStory.tsx';
 import { CallToAction } from './acts/CallToAction.tsx';
 import { CostStory } from './acts/CostStory.tsx';
@@ -8,6 +9,7 @@ import { RiskStory } from './acts/RiskStory.tsx';
 import { Verdict } from './acts/Verdict.tsx';
 import { useAnalytics } from './analytics/AnalyticsContext.tsx';
 import { EmbeddedDataProvider } from './data/EmbeddedDataContext.tsx';
+import { scopeLabel } from './format/scope.ts';
 import { AssumptionsProvider } from './hooks/useAssumptions.tsx';
 import { AssumptionsDisclosureProvider } from './hooks/useAssumptionsDisclosure.tsx';
 import { type DisplayUnit, DisplayUnitProvider, useDisplayUnit } from './hooks/useDisplayUnit.tsx';
@@ -35,7 +37,7 @@ export function App({ data }: { data: EmbeddedReportData }) {
         <DisplayUnitProvider>
           <AssumptionsDisclosureProvider>
             <FootnoteProvider>
-              <ReportHeader org={data.meta.org} />
+              <ReportHeader org={data.meta.org} repositoryScope={data.meta.repositoryScope} />
               <main data-testid={appTestIds.main} className="mx-auto max-w-[1024px] px-6 pb-32 pt-12 sm:pt-16">
                 <Verdict />
                 <AutomatedStory />
@@ -53,7 +55,8 @@ export function App({ data }: { data: EmbeddedReportData }) {
   );
 }
 
-function ReportHeader({ org }: { org: string }) {
+function ReportHeader({ org, repositoryScope }: { org: string; repositoryScope: RepositorySelection }) {
+  const label = scopeLabel(repositoryScope);
   return (
     <header
       data-testid={appTestIds.header}
@@ -69,7 +72,7 @@ function ReportHeader({ org }: { org: string }) {
           data-testid={appTestIds.headerContext}
           className="text-muted-foreground truncate text-sm leading-none font-medium"
         >
-          {appCopy.analysisFor} {org}
+          {appCopy.analysisFor} {label || org}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">

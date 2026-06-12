@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test';
 import { main } from './cli.ts';
+import { githubRepoResponse } from './testFactories.ts';
 import { createFakeContext } from './testHelpers/index.ts';
-import type { FakeGithubClient } from './testHelpers/index.ts';
+import type { FakeAnalytics, FakeGithubClient } from './testHelpers/index.ts';
 
 // The Dependabot PR search is the only GraphQL call; resolve it empty so the
 // happy-path tests reach the report without exercising the search internals.
@@ -10,6 +11,15 @@ function stubEmptyPrSearch(githubClient: FakeGithubClient): void {
     search: { issueCount: 0, pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
 }
+
+function expectNoOrgOrRepoNamesInTelemetry(analytics: FakeAnalytics): void {
+  const json = JSON.stringify(analytics.captureCalls);
+  expect(json).not.toContain('acme');
+  expect(json).not.toContain('widgets');
+}
+
+const widgets = githubRepoResponse.build();
+const gadgets = githubRepoResponse.build({ name: 'gadgets', node_id: 'R_kgDOgadgets', language: 'Go' });
 
 test('prints usage and exits 0 when --help is passed', async () => {
   const { ctx, io } = createFakeContext();
@@ -62,19 +72,7 @@ test('rejects more than one positional argument', async () => {
 test('writes a report when the GitHub calls succeed', async () => {
   const { ctx, githubClient, fs, analytics, prompter } = createFakeContext();
 
-  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
-    {
-      name: 'widgets',
-      node_id: 'R_kgDOwidgets',
-      owner: { login: 'acme' },
-      private: true,
-      visibility: 'private',
-      archived: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
-  ]);
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([widgets]);
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   stubEmptyPrSearch(githubClient);
 
@@ -112,39 +110,22 @@ test('writes a report when the GitHub calls succeed', async () => {
     dependabot_prs: 0,
     warnings: 0,
   });
-  // org/repo names must never appear in telemetry payloads
-  expect(JSON.stringify(analytics.captureCalls)).not.toContain('acme');
-  expect(JSON.stringify(analytics.captureCalls)).not.toContain('widgets');
+  expectNoOrgOrRepoNamesInTelemetry(analytics);
 });
 
 test('excludes forked repos from the crawl', async () => {
   const { ctx, githubClient, analytics } = createFakeContext();
 
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
-    {
-      name: 'widgets',
-      node_id: 'R_kgDOwidgets',
-      owner: { login: 'acme' },
-      private: true,
-      visibility: 'private',
-      archived: false,
-      fork: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
-    {
+    widgets,
+    githubRepoResponse.build({
       name: 'upstream-fork',
       node_id: 'R_kgDOfork',
-      owner: { login: 'acme' },
       private: false,
       visibility: 'public',
-      archived: false,
       fork: true,
-      default_branch: 'main',
       language: 'Go',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
+    }),
   ]);
   githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
   stubEmptyPrSearch(githubClient);
@@ -164,18 +145,13 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
   // User-target fallthrough: /orgs/{org}/repos 404s, /users/{username}/repos succeeds.
   githubClient.onPaginate('GET /orgs/{org}/repos', {}).fails({ kind: 'not-found', message: 'no org' });
   githubClient.onPaginate('GET /users/{username}/repos', {}).resolves([
-    {
+    githubRepoResponse.build({
       name: 'solo',
       node_id: 'R_kgDOsolo',
       owner: { login: 'blimmer' },
       private: false,
       visibility: 'public',
-      archived: false,
-      fork: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
+    }),
   ]);
   // Per-repo CVE endpoint — the path kept for user targets.
   githubClient.onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {}).resolves([]);
@@ -192,19 +168,7 @@ test('uses the per-repo CVE endpoint for user targets', async () => {
 test('falls back to the per-repo CVE endpoint when the org-level call fails', async () => {
   const { ctx, githubClient } = createFakeContext();
 
-  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([
-    {
-      name: 'widgets',
-      node_id: 'R_kgDOwidgets',
-      owner: { login: 'acme' },
-      private: true,
-      visibility: 'private',
-      archived: false,
-      default_branch: 'main',
-      language: 'TypeScript',
-      pushed_at: '2026-04-01T00:00:00Z',
-    },
-  ]);
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([widgets]);
   // Org-level endpoint refuses: token can see the org but not its alerts.
   githubClient
     .onPaginate('GET /orgs/{org}/dependabot/alerts', {})
@@ -275,4 +239,72 @@ test('returns failed when the temp output directory cannot be created', async ()
   expect(result).toMatchObject({ kind: 'failed', code: 1 });
   expect(prompter.errors[0]).toContain('temporary output directory');
   expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({ error_kind: 'temp-dir-failed' });
+});
+
+test('with two active repos, selecting one repo yields a report scoped to that repo', async () => {
+  const { ctx, githubClient, fs, analytics, prompter } = createFakeContext();
+
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([widgets, gadgets]);
+  githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
+  stubEmptyPrSearch(githubClient);
+
+  // Start from all selected, then pick only "acme/widgets".
+  prompter.scriptSelect('chooseFromAll');
+  prompter.scriptMultiSelect(['acme/widgets']);
+
+  const result = await main(ctx, ['acme']);
+  expect(result.kind).toBe('completed');
+  if (result.kind !== 'completed') return;
+
+  const written = fs.read(result.run.htmlPath);
+  const match = /<script type="application\/json" id="patchwave-data">([\s\S]*?)<\/script>/.exec(written ?? '');
+  expect(match).not.toBeNull();
+  const embedded = JSON.parse(match?.[1] ?? '') as {
+    meta: { repositoryScope: { mode: string; selectedRepoKeys: string[] } };
+    orgOverview: { repoCount: number };
+  };
+  expect(embedded.meta.repositoryScope.mode).toBe('selected');
+  expect(embedded.meta.repositoryScope.selectedRepoKeys).toHaveLength(1);
+  expect(embedded.orgOverview.repoCount).toBe(1);
+
+  const completed = analytics.capturedEvents('run_completed')[0];
+  expect(completed?.properties).toMatchObject({
+    repository_selection_mode: 'selected',
+    repos_available_active: 2,
+    repos_included: 1,
+  });
+});
+
+test('cancelling repository selection fails before scanning', async () => {
+  const { ctx, githubClient, prompter, analytics } = createFakeContext();
+
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([widgets, gadgets]);
+
+  prompter.scriptSelect({ kind: 'cancelled' });
+
+  const result = await main(ctx, ['acme']);
+  expect(result).toMatchObject({ kind: 'failed', code: 1 });
+
+  // No GraphQL or CVE calls should have been made.
+  expect(githubClient.callsTo('graphql')).toHaveLength(0);
+  expect(analytics.capturedEvents('run_failed')[0]?.properties).toMatchObject({
+    error_kind: 'repository-selection-cancelled',
+  });
+});
+
+test('run_completed analytics includes repository selection counts and no repo names', async () => {
+  const { ctx, githubClient, analytics } = createFakeContext();
+
+  githubClient.onPaginate('GET /orgs/{org}/repos', {}).resolves([widgets]);
+  githubClient.onPaginate('GET /orgs/{org}/dependabot/alerts', {}).resolves([]);
+  stubEmptyPrSearch(githubClient);
+
+  await main(ctx, ['acme']);
+
+  const completed = analytics.capturedEvents('run_completed')[0];
+  expect(completed?.properties).toMatchObject({
+    repository_selection_mode: 'all',
+    repos_available_active: 1,
+  });
+  expectNoOrgOrRepoNamesInTelemetry(analytics);
 });

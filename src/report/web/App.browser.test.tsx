@@ -34,6 +34,21 @@ describe('report header', () => {
     expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for acme');
   });
 
+  it('shows selected-vs-available counts for scoped reports', () => {
+    renderReport({
+      meta: {
+        ...embeddedReportData.build().meta,
+        repositoryScope: {
+          mode: 'selected',
+          availableActiveRepoCount: 84,
+          selectedRepoKeys: Array.from({ length: 12 }, (_, i) => `acme/repo-${i}`),
+        },
+      },
+    });
+
+    expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for 12 of 84 repos');
+  });
+
   it('defaults to hours and hides the hourly-rate factor', () => {
     renderReport();
 
@@ -348,6 +363,27 @@ describe('security exposure', () => {
       'gh auth refresh -s security_events',
     );
   });
+
+  it('uses selected-scope copy in the disabled-alerts warning for scoped reports', () => {
+    const base = embeddedReportData.build();
+    renderReport({
+      cve: cveExposureOk.build({ reposWithSecurityAlertsDisabled: ['acme/a'] }),
+      orgOverview: { ...base.orgOverview, repoCount: 12 },
+      meta: {
+        ...base.meta,
+        repositoryScope: {
+          mode: 'selected',
+          availableActiveRepoCount: 84,
+          selectedRepoKeys: Array.from({ length: 12 }, (_, i) => `acme/repo-${i}`),
+        },
+      },
+    });
+
+    const warning = screen.getByTestId(riskStoryTestIds.disabledAlertsWarning);
+    expect(warning).toHaveTextContent(
+      'Did you know: 1 of the selected 12 repos does not have Dependabot security alerts enabled',
+    );
+  });
 });
 
 describe('methodology appendix', () => {
@@ -406,6 +442,23 @@ describe('methodology appendix', () => {
       'href',
       'https://contextbridge.ai',
     );
+  });
+
+  it('shows selected scope in the raw-data tab for scoped reports', () => {
+    renderReport({
+      meta: {
+        ...embeddedReportData.build().meta,
+        repositoryScope: {
+          mode: 'selected',
+          availableActiveRepoCount: 84,
+          selectedRepoKeys: Array.from({ length: 12 }, (_, i) => `acme/repo-${i}`),
+        },
+      },
+    });
+    openRawDataTab();
+
+    const rawData = screen.getByTestId(methodologyAppendixTestIds.rawData);
+    expect(rawData).toHaveTextContent('12 of 84 active selected');
   });
 });
 

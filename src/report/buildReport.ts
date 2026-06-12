@@ -3,7 +3,7 @@ import { collectAll } from '../collectors/collectAll.ts';
 import type { TargetKind } from '../collectors/repos.ts';
 import type { Context } from '../context/index.ts';
 import type { ReportAnalyticsConfig } from '../telemetry/Analytics.ts';
-import type { RepoMeta } from '../types.ts';
+import type { RepoMeta, RepositorySelection } from '../types.ts';
 import { aggregate } from './aggregate.ts';
 import { type RenderError, renderHtml } from './html.ts';
 
@@ -18,6 +18,7 @@ export interface BuildReportInput {
   readonly target: string;
   readonly targetKind: TargetKind;
   readonly repos: RepoMeta[];
+  readonly repositorySelection: RepositorySelection;
   readonly windowDays: number;
   readonly analytics: ReportAnalyticsConfig;
 }
@@ -31,12 +32,12 @@ export interface BuiltReport {
 // self-contained HTML — the full data pipeline behind a single scan. The caller
 // owns orchestration (telemetry, temp dirs, writing the file).
 export function buildReport(ctx: Context, input: BuildReportInput): ResultAsync<BuiltReport, RenderError> {
-  const { target, targetKind, repos, windowDays, analytics } = input;
+  const { target, targetKind, repos, repositorySelection, windowDays, analytics } = input;
   const now = ctx.clock.now();
   const windowStart = now.subtract({ hours: windowDays * 24 });
 
   return ResultAsync.fromSafePromise(
-    collectAll(ctx, { repos, target, targetKind, windowDays, windowStart, now }),
+    collectAll(ctx, { repos, target, targetKind, windowDays, windowStart, now, repositorySelection }),
   ).andThen((data) => {
     const bundle = aggregate(data);
     const reposIncluded = bundle.orgOverview.repoCount;
