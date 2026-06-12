@@ -84,15 +84,26 @@ test("converts a 403 'Dependabot alerts are disabled' into 'not-enabled'", async
   if (result.isOk()) expect(result.value).toEqual({ owner: 'acme', name: 'widgets', status: 'not-enabled' });
 });
 
-test('propagates an unrelated 403 instead of swallowing it as not-enabled', async () => {
+test("converts a 403 'You are not authorized' into 'no-access'", async () => {
+  const client = new FakeGithubClient();
+  client
+    .onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {})
+    .fails({ kind: 'forbidden', message: 'You are not authorized to perform this operation.' });
+
+  const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
+  expect(result.isOk()).toBe(true);
+  if (result.isOk()) expect(result.value).toEqual({ owner: 'acme', name: 'widgets', status: 'no-access' });
+});
+
+test("converts an admin-rights 403 into 'no-access'", async () => {
   const client = new FakeGithubClient();
   client
     .onPaginate('GET /repos/{owner}/{repo}/dependabot/alerts', {})
     .fails({ kind: 'forbidden', message: 'Must have admin rights to Repository.' });
 
   const result = await getCveAlerts(client, { owner: 'acme', name: 'widgets' });
-  expect(result.isErr()).toBe(true);
-  if (result.isErr()) expect(result.error).toMatchObject({ kind: 'forbidden' });
+  expect(result.isOk()).toBe(true);
+  if (result.isOk()) expect(result.value).toEqual({ owner: 'acme', name: 'widgets', status: 'no-access' });
 });
 
 test('propagates other errors instead of pretending alerts are disabled', async () => {

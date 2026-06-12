@@ -77,7 +77,7 @@ export interface CostEstimate {
 }
 
 export interface CveExposure {
-  status: 'ok' | 'scope-missing';
+  status: 'ok' | 'scope-missing' | 'no-access';
   requiredScope?: string;
   totalOpenAlerts: number;
   bySeverity: Record<CveSeverity, number>;
@@ -307,6 +307,23 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
   }
 
   const okSlices = data.cve.filter((s) => s.status === 'ok');
+  // Nothing readable but at least one repo we could see and were denied → the
+  // whole target is effectively inaccessible (open-source / non-admin scan). We
+  // require a `no-access` slice, not just zero `ok` slices, so a genuinely empty
+  // org (all `ok`, empty alerts) and an empty active-repo list both stay `ok`.
+  const noAccessSlices = data.cve.filter((s) => s.status === 'no-access');
+  if (okSlices.length === 0 && noAccessSlices.length > 0) {
+    return {
+      status: 'no-access',
+      totalOpenAlerts: 0,
+      bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+      topReposBySeverity: [],
+      oldestCriticalDays: null,
+      oldestHighDays: null,
+      reposWithSecurityAlertsDisabled: [],
+    };
+  }
+
   const disabledRepos = data.cve.filter((s) => s.status === 'not-enabled').map(repoKey);
   const allAlerts: CveAlert[] = okSlices.flatMap((s) => (s.status === 'ok' ? s.alerts : []));
   const bySeverity: Record<CveSeverity, number> = { critical: 0, high: 0, medium: 0, low: 0 };

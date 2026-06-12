@@ -114,6 +114,25 @@ test('emits a scope-missing CVE exposure when any slice signals scope-missing', 
   expect(bundle.cve).toMatchObject({ status: 'scope-missing', requiredScope: 'security_events' });
 });
 
+test('emits a no-access CVE exposure when nothing was readable but a repo was denied', () => {
+  const data = collectedData.build({
+    cve: [
+      { owner: 'acme', name: 'widgets', status: 'no-access' },
+      { owner: 'acme', name: 'gizmos', status: 'no-access' },
+    ],
+  });
+  const bundle = aggregate(data);
+  expect(bundle.cve).toMatchObject({ status: 'no-access', totalOpenAlerts: 0 });
+});
+
+test('stays ok (not no-access) when a readable repo has zero alerts', () => {
+  const data = collectedData.build({
+    cve: [cveSliceOk.build({ alerts: [] }), { owner: 'acme', name: 'denied', status: 'no-access' }],
+  });
+  const bundle = aggregate(data);
+  expect(bundle.cve.status).toBe('ok');
+});
+
 test('counts CVE alerts by severity and surfaces oldest critical days', () => {
   const data = collectedData.build({
     ctx: collectionContext.build({ now: instantFromString('2026-05-22T00:00:00Z') }),

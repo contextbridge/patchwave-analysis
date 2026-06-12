@@ -61,6 +61,7 @@ export type CveSlice = RepoRef &
     | { status: 'ok'; alerts: CveAlert[] }
     | { status: 'scope-missing'; requiredScope: string }
     | { status: 'not-enabled' }
+    | { status: 'no-access' }
   );
 
 export type RepositorySelectionMode = 'all' | 'selected';
