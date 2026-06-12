@@ -46,7 +46,7 @@ describe('report header', () => {
       },
     });
 
-    expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for 12 of 84 repos');
+    expect(screen.getByTestId(appTestIds.headerContext)).toHaveTextContent('Analysis for acme (12 of 84 repos)');
   });
 
   it('defaults to hours and hides the hourly-rate factor', () => {

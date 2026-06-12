@@ -72,7 +72,7 @@ function ReportHeader({ org, repositoryScope }: { org: string; repositoryScope: 
           data-testid={appTestIds.headerContext}
           className="text-muted-foreground truncate text-sm leading-none font-medium"
         >
-          {appCopy.analysisFor} {label || org}
+          {appCopy.analysisFor} {label ? `${org} (${label})` : org}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-3">
