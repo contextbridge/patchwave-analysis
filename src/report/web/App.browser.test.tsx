@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest';
 import { FakeAnalytics } from '../../testHelpers/FakeAnalytics.ts';
 import {
+  cveExposureNoAccess,
   cveExposureOk,
   cveExposureScopeMissing,
   embeddedReportData,
@@ -19,6 +20,8 @@ import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
 import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
 import type { DisplayUnit } from './hooks/useDisplayUnit.tsx';
+import { INSTALL_COMMAND } from './lib/installCommand.ts';
+import { commandBlockTestIds } from './primitives/CommandBlock.tsx';
 import { costReceiptCopy, costReceiptTestIds } from './primitives/CostReceipt.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
 import type { EmbeddedReportData } from './types.ts';
@@ -383,6 +386,25 @@ describe('security exposure', () => {
     expect(warning).toHaveTextContent(
       'Did you know: 1 of the selected 12 repos does not have Dependabot security alerts enabled',
     );
+  });
+
+  it('invites the reader to run it themselves when alerts are inaccessible', () => {
+    renderReport({ cve: cveExposureNoAccess.build() });
+
+    expect(screen.getByTestId(riskStoryTestIds.heading)).toHaveTextContent(riskStoryCopy.noAccessHeading);
+    expect(screen.getByTestId(riskStoryTestIds.runCommand)).toHaveTextContent(INSTALL_COMMAND);
+    expect(screen.queryByTestId(riskStoryTestIds.severityBar)).toBeNull();
+  });
+
+  it('confirms the copy after the install command button is clicked', () => {
+    renderReport({ cve: cveExposureNoAccess.build() });
+
+    const copyButton = within(screen.getByTestId(riskStoryTestIds.runCommand)).getByTestId(commandBlockTestIds.copy);
+    expect(copyButton).toHaveTextContent('Copy');
+
+    fireEvent.click(copyButton);
+
+    expect(copyButton).toHaveTextContent('Copied');
   });
 });
 

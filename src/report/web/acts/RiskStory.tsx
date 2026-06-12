@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { repoShortName } from '../format/repo.ts';
 import { useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
+import { INSTALL_COMMAND } from '../lib/installCommand.ts';
 import { Citation } from '../primitives/Citation.tsx';
+import { CommandBlock } from '../primitives/CommandBlock.tsx';
 import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
 
 export const riskStoryTestIds = {
   section: 'risk-story-section',
   heading: 'risk-story-heading',
   scopeRefreshCommand: 'risk-story-scope-refresh-command',
+  runCommand: 'risk-story-run-command',
   severityBar: 'risk-story-severity-bar',
   topReposTable: 'risk-story-top-repos-table',
   topReposRow: 'risk-story-top-repos-row',
@@ -21,6 +24,7 @@ export const riskStoryCopy = {
   eyebrow: 'CVE exposure',
   scopeMissingHeading: 'Not measured this run',
   noAlertsHeading: 'No open security alerts',
+  noAccessHeading: 'See your own CVE exposure',
 } as const;
 
 const INITIAL_REPO_COUNT = 5;
@@ -30,6 +34,28 @@ export function RiskStory() {
   const { cve, orgOverview, meta } = useEmbeddedData();
   const { reveal } = useAssumptionsDisclosure();
   const isScoped = meta.repositoryScope.mode === 'selected';
+
+  if (cve.status === 'no-access') {
+    return (
+      <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
+        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
+          {riskStoryCopy.eyebrow}
+        </div>
+        <h2
+          data-testid={riskStoryTestIds.heading}
+          className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
+        >
+          {riskStoryCopy.noAccessHeading}
+        </h2>
+        <p className="text-foreground mt-5 leading-relaxed">
+          Reading Dependabot security alerts needs admin access to <code>{meta.org}</code>'s repositories, and the token
+          used to run the analysis doesn't have it. Run PatchWave against an org you administer and you'll see your open
+          alerts here, ranked by severity and by how long they've sat unpatched.
+        </p>
+        <CommandBlock command={INSTALL_COMMAND} label="the install command" testId={riskStoryTestIds.runCommand} />
+      </section>
+    );
+  }
 
   if (cve.status === 'scope-missing') {
     return (
@@ -48,12 +74,11 @@ export function RiskStory() {
           <code className="bg-muted rounded px-1.5 py-0.5 font-mono text-sm">{cve.requiredScope}</code> OAuth scope,
           which the current token does not have. To include CVE metrics in the next run:
         </p>
-        <pre
-          data-testid={riskStoryTestIds.scopeRefreshCommand}
-          className="bg-foreground text-background mt-4 overflow-x-auto rounded-md px-4 py-3 font-mono text-sm"
-        >
-          <code>gh auth refresh -s {cve.requiredScope}</code>
-        </pre>
+        <CommandBlock
+          command={`gh auth refresh -s ${cve.requiredScope}`}
+          label="the refresh command"
+          testId={riskStoryTestIds.scopeRefreshCommand}
+        />
       </section>
     );
   }

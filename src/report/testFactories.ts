@@ -132,6 +132,16 @@ export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
   reposWithSecurityAlertsDisabled: [],
 }));
 
+export const cveExposureNoAccess = Factory.define<CveExposure>(() => ({
+  status: 'no-access',
+  totalOpenAlerts: 0,
+  bySeverity: { critical: 0, high: 0, medium: 0, low: 0 },
+  topReposBySeverity: [],
+  oldestCriticalDays: null,
+  oldestHighDays: null,
+  reposWithSecurityAlertsDisabled: [],
+}));
+
 export const reportBundle = Factory.define<ReportBundle>(() => ({
   meta: reportMeta.build(),
   orgOverview: orgOverview.build(),
