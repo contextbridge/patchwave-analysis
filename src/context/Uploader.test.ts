@@ -96,6 +96,79 @@ describe('UploaderImpl', () => {
     });
   });
 
+  test('S3 PUT XML error → parses s3Code and requestId', async () => {
+    const xml =
+      '<?xml version="1.0" encoding="UTF-8"?><Error><Code>AccessDenied</Code>' +
+      '<Message>Access Denied</Message><RequestId>ABC123XYZ</RequestId>' +
+      '<HostId>hostid==</HostId></Error>';
+    const { fetch } = recordFetch([presignResponse(), new Response(xml, { status: 403 })]);
+    const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch }).upload(uploadInput.build());
+
+    expect(result.isErr()).toBe(true);
+    const err = result._unsafeUnwrapErr();
+    expect(err).toMatchObject({ kind: 's3-bad-status', status: 403, s3Code: 'AccessDenied', requestId: 'ABC123XYZ' });
+  });
+
+  test('retries a transient S3 5xx, then succeeds', async () => {
+    const { fetch, calls } = recordFetch([
+      presignResponse(),
+      new Response('<Error><Code>SlowDown</Code></Error>', { status: 503 }),
+      new Response('', { status: 200 }),
+    ]);
+    const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch, retryMinTimeoutMs: 0 }).upload(
+      uploadInput.build(),
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(calls.length).toBe(3); // presign + 2 PUT attempts
+  });
+
+  test('retries a network failure during PUT, then succeeds', async () => {
+    const responses = [presignResponse(), 'throw' as const, new Response('', { status: 200 })];
+    let calls = 0;
+    const fetchFn: FetchFn = () => {
+      const next = responses[calls++];
+      if (next === 'throw') return Promise.reject(new Error('econnreset'));
+      return Promise.resolve(next as Response);
+    };
+    const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch: fetchFn, retryMinTimeoutMs: 0 }).upload(
+      uploadInput.build(),
+    );
+
+    expect(result.isOk()).toBe(true);
+    expect(calls).toBe(3); // presign + failed PUT + retried PUT
+  });
+
+  test('does not retry a non-transient 403 from S3', async () => {
+    const { fetch, calls } = recordFetch([presignResponse(), new Response('access denied', { status: 403 })]);
+    const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch, retryMinTimeoutMs: 0 }).upload(
+      uploadInput.build(),
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().kind).toBe('s3-bad-status');
+    expect(calls.length).toBe(2); // presign + single PUT, no retry
+  });
+
+  test('exhausts attempts on a persistent transient failure', async () => {
+    const { fetch, calls } = recordFetch([
+      presignResponse(),
+      new Response('<Error><Code>InternalError</Code></Error>', { status: 500 }),
+      new Response('<Error><Code>InternalError</Code></Error>', { status: 500 }),
+    ]);
+    const result = await new UploaderImpl({
+      endpoint: ENDPOINT,
+      fetch,
+      maxAttempts: 2,
+      retryMinTimeoutMs: 0,
+    }).upload(uploadInput.build());
+
+    expect(result.isErr()).toBe(true);
+    const err = result._unsafeUnwrapErr();
+    expect(err).toMatchObject({ kind: 's3-bad-status', status: 500, s3Code: 'InternalError' });
+    expect(calls.length).toBe(3); // presign + 2 PUT attempts
+  });
+
   test('network failure during presign → presign-request-failed', async () => {
     const fetchFn: FetchFn = () => Promise.reject(new Error('econnreset'));
     const result = await new UploaderImpl({ endpoint: ENDPOINT, fetch: fetchFn }).upload(uploadInput.build());

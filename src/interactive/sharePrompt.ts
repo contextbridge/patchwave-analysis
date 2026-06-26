@@ -1,6 +1,6 @@
 import type { Context } from '../context/index.ts';
 import { type Prompter, formatPromptError } from '../context/Prompter.ts';
-import { formatUploadError } from '../context/Uploader.ts';
+import { formatUploadError, uploadErrorTelemetry } from '../context/Uploader.ts';
 
 const SUPPORT_LINE = 'Reach us at founders@contextbridge.ai — or learn more at https://patchwave.ai';
 
@@ -41,7 +41,7 @@ export function showLocalReportReadyNotice(inputs: ReportReadyNoticeInputs): voi
 }
 
 export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOutcome> {
-  const { prompter, analytics, uploader } = inputs.context;
+  const { prompter, analytics, uploader, logger } = inputs.context;
 
   prompter.note([`Scanned:      ${inputs.target}`, `HTML report:  ${inputs.htmlPath}`].join('\n'), 'Report ready');
 
@@ -92,7 +92,8 @@ export async function runSharePrompt(inputs: SharePromptInputs): Promise<ShareOu
   if (uploadResult.isErr()) {
     const message = formatUploadError(uploadResult.error);
     spinner.stop('Upload failed.');
-    analytics.capture('upload_failed', { error_kind: uploadResult.error.kind });
+    analytics.capture('upload_failed', uploadErrorTelemetry(uploadResult.error));
+    logger.warn({ err: uploadResult.error }, 'Analysis upload failed');
     prompter.error(message);
     prompter.note(
       [`Your local report is unchanged:`, `  ${inputs.htmlPath}`, '', SUPPORT_LINE].join('\n'),
