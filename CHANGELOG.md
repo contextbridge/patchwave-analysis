@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.6.0...v0.7.0) (2026-06-26)
+
+
+### Features
+
+* retry transient S3 upload failures with richer telemetry ([#51](https://github.com/contextbridge/patchwave-analysis/issues/51)) ([02f4b9f](https://github.com/contextbridge/patchwave-analysis/commit/02f4b9f9eb03dc7a44efaca9a087718b0843f79b))
+
 ## [0.6.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.5.0...v0.6.0) (2026-06-12)
 
 
