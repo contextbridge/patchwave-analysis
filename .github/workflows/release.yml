@@ -65,3 +65,49 @@ jobs:
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-checksums: dist-release/checksums.txt
+
+  # A failed release (e.g. an expired Apple notarization agreement) otherwise stays silent
+  # until someone hits the stale installer. Post to #bot-patchwave via the shared prod SNS
+  # topic + Chatbot instead. Runs on any failure in the pipeline, including the test gate.
+  notify-failure:
+    name: Notify Slack on failure
+    needs: [test, release]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      id-token: write # OIDC: assume the release role to publish the Slack alert
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@d979d5b3a71173a29b74b5b88418bfda9437d885 # v6.1.1
+        with:
+          role-to-assume: ${{ secrets.RELEASE_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Post failure to #bot-patchwave
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+
+          # The topic name is stable (SlackNotificationTarget: cb-notifications-<channel>); derive
+          # the account from the assumed role so no account id is hard-coded in the workflow.
+          account="$(aws sts get-caller-identity --query Account --output text)"
+          topic_arn="arn:aws:sns:us-west-2:${account}:cb-notifications-bot-patchwave"
+
+          message="$(jq -nc \
+            --arg tag "$TAG" \
+            --arg url "$RUN_URL" \
+            '{
+              version: "1.0",
+              source: "custom",
+              content: {
+                textType: "client-markdown",
+                title: (":rotating_light: patchwave-analysis release \($tag) failed"),
+                description: ("The release workflow failed. <\($url)|View the failed run>, fix the cause, then re-run it.")
+              }
+            }')"
+
+          aws sns publish --region us-west-2 --topic-arn "$topic_arn" --message "$message"
