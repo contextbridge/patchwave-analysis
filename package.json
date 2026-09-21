@@ -57,7 +57,7 @@
     "@octokit/types": "^16.0.0",
     "@storybook/react-vite": "^10.2.14",
     "@tailwindcss/vite": "^4.3.0",
-    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@types/bun": "latest",
     "@types/react": "^19",
