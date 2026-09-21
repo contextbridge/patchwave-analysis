@@ -1,0 +1,29 @@
+# Groups minor/patch updates, isolates major versions, and lets security updates through immediately.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: '@types/bun'
+    groups:
+      bun-minor-patch:
+        update-types:
+          - minor
+          - patch
