@@ -226,7 +226,7 @@ describe('cost breakdown', () => {
     renderReport({ people: people.build({ mergers: [], reviewers: [], commenters: [] }) });
 
     expect(screen.queryByTestId(costStoryTestIds.peopleTable)).toBeNull();
-    expect(screen.getByTestId(costStoryTestIds.section)).toHaveTextContent(/No human merge or review activity/);
+    expect(screen.getByTestId(costStoryTestIds.section)).toHaveTextContent('No human merge or review activity');
   });
 });
 
