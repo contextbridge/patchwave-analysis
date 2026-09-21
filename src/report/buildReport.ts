@@ -53,16 +53,14 @@ export function buildReport(ctx: Context, input: BuildReportInput): ResultAsync<
         `${data.errors.length} per-repo warnings were suppressed during crawl`,
       );
     }
-    return renderHtml(bundle, analytics).map(
-      (report): BuiltReport => ({
-        report,
-        stats: {
-          reposTotal: repos.length,
-          reposIncluded,
-          dependabotPrs: data.dependabotPrs.length,
-          warnings: data.errors.length,
-        },
-      }),
-    );
+    return renderHtml(bundle, analytics).map((report): BuiltReport => ({
+      report,
+      stats: {
+        reposTotal: repos.length,
+        reposIncluded,
+        dependabotPrs: data.dependabotPrs.length,
+        warnings: data.errors.length,
+      },
+    }));
   });
 }
