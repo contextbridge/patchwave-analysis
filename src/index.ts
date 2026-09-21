@@ -7,10 +7,8 @@ import { createContext } from './context/index.ts';
 import { IoImpl } from './context/IoImpl.ts';
 import { createLogger } from './context/Logger.ts';
 import { PrompterImpl } from './context/Prompter.ts';
-import { UploaderImpl } from './context/Uploader.ts';
 import { welcomeBannerBody, welcomeBannerTitle } from './interactive/banner.ts';
 import { openReport } from './interactive/openReport.ts';
-import { runSharePrompt, shouldRequestReportShare, showLocalReportReadyNotice } from './interactive/sharePrompt.ts';
 import { formatInteractiveTokenError, interactiveResolveToken } from './interactive/tokenWalkthrough.ts';
 import { enforceTty } from './interactive/ttyGate.ts';
 import { type Analytics, NoopAnalytics } from './telemetry/Analytics.ts';
@@ -94,7 +92,6 @@ const ctx = createContext({
   logger,
   analytics,
   prompter,
-  uploader: new UploaderImpl(),
   anonymousId,
   telemetryDisabled,
 });
@@ -104,20 +101,6 @@ try {
 
   if (result.kind === 'completed') {
     await openReport({ context: ctx, htmlPath: result.run.htmlPath });
-    if (shouldRequestReportShare(ctx)) {
-      await runSharePrompt({
-        context: ctx,
-        target: result.run.target,
-        htmlPath: result.run.htmlPath,
-        htmlContent: result.run.html,
-      });
-    } else {
-      showLocalReportReadyNotice({
-        context: ctx,
-        target: result.run.target,
-        htmlPath: result.run.htmlPath,
-      });
-    }
   }
 
   await shutdown();

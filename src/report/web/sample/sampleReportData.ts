@@ -43,7 +43,7 @@ export function resolveRepoCount(inputs: SampleInputs): number {
 // Fixed window ending on a pinned instant — no Date/random — so output is deterministic
 // for a given input (stable Chromatic snapshots).
 const SAMPLE_NOW = instantFromString('2026-05-22T00:00:00Z');
-const MAX_REPOS = 6000; // guardrail so a huge value can't hang the browser
+const MAX_REPOS = 6000; // Cap the sample size so a huge value can't hang the browser.
 
 const REPOS_PER_ENGINEER_SEED = 6;
 const MERGED_PRS_PER_REPO = 2.5; // human merges/repo/quarter — the cost driver
