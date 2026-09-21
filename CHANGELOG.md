@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.7.0...v0.7.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* replace report sharing with marketing CTAs ([#62](https://github.com/contextbridge/patchwave-analysis/issues/62)) ([3c37b5b](https://github.com/contextbridge/patchwave-analysis/commit/3c37b5b3a6f2cd5b672e7c5f0546d26e61527b7e))
+
 ## [0.7.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.6.0...v0.7.0) (2026-06-26)
 
 
