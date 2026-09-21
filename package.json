@@ -53,7 +53,7 @@
     "@graphql-codegen/typescript-operations": "^6.0.3",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@octokit/graphql-schema": "^15.26.1",
-    "@octokit/plugin-paginate-rest": "^14.0.0",
+    "@octokit/plugin-paginate-rest": "^15.0.0",
     "@octokit/types": "^16.0.0",
     "@storybook/react-vite": "^10.2.14",
     "@tailwindcss/vite": "^4.3.0",
