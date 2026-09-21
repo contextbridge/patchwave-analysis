@@ -1,6 +1,6 @@
 # [PatchWave](https://patchwave.ai) Analysis
 
-PatchWave Analysis is a free diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It reads from the GitHub API and writes a self-contained HTML report you can use on its own, no PatchWave account needed.
+PatchWave Analysis is a diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It reads from the GitHub API and writes a self-contained HTML report you can use on its own, no PatchWave account needed.
 
 ## Run it
 
@@ -77,7 +77,7 @@ The report is one self-contained file with every metric baked in. It carries no 
 
 ## Telemetry & privacy
 
-We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. We also do not ask if you want to share the report with us if you opt out of telemetry.
+We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. The generated report stays on your machine.
 
 To disable telemetry, set any of these in your environment:
 

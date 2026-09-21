@@ -9,7 +9,6 @@ import { FakeFileSystem } from './FakeFileSystem.ts';
 import { FakeGithubClient } from './FakeGithubClient.ts';
 import { FakeIo, type FakeIoOptions } from './FakeIo.ts';
 import { FakePrompter } from './FakePrompter.ts';
-import { FakeUploader } from './FakeUploader.ts';
 
 export interface FakeContextHandle {
   readonly ctx: Context;
@@ -20,7 +19,6 @@ export interface FakeContextHandle {
   readonly githubClient: FakeGithubClient;
   readonly analytics: FakeAnalytics;
   readonly prompter: FakePrompter;
-  readonly uploader: FakeUploader;
   readonly browserOpener: FakeBrowserOpener;
 }
 
@@ -43,7 +41,6 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
   const githubClient = new FakeGithubClient();
   const analytics = new FakeAnalytics();
   const prompter = new FakePrompter();
-  const uploader = new FakeUploader();
   const browserOpener = new FakeBrowserOpener();
 
   // Route fake logger output to FakeIo.stderr (raw pino JSON, no pino-pretty) so
@@ -59,7 +56,6 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
     githubClient,
     analytics,
     prompter,
-    uploader,
     browserOpener,
     appVersion: '0.0.0-test',
     anonymousId: 'fake-anon-id',
@@ -76,7 +72,6 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
     githubClient: ctx.githubClient instanceof FakeGithubClient ? ctx.githubClient : githubClient,
     analytics: ctx.analytics instanceof FakeAnalytics ? ctx.analytics : analytics,
     prompter: ctx.prompter instanceof FakePrompter ? ctx.prompter : prompter,
-    uploader: ctx.uploader instanceof FakeUploader ? ctx.uploader : uploader,
     browserOpener: ctx.browserOpener instanceof FakeBrowserOpener ? ctx.browserOpener : browserOpener,
   };
 }

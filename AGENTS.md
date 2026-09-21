@@ -4,7 +4,7 @@
 
 A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It runs in the user's environment, crawls `api.github.com`, and writes a self-contained HTML report to a temporary directory. No data leaves the user's network unless they choose to share the generated report.
 
-The single entrypoint is `patchwave-analysis [<org-or-user>]` — an interactive session that prompts for the target if omitted, then whether to share the report when the scan finishes. There are no other flags; the time window (90 days) is fixed.
+The single entrypoint is `patchwave-analysis [<org-or-user>]` — an interactive session that prompts for the target if omitted, then opens the generated report when the scan finishes. There are no other flags; the time window (90 days) is fixed.
 
 ## Stack
 
@@ -24,7 +24,6 @@ patchwave-analysis/
 │   ├── interactive/       Clack prompts: token walkthrough, share/open, banner, TTY gate
 │   ├── prompt/            Prompter abstraction over @clack/prompts
 │   ├── report/            report aggregation + `report/web/` React UI
-│   ├── upload/            artifact sharing
 │   ├── testHelpers/       shared test utilities
 │   ├── context.ts         CliContext DI root (see Conventions)
 │   ├── cli.ts             arg parsing + main()

@@ -82,7 +82,6 @@ test('writes a report when the GitHub calls succeed', async () => {
   expect(result.code).toBe(0);
 
   // Output lands in a temp dir, not the CWD; locate it via the returned paths.
-  expect(result.run.target).toBe('acme');
   expect(result.run.htmlPath.endsWith('patchwave-report.html')).toBe(true);
 
   const written = fs.read(result.run.htmlPath);
@@ -93,9 +92,6 @@ test('writes a report when the GitHub calls succeed', async () => {
   const embedded = JSON.parse(match?.[1] ?? '') as { meta: { org: string } };
   expect(embedded.meta.org).toBe('acme');
 
-  // The completed run hands the html back so the caller (index.ts) can drive
-  // the share prompt without re-reading the filesystem.
-  expect(result.run.html).toContain('<html');
   expect(prompter.spinnerEvents).toContainEqual({ type: 'stop', message: 'Scanned acme.' });
 
   expect(analytics.capturedEvents('run_started')[0]?.properties).toMatchObject({

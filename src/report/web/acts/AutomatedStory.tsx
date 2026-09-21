@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button.tsx';
 import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { Citation } from '../primitives/Citation.tsx';
+import { reportCtaUrls } from '../reportCtaUrls.ts';
 import { callToActionCopy } from './CallToAction.tsx';
 
 export const automatedStoryTestIds = {
@@ -14,7 +15,7 @@ export const automatedStoryTestIds = {
   delta: 'automated-story-delta',
   savingsBreakdown: 'automated-story-savings-breakdown',
   shareSlider: 'automated-story-share-slider',
-  waitlistCta: 'automated-story-waitlist-cta',
+  primaryCta: 'automated-story-primary-cta',
 } as const;
 
 const SHARE_MIN = 50;
@@ -109,9 +110,9 @@ export function AutomatedStory() {
 
       <Button asChild className="mt-6 no-print">
         <a
-          data-testid={automatedStoryTestIds.waitlistCta}
-          href="https://patchwave.ai"
-          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_waitlist' })}
+          data-testid={automatedStoryTestIds.primaryCta}
+          href={reportCtaUrls.automation}
+          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_primary' })}
         >
           {callToActionCopy.ctaLabel}
         </a>

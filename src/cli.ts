@@ -26,9 +26,7 @@ export interface CliOptions {
 }
 
 export interface CompletedRun {
-  readonly target: string;
   readonly htmlPath: string;
-  readonly html: string;
 }
 
 export type MainResult =
@@ -136,7 +134,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
     warnings: stats.warnings,
     duration_ms: elapsedMs(startedAt, clock.now()),
   });
-  return { kind: 'completed', code: 0, run: { target, htmlPath, html: report } };
+  return { kind: 'completed', code: 0, run: { htmlPath } };
 }
 
 export type ParseCliResult = { kind: 'ok'; value: CliOptions } | { kind: 'err'; message: string };

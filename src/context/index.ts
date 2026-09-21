@@ -14,8 +14,6 @@ import { IoImpl } from './IoImpl.ts';
 import { type Logger, createLogger } from './Logger.ts';
 import type { Prompter } from './Prompter.ts';
 import { PrompterImpl } from './Prompter.ts';
-import type { Uploader } from './Uploader.ts';
-import { UploaderImpl } from './Uploader.ts';
 
 export interface Context {
   readonly io: Io;
@@ -26,7 +24,6 @@ export interface Context {
   readonly githubClient: GithubClient;
   readonly analytics: Analytics;
   readonly prompter: Prompter;
-  readonly uploader: Uploader;
   readonly browserOpener: BrowserOpener;
   readonly appVersion: string;
   // Anonymous telemetry id of this machine ('' when telemetry is disabled). Embedded into the
@@ -51,7 +48,6 @@ export function createContext(options: CreateContextOptions = {}): Context {
     githubClient = new GithubClientImpl({ token, logger }),
     analytics = new NoopAnalytics(),
     prompter = new PrompterImpl(),
-    uploader = new UploaderImpl(),
     browserOpener = new BrowserOpenerImpl(),
     anonymousId = '',
     telemetryDisabled = isTelemetryDisabled(env),
@@ -66,7 +62,6 @@ export function createContext(options: CreateContextOptions = {}): Context {
     githubClient,
     analytics,
     prompter,
-    uploader,
     browserOpener,
     appVersion,
     anonymousId,

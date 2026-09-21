@@ -1,23 +1,5 @@
 import { Factory } from 'fishery';
 import type { AuthError } from '../github/auth.ts';
-import type { FakeContextHandle } from '../testHelpers/index.ts';
-import { fakeContextHandle } from '../testHelpers/testFactories.ts';
-import type { SharePromptInputs } from './sharePrompt.ts';
-
-const sharePromptInputs = Factory.define<SharePromptInputs>(() => {
-  const handle = fakeContextHandle.build();
-  return {
-    context: handle.ctx,
-    target: 'acme',
-    htmlPath: '/tmp/report.html',
-    htmlContent: '<!doctype html><html></html>',
-  };
-});
-
-export const sharePromptInputsFor = (
-  handle: FakeContextHandle,
-  overrides: Partial<SharePromptInputs> = {},
-): SharePromptInputs => sharePromptInputs.build({ context: handle.ctx, ...overrides });
 
 export const githubViewer = Factory.define<{ login: string }>(() => ({
   login: 'ben',

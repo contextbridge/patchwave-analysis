@@ -5,6 +5,7 @@ import { useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type DisplayUnit, useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
 import { CostReceipt } from '../primitives/CostReceipt.tsx';
+import { reportCtaUrls } from '../reportCtaUrls.ts';
 
 export const verdictTestIds = {
   section: 'verdict-section',
@@ -59,7 +60,7 @@ export function Verdict() {
       <Button asChild className="mt-7">
         <a
           data-testid={verdictTestIds.primaryCta}
-          href="https://patchwave.ai"
+          href={reportCtaUrls.verdict}
           onClick={() => analytics.capture('cta_clicked', { which: 'verdict_primary' })}
         >
           {verdictCopy.primaryCta}

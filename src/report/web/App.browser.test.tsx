@@ -24,6 +24,7 @@ import { INSTALL_COMMAND } from './lib/installCommand.ts';
 import { commandBlockTestIds } from './primitives/CommandBlock.tsx';
 import { costReceiptCopy, costReceiptTestIds } from './primitives/CostReceipt.tsx';
 import { footnoteReferenceTestId } from './primitives/FootnoteReference.tsx';
+import { reportCtaUrls } from './reportCtaUrls.ts';
 import type { EmbeddedReportData } from './types.ts';
 
 afterEach(() => {
@@ -498,22 +499,37 @@ describe('sections and calls to action', () => {
   });
 
   it.each([
-    { name: 'verdict', testId: verdictTestIds.primaryCta, label: verdictCopy.primaryCta },
-    { name: 'automation waitlist', testId: automatedStoryTestIds.waitlistCta, label: callToActionCopy.ctaLabel },
-    { name: 'call to action', testId: callToActionTestIds.cta, label: callToActionCopy.ctaLabel },
-  ])('points the $name CTA at patchwave.ai', ({ testId, label }) => {
+    {
+      name: 'verdict',
+      testId: verdictTestIds.primaryCta,
+      label: verdictCopy.primaryCta,
+      href: reportCtaUrls.verdict,
+    },
+    {
+      name: 'automation',
+      testId: automatedStoryTestIds.primaryCta,
+      label: callToActionCopy.ctaLabel,
+      href: reportCtaUrls.automation,
+    },
+    {
+      name: 'call to action',
+      testId: callToActionTestIds.cta,
+      label: callToActionCopy.ctaLabel,
+      href: reportCtaUrls.final,
+    },
+  ])('points the $name CTA at its destination', ({ testId, label, href }) => {
     renderReport();
 
     const cta = screen.getByTestId(testId);
     expect(cta).toHaveTextContent(label);
-    expect(cta).toHaveAttribute('href', 'https://patchwave.ai');
+    expect(cta).toHaveAttribute('href', href);
   });
 });
 
 describe('analytics', () => {
   it.each([
     { name: 'verdict', testId: verdictTestIds.primaryCta, which: 'verdict_primary' },
-    { name: 'automation waitlist', testId: automatedStoryTestIds.waitlistCta, which: 'automated_story_waitlist' },
+    { name: 'automation', testId: automatedStoryTestIds.primaryCta, which: 'automated_story_primary' },
     { name: 'call to action', testId: callToActionTestIds.cta, which: 'call_to_action_primary' },
   ])('captures cta_clicked for the $name CTA', ({ testId, which }) => {
     const analytics = new FakeAnalytics();
