@@ -8,10 +8,10 @@ export function resolveToken(): ResultAsync<string, AuthError> {
   const envToken = (Bun.env.GITHUB_TOKEN ?? Bun.env.GH_TOKEN ?? '').trim();
   if (envToken.length > 0) return okAsync(envToken);
 
-  return ResultAsync.fromPromise(
-    $`gh auth token`.quiet().text(),
-    (e): AuthError => ({ kind: 'gh-failed', message: getErrorMessage(e) }),
-  ).andThen((raw) => {
+  return ResultAsync.fromPromise($`gh auth token`.quiet().text(), (e): AuthError => ({
+    kind: 'gh-failed',
+    message: getErrorMessage(e),
+  })).andThen((raw) => {
     const token = raw.trim();
     if (token.length === 0) {
       return errAsync<string, AuthError>({

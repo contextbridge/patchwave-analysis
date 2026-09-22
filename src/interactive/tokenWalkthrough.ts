@@ -13,9 +13,7 @@ interface InteractiveTokenDeps {
 }
 
 type InteractiveTokenError =
-  | { kind: 'gave-up'; lastError: AuthError }
-  | { kind: 'cancelled' }
-  | { kind: 'prompt-failed'; message: string };
+  { kind: 'gave-up'; lastError: AuthError } | { kind: 'cancelled' } | { kind: 'prompt-failed'; message: string };
 
 export function interactiveResolveToken(deps: InteractiveTokenDeps): ResultAsync<string, InteractiveTokenError> {
   const resolve = deps.resolve ?? resolveToken;

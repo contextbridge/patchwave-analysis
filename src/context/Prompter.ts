@@ -60,9 +60,12 @@ export interface Prompter {
 
 function wrap<T>(p: Promise<T | symbol>): ResultAsync<T, PromptError> {
   return ResultAsync.fromPromise(p, (e): PromptError => ({ kind: 'internal', message: toError(e).message })).andThen(
-    (value) =>
-      clack.isCancel(value) ? errAsync<T, PromptError>({ kind: 'cancelled' }) : okAsync<T, PromptError>(value),
+    (value) => (isCancelled(value) ? errAsync<T, PromptError>({ kind: 'cancelled' }) : okAsync<T, PromptError>(value)),
   );
+}
+
+function isCancelled<T>(value: T | symbol): value is symbol {
+  return clack.isCancel(value);
 }
 
 export class PrompterImpl implements Prompter {
@@ -91,11 +94,11 @@ export class PrompterImpl implements Prompter {
   }
 
   confirm(opts: ConfirmOptions): ResultAsync<boolean, PromptError> {
-    return wrap(clack.confirm({ message: opts.message, initialValue: opts.defaultValue }));
+    return wrap<boolean>(clack.confirm({ message: opts.message, initialValue: opts.defaultValue }));
   }
 
   select<T extends string>(opts: SelectOptions<T>): ResultAsync<T, PromptError> {
-    return wrap(
+    return wrap<T>(
       clack.select<T>({
         message: opts.message,
         initialValue: opts.initialValue,
@@ -105,7 +108,7 @@ export class PrompterImpl implements Prompter {
   }
 
   text(opts: TextOptions): ResultAsync<string, PromptError> {
-    return wrap(
+    return wrap<string>(
       clack.text({
         message: opts.message,
         placeholder: opts.placeholder,
@@ -120,7 +123,7 @@ export class PrompterImpl implements Prompter {
       typeof clack.autocompleteMultiselect<T>
     >[0]['options'];
 
-    return wrap(
+    return wrap<T[]>(
       clack.autocompleteMultiselect<T>({
         message: opts.message,
         options,

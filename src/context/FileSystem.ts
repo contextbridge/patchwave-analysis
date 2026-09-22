@@ -5,8 +5,7 @@ import { ResultAsync } from 'neverthrow';
 import { toError } from '../errors.ts';
 
 export type FsError =
-  | { kind: 'write-failed'; path: string; message: string }
-  | { kind: 'temp-dir-failed'; message: string };
+  { kind: 'write-failed'; path: string; message: string } | { kind: 'temp-dir-failed'; message: string };
 
 export interface FileSystem {
   writeTextFile(path: string, contents: string): ResultAsync<void, FsError>;
@@ -20,10 +19,10 @@ export class FileSystemImpl implements FileSystem {
   }
 
   makeTempDir(prefix: string): ResultAsync<string, FsError> {
-    return ResultAsync.fromPromise(
-      mkdtemp(join(tmpdir(), prefix)),
-      (e): FsError => ({ kind: 'temp-dir-failed', message: toError(e).message }),
-    );
+    return ResultAsync.fromPromise(mkdtemp(join(tmpdir(), prefix)), (e): FsError => ({
+      kind: 'temp-dir-failed',
+      message: toError(e).message,
+    }));
   }
 
   private write(path: string, contents: string): ResultAsync<void, FsError> {
