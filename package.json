@@ -63,7 +63,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/semver": "^7.8.0",
-    "@vitejs/plugin-react": "^5.1.1",
+    "@vitejs/plugin-react": "^6.1.1",
     "@vitest/browser-playwright": "^5.0.0",
     "bun-plugin-tailwind": "^0.1.2",
     "chromatic": "^15.1.1",
