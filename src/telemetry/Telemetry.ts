@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/bun';
+import type { BunOptions } from '@sentry/bun';
 import { ResultAsync } from 'neverthrow';
 import type { Environment } from '../context/Environment.ts';
 
@@ -15,6 +16,23 @@ interface CreateSentryTelemetryOptions {
 export function isTelemetryDisabled(env: Environment): boolean {
   return Boolean(env.DO_NOT_TRACK || env.CONTEXTBRIDGE_TELEMETRY_DISABLED || env.CI);
 }
+
+export const sentryDataCollection: NonNullable<BunOptions['dataCollection']> = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: {
+    request: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+    response: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+  },
+  httpBodies: [],
+  urlQueryParams: { deny: ['forwarded', '-ip', 'remote-', 'via', '-user'] },
+  genAI: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  graphQL: { document: false, variables: false },
+  queues: false,
+  stackFrameVariables: true,
+  frameContextLines: 7,
+};
 
 export function createSentryTelemetry(options: CreateSentryTelemetryOptions): Telemetry {
   const { dsn, anonymousId, version } = options;
@@ -35,14 +53,15 @@ export function createSentryTelemetry(options: CreateSentryTelemetryOptions): Te
     // the logger is created (see index.ts) so the subscriber is registered
     // before pino emits anything.
     integrations: [Sentry.pinoIntegration({ error: { levels: ['error', 'fatal'] } })],
-    sendDefaultPii: false,
-    // Privacy: the default HTTP/console breadcrumbs record the GitHub API URLs
-    // we call, which contain org and repo names. Drop every breadcrumb so error
-    // reports can't leak them. (The README guarantees we never send these.)
+    // Sentry 11 collects more data by default. Keep the v10 defaults explicit,
+    // and disable queue payloads, which did not have a v10 equivalent.
+    dataCollection: sentryDataCollection,
+    // Default HTTP/console breadcrumbs can contain GitHub API URLs with org and
+    // repo names. Drop every breadcrumb to avoid sending those automatically.
     beforeBreadcrumb: () => null,
-    // Strip the machine hostname and any captured request data from the event
-    // for the same reason. What remains: the error message/stack, release,
-    // environment, the anonymous id, and generic OS/runtime context.
+    // Strip the machine hostname and any captured request data from the event.
+    // What remains: the error message/stack, release, environment, anonymous
+    // id, and generic OS/runtime context.
     beforeSend: (event) => {
       delete event.server_name;
       delete event.request;

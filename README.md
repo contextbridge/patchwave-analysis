@@ -77,7 +77,7 @@ The report is one self-contained file with every metric baked in. It carries no 
 
 ## Telemetry & privacy
 
-We send anonymous usage events and crash reports so we can improve the tool. Org names, repo names, tokens, report contents, and your hostname are never sent. The generated report stays on your machine.
+We send anonymous usage events and crash reports so we can improve the tool. Crash reports omit the machine hostname, request data, cookies, and HTTP bodies. Error messages and stack traces are included and may themselves contain org or repo names, tokens, or other sensitive details; report contents are not collected, but details embedded in an error may be sent. The generated report stays on your machine.
 
 To disable telemetry, set any of these in your environment:
 

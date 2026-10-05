@@ -83,4 +83,4 @@ Use relative imports with explicit `.ts` / `.tsx` extensions (`import { main } f
 
 ## Telemetry
 
-Instrumentation (PostHog analytics + Sentry crash reporting, gated by build-time keys) is wired in `src/index.ts`. `Sentry.init` must run before `createLogger` so its `pinoIntegration` subscribes to pino's diagnostics channel first. Org names, repo names, tokens, report contents, and the machine hostname are never sent — see the "Telemetry & privacy" section of `README.md` for the full guarantee.
+Instrumentation (PostHog analytics + Sentry crash reporting, gated by build-time keys) is wired in `src/index.ts`. `Sentry.init` must run before `createLogger` so its `pinoIntegration` subscribes to pino's diagnostics channel first. Crash reports omit automatic request data and the machine hostname, but include error messages and stack traces; those may contain org names, repo names, tokens, or other sensitive details. See the "Telemetry & privacy" section of `README.md` for the user-facing disclosure.
