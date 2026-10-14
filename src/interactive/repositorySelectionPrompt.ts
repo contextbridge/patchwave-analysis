@@ -1,7 +1,12 @@
 import { type ResultAsync, okAsync } from 'neverthrow';
 import type { PromptError, Prompter } from '../context/Prompter.ts';
-import type { RepoMeta, RepositorySelection } from '../types.ts';
-import { allActiveRepositorySelection, isActiveRepo, repoKey } from '../types.ts';
+import {
+  type RepoMeta,
+  type RepositorySelection,
+  allActiveRepositorySelection,
+  isActiveRepo,
+  repoKey,
+} from '../types.ts';
 
 type SelectionMode = 'all' | 'chooseFromAll' | 'chooseFromNone';
 

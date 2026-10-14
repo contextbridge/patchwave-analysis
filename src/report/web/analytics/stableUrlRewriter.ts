@@ -1,4 +1,4 @@
-import type { BeforeSendFn } from 'posthog-js';
+import type { CaptureResult } from 'posthog-js';
 
 // The report is opened directly from disk (file://), so posthog-js would otherwise stamp the
 // viewer's local filesystem path onto $current_url/$pathname — leaking the path and fragmenting
@@ -12,7 +12,7 @@ const SYNTHETIC_HOST = 'patchwave.local';
 const SYNTHETIC_PATH = '/report';
 const URL_PROPERTY_KEYS = ['$current_url', '$referrer', '$initial_current_url', '$initial_referrer'] as const;
 
-export function createStableUrlRewriter(): BeforeSendFn {
+export function createStableUrlRewriter(): (event: CaptureResult | null) => CaptureResult | null {
   return (event) => {
     if (event == null) return event;
     const props = event.properties;

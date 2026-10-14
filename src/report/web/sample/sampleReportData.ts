@@ -7,8 +7,13 @@ import {
   repoMeta,
 } from '../../../testFactories.ts';
 import { instantFromString } from '../../../time.ts';
-import type { CollectedData, CveSlice, DependabotPr, RepoMeta } from '../../../types.ts';
-import { allActiveRepositorySelection } from '../../../types.ts';
+import {
+  type CollectedData,
+  type CveSlice,
+  type DependabotPr,
+  type RepoMeta,
+  allActiveRepositorySelection,
+} from '../../../types.ts';
 import { aggregate } from '../../aggregate.ts';
 import { toEmbeddedShape } from '../../embeddedShape.ts';
 import type { EmbeddedReportData } from '../types.ts';

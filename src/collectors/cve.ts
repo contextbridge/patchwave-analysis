@@ -2,8 +2,7 @@ import { type ResultAsync, errAsync, okAsync } from 'neverthrow';
 import { z } from 'zod';
 import type { GithubError } from '../github/errors.ts';
 import type { GithubClient } from '../github/GithubClient.ts';
-import type { CveAlert, CveSeverity, CveSlice, RepoMeta, RepoRef } from '../types.ts';
-import { repoKey } from '../types.ts';
+import { type CveAlert, type CveSeverity, type CveSlice, type RepoMeta, type RepoRef, repoKey } from '../types.ts';
 
 // `security_vulnerability` is null on alerts GitHub can't attribute to a
 // concrete vulnerability (e.g. auto-dismissed); those carry no severity or

@@ -46,7 +46,14 @@ export function listTargetRepos(client: GithubClient, target: string): ResultAsy
 }
 
 function toRepoMeta(raw: RawRepo): RepoMeta {
-  const visibility: Visibility = raw.visibility === 'internal' ? 'internal' : raw.private ? 'private' : 'public';
+  let visibility: Visibility;
+  if (raw.visibility === 'internal') {
+    visibility = 'internal';
+  } else if (raw.private) {
+    visibility = 'private';
+  } else {
+    visibility = 'public';
+  }
   const security = raw.security_and_analysis;
   return {
     owner: raw.owner.login,
