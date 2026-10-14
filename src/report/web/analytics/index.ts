@@ -1,5 +1,4 @@
-import { type Analytics, createNoopAnalytics } from '../../../telemetry/Analytics.ts';
-import type { ReportAnalyticsConfig } from '../../../telemetry/Analytics.ts';
+import { type Analytics, type ReportAnalyticsConfig, createNoopAnalytics } from '../../../telemetry/Analytics.ts';
 import { type PostHogBrowserClient, createPostHogReportAnalytics } from './postHogAnalytics.ts';
 
 export interface ReportAnalyticsBuildInfo {

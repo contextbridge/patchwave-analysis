@@ -1,19 +1,14 @@
-import type { GithubClient } from '../github/GithubClient.ts';
-import { GithubClientImpl } from '../github/GithubClient.ts';
+import { type GithubClient, GithubClientImpl } from '../github/GithubClient.ts';
 import { type Analytics, NoopAnalytics } from '../telemetry/Analytics.ts';
 import { isTelemetryDisabled } from '../telemetry/Telemetry.ts';
 import type { Io } from './BaseIo.ts';
-import type { BrowserOpener } from './BrowserOpener.ts';
-import { BrowserOpenerImpl } from './BrowserOpener.ts';
-import type { Clock } from './Clock.ts';
-import { ClockImpl } from './Clock.ts';
+import { type BrowserOpener, BrowserOpenerImpl } from './BrowserOpener.ts';
+import { type Clock, ClockImpl } from './Clock.ts';
 import { type Environment, getEnvironment } from './Environment.ts';
-import type { FileSystem } from './FileSystem.ts';
-import { FileSystemImpl } from './FileSystem.ts';
+import { type FileSystem, FileSystemImpl } from './FileSystem.ts';
 import { IoImpl } from './IoImpl.ts';
 import { type Logger, createLogger } from './Logger.ts';
-import type { Prompter } from './Prompter.ts';
-import { PrompterImpl } from './Prompter.ts';
+import { type Prompter, PrompterImpl } from './Prompter.ts';
 
 export interface Context {
   readonly io: Io;

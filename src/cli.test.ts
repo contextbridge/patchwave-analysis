@@ -1,8 +1,7 @@
 import { expect, test } from 'bun:test';
 import { main } from './cli.ts';
 import { githubRepoResponse } from './testFactories.ts';
-import { createFakeContext } from './testHelpers/index.ts';
-import type { FakeAnalytics, FakeGithubClient } from './testHelpers/index.ts';
+import { type FakeAnalytics, type FakeGithubClient, createFakeContext } from './testHelpers/index.ts';
 
 // The Dependabot PR search is the only GraphQL call; resolve it empty so the
 // happy-path tests reach the report without exercising the search internals.
