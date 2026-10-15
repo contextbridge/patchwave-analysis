@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.7.1...v1.0.0) (2026-10-15)
+
+
+### Features
+
+* rebrand the checkup as a PatchWave on-ramp and remove report analytics ([#76](https://github.com/contextbridge/patchwave-analysis/issues/76)) ([4c09944](https://github.com/contextbridge/patchwave-analysis/commit/4c09944597ffc124ca0f226ec5a816a6a113873c))
+
 ## [0.7.1](https://github.com/contextbridge/patchwave-analysis/compare/v0.7.0...v0.7.1) (2026-09-21)
 
 
