@@ -1,6 +1,7 @@
 import { ResultAsync, errAsync } from 'neverthrow';
 import { type PromptError, type Prompter, formatPromptError } from '../context/Prompter.ts';
 import { type AuthError, formatAuthError, resolveToken } from '../github/auth.ts';
+import { GITHUB_NEW_TOKEN_URL } from '../urls.ts';
 
 const MAX_ATTEMPTS = 3;
 
@@ -75,7 +76,7 @@ function patInstructions(): string {
   return [
     "We need a GitHub token to read your org's Dependabot data. The CLI only reads; it never writes.",
     '',
-    '1. Open https://github.com/settings/tokens/new',
+    `1. Open ${GITHUB_NEW_TOKEN_URL}`,
     "   (You'll be asked to confirm your password.)",
     '',
     '2. In "Note", enter something memorable, e.g.  PatchWave Dependency Checkup',

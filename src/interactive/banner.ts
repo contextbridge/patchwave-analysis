@@ -4,10 +4,12 @@ export function welcomeBannerTitle(): string {
 
 export function welcomeBannerBody({ telemetryEnabled }: { telemetryEnabled: boolean }): string {
   const lines = [
-    "I'll scan a GitHub org and hand you back an executive summary of how",
-    'Dependabot is doing there: coverage, PR backlog, CVE exposure, what the',
-    'manual triage is costing you in engineer-hours, and how PatchWave',
-    '(patchwave.ai) can help.',
+    'This scan reads a GitHub org and writes an executive summary of what',
+    'Dependabot toil and CVE exposure cost it: engineer-hours spent on',
+    'Dependabot PRs, the open PR backlog, and unresolved security alerts.',
+    '',
+    'PatchWave (patchwave.ai) is a GitHub app that automatically analyzes,',
+    'fixes and merges your Dependabot PRs.',
     '',
     'The scan only reads from GitHub, and the report stays on this machine.',
   ];

@@ -1,5 +1,6 @@
 import type { Context } from '../context/index.ts';
 import type { GithubError } from '../github/errors.ts';
+import { GITHUB_NEW_TOKEN_URL } from '../urls.ts';
 
 // PatchWave Dependency Checkup needs a classic token with `repo` (private repos + PR data) and
 // `read:org` (org repo listing). `repo` also covers `security_events` for CVEs.
@@ -52,7 +53,7 @@ const SCOPE_GATE_WARNING =
 const FINE_GRAINED_FIX = [
   'PatchWave Dependency Checkup needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
   '',
-  'Create one at https://github.com/settings/tokens/new with these scopes:',
+  `Create one at ${GITHUB_NEW_TOKEN_URL} with these scopes:`,
   '',
   '  • repo       private repos and pull-request data (also covers security_events)',
   "  • read:org   listing the org's repos",
