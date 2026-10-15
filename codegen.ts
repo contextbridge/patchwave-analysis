@@ -4,6 +4,11 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
 const config: CodegenConfig = {
   schema: 'node_modules/@octokit/graphql-schema/schema.graphql',
   documents: 'src/**/*.graphql',
+  // GitHub's published schema deprecates implementation fields whose interface
+  // fields aren't deprecated, which GraphQL 17 rejects. Skip validating the
+  // schema itself; documents are still validated against it.
+  // https://github.com/orgs/community/discussions/210385
+  config: { assumeValid: true },
   generates: {
     'src/github/graphql/generated.ts': {
       plugins: ['typescript-operations', 'typed-document-node'],
