@@ -66,8 +66,12 @@ notarize:
 changelog:
   disable: true
 
+# release-please creates the release as a draft so `releases/latest` keeps
+# pointing at the previous release until every asset is uploaded; goreleaser
+# publishes the draft once the uploads finish.
 release:
   draft: false
+  use_existing_draft: true
   prerelease: auto
   mode: keep-existing
   extra_files:
