@@ -2,16 +2,15 @@ import type { Io } from '../context/BaseIo.ts';
 
 export const NON_TTY_EXIT_CODE = 2;
 export const NON_TTY_MESSAGE =
-  'patchwave-analysis is an interactive CLI and requires a terminal.\n' +
+  'PatchWave Dependency Checkup is an interactive CLI and requires a terminal.\n' +
   'Re-run it directly (no pipes/redirects) in an interactive shell.\n';
 
 type TtyGateResult = { ok: true } | { ok: false; code: number };
 
 /**
  * Refuses to run when the process isn't attached to an interactive terminal. The CLI is interactive end-to-end —
- * there are no `--share=...` / `--no-interactive` escape hatches — so a piped
- * or CI invocation has nowhere to render the share prompt and we'd rather
- * fail loudly than silently drop questions.
+ * there is no `--no-interactive` escape hatch — so a piped or CI invocation has
+ * nowhere to render its prompts and we'd rather fail loudly than silently drop questions.
  */
 export function enforceTty(io: Io): TtyGateResult {
   if (io.isTty()) return { ok: true };

@@ -67,7 +67,7 @@ function ghInstructions(): string {
     '',
     'Pick GitHub.com → HTTPS → "Login with a web browser" and follow the prompts.',
     '',
-    'PatchWave needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
+    'PatchWave Dependency Checkup needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
   ].join('\n');
 }
 
@@ -78,7 +78,7 @@ function patInstructions(): string {
     '1. Open https://github.com/settings/tokens/new',
     "   (You'll be asked to confirm your password.)",
     '',
-    '2. In "Note", enter something memorable, e.g.  patchwave-analysis',
+    '2. In "Note", enter something memorable, e.g.  PatchWave Dependency Checkup',
     '',
     '3. In "Expiration", pick whatever you\'re comfortable with',
     '   (30 days is the default and is fine — you can revoke it any time).',

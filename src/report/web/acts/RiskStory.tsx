@@ -48,9 +48,9 @@ export function RiskStory() {
           {riskStoryCopy.noAccessHeading}
         </h2>
         <p className="text-foreground mt-5 leading-relaxed">
-          Reading Dependabot security alerts needs admin access to <code>{meta.org}</code>'s repositories, and the token
-          used to run the analysis doesn't have it. Run PatchWave against an org you administer and you'll see your open
-          alerts here, ranked by severity and by how long they've sat unpatched.
+          Your account can't read <code>{meta.org}</code>'s Dependabot security alerts. Ask an org owner or security
+          manager to run the checkup, and they'll see your open alerts here, ranked by severity and by how long they've
+          sat unpatched.
         </p>
         <CommandBlock command={INSTALL_COMMAND} label="the install command" testId={riskStoryTestIds.runCommand} />
       </section>

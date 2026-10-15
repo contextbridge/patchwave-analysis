@@ -1,4 +1,4 @@
-# Contributing to patchwave-analysis
+# Contributing to PatchWave Dependency Checkup
 
 ## Setup
 

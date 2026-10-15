@@ -1,6 +1,6 @@
-# [PatchWave](https://patchwave.ai) Analysis
+# PatchWave Dependency Checkup
 
-PatchWave Analysis is a diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It reads from the GitHub API and writes a self-contained HTML report you can use on its own, no PatchWave account needed.
+PatchWave Dependency Checkup is a diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It reads from the GitHub API and writes a self-contained HTML report you can use on its own, no PatchWave account needed.
 
 ## Run it
 
@@ -23,7 +23,7 @@ tar -xzf patchwave-analysis_darwin_arm64.tar.gz
 
 Easiest path: run `gh auth login --scopes "repo,read:org"` (via [GitHub CLI](https://cli.github.com)) and you're done. The CLI also reads `GITHUB_TOKEN` and `GH_TOKEN`, so you can pass a token directly instead.
 
-PatchWave needs a **classic** personal access token with two scopes:
+The checkup needs a **classic** personal access token with two scopes:
 
 - **`repo`** — your private repos and their pull-request data (this also covers `security_events` for the CVE numbers)
 - **`read:org`** — listing the org's repos
@@ -61,7 +61,7 @@ The report covers:
 
 ## What it reads from GitHub
 
-Everything comes from `api.github.com` over a fixed 90-day window. After choosing a target, PatchWave asks whether to analyze all active repositories or choose a subset. For the selected repos (archived repos and forks are always skipped), it reads:
+Everything comes from `api.github.com` over a fixed 90-day window. After choosing a target, the checkup asks whether to analyze all active repositories or choose a subset. For the selected repos (archived repos and forks are always skipped), it reads:
 
 - The repo list, visibility, and primary-language metadata (plus whether Dependabot security updates are enabled)
 - The open Dependabot PR backlog and PRs resolved in the window — state, timing, reviews, and who merged

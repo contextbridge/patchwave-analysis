@@ -1,5 +1,5 @@
 export function welcomeBannerTitle(): string {
-  return 'patchwave-analysis';
+  return 'PatchWave Dependency Checkup';
 }
 
 export function welcomeBannerBody(): string {
@@ -9,7 +9,6 @@ export function welcomeBannerBody(): string {
     'manual triage is costing you in engineer-hours, and how PatchWave',
     '(patchwave.ai) can help.',
     '',
-    'It reads from GitHub via the API, and you choose whether to send us your',
-    'data at the end.',
+    'The scan only reads from GitHub, and the report stays on this machine.',
   ].join('\n');
 }

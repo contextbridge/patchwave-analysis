@@ -262,7 +262,7 @@ export function MethodologyAppendix() {
           data-testid={methodologyAppendixTestIds.repoLink}
           className="text-primary underline underline-offset-4"
         >
-          patchwave-analysis
+          PatchWave Dependency Checkup
         </a>
         . PatchWave is a project from{' '}
         <a
