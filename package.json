@@ -1,6 +1,6 @@
 {
   "name": "patchwave-analysis",
-  "version": "0.7.1",
+  "version": "1.0.0",
   "description": "Diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org.",
   "homepage": "https://patchwave.ai",
   "repository": {
