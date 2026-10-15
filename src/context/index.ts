@@ -1,6 +1,5 @@
 import { type GithubClient, GithubClientImpl } from '../github/GithubClient.ts';
 import { type Analytics, NoopAnalytics } from '../telemetry/Analytics.ts';
-import { isTelemetryDisabled } from '../telemetry/Telemetry.ts';
 import type { Io } from './BaseIo.ts';
 import { type BrowserOpener, BrowserOpenerImpl } from './BrowserOpener.ts';
 import { type Clock, ClockImpl } from './Clock.ts';
@@ -20,11 +19,6 @@ export interface Context {
   readonly analytics: Analytics;
   readonly prompter: Prompter;
   readonly browserOpener: BrowserOpener;
-  readonly appVersion: string;
-  // Anonymous telemetry id of this machine ('' when telemetry is disabled). Embedded into the
-  // report so report-view events can be tied back to the run that produced them.
-  readonly anonymousId: string;
-  readonly telemetryDisabled: boolean;
 }
 
 type CreateContextOptions = Partial<Context> & {
@@ -34,7 +28,6 @@ type CreateContextOptions = Partial<Context> & {
 export function createContext(options: CreateContextOptions = {}): Context {
   const {
     token = '',
-    appVersion = '0.0.0',
     io = new IoImpl(),
     env = getEnvironment(),
     logger = createLogger({ level: env.LOG_LEVEL, destination: io.stderr }),
@@ -44,8 +37,6 @@ export function createContext(options: CreateContextOptions = {}): Context {
     analytics = new NoopAnalytics(),
     prompter = new PrompterImpl(),
     browserOpener = new BrowserOpenerImpl(),
-    anonymousId = '',
-    telemetryDisabled = isTelemetryDisabled(env),
   } = options;
 
   return {
@@ -58,8 +49,5 @@ export function createContext(options: CreateContextOptions = {}): Context {
     analytics,
     prompter,
     browserOpener,
-    appVersion,
-    anonymousId,
-    telemetryDisabled,
   };
 }

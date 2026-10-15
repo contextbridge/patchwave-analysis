@@ -1,15 +1,23 @@
 export function welcomeBannerTitle(): string {
-  return 'patchwave-analysis';
+  return 'PatchWave Dependency Checkup';
 }
 
-export function welcomeBannerBody(): string {
-  return [
-    "I'll scan a GitHub org and hand you back an executive summary of how",
-    'Dependabot is doing there: coverage, PR backlog, CVE exposure, what the',
-    'manual triage is costing you in engineer-hours, and how PatchWave',
-    '(patchwave.ai) can help.',
+export function welcomeBannerBody({ telemetryEnabled }: { telemetryEnabled: boolean }): string {
+  const lines = [
+    'This scan reads a GitHub org and writes an executive summary of what',
+    'Dependabot toil and CVE exposure cost it: engineer-hours spent on',
+    'Dependabot PRs, the open PR backlog, and unresolved security alerts.',
     '',
-    'It reads from GitHub via the API, and you choose whether to send us your',
-    'data at the end.',
-  ].join('\n');
+    'PatchWave (patchwave.ai) is a GitHub app that automatically analyzes,',
+    'fixes and merges your Dependabot PRs.',
+    '',
+    'The scan only reads from GitHub, and the report stays on this machine.',
+  ];
+  if (telemetryEnabled) {
+    lines.push(
+      'It sends anonymous usage stats and crash reports (see the README).',
+      'Set DO_NOT_TRACK=1 to turn them off.',
+    );
+  }
+  return lines.join('\n');
 }

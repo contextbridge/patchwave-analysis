@@ -106,21 +106,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const Light: Story = {
+export const Default: Story = {
   args: {
     data: sampleReport,
-  },
-  parameters: {
-    theme: 'light',
-  },
-};
-
-export const Dark: Story = {
-  args: {
-    data: sampleReport,
-  },
-  parameters: {
-    theme: 'dark',
   },
 };
 

@@ -3,7 +3,14 @@ import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { useDisplayUnit } from '../hooks/useDisplayUnit.tsx';
+import { ActHeader } from '../primitives/ActHeader.tsx';
+import { Card } from '../primitives/Card.tsx';
+import { CostReceipt } from '../primitives/CostReceipt.tsx';
 import { PersonRow } from '../primitives/PersonRow.tsx';
+import { Stat, StatGrid } from '../primitives/Stat.tsx';
+import { SubHeading } from '../primitives/SubHeading.tsx';
+
+export const costStorySectionId = 'cost';
 
 export const costStoryTestIds = {
   section: 'cost-story-section',
@@ -30,15 +37,24 @@ export function CostStory() {
   const formatAmount = useFormatAmount();
 
   const { humanMergeCount } = data.costEstimate;
+  const { openCount } = data.prBacklog;
 
   return (
-    <section data-testid={costStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-        {costStoryCopy.eyebrow}
-      </div>
-      <h2 className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+    <section id={costStorySectionId} data-testid={costStoryTestIds.section} className="scroll-mt-24">
+      <ActHeader icon="clock" eyebrow={costStoryCopy.eyebrow}>
         {costStoryCopy.heading}
-      </h2>
+      </ActHeader>
+
+      <div className="mt-6">
+        <Card>
+          <CostReceipt />
+          {openCount > 0 && (
+            <p className="text-muted-foreground mt-4 mb-0 text-sm leading-snug">
+              Does not include the {openCount.toLocaleString()} Dependabot PRs that are still open
+            </p>
+          )}
+        </Card>
+      </div>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
         In the last {data.meta.windowDays} days, your team merged{' '}
@@ -54,23 +70,25 @@ export function CostStory() {
         , that comes out to:
       </p>
 
-      <div className="bg-foreground mt-6 grid grid-cols-1 gap-px sm:grid-cols-3">
-        <CostCell
-          testId={costStoryTestIds.windowCost}
-          label={`Last ${data.costEstimate.windowDays} days`}
-          value={formatAmount({ hours: derived.windowHours, usd: derived.windowCostUsd })}
-        />
-        <CostCell
-          testId={costStoryTestIds.monthlyCost}
-          label="Monthly run rate"
-          value={formatAmount({ hours: derived.monthlyHours, usd: derived.monthlyCostUsd }, '/mo')}
-        />
-        <CostCell
-          testId={costStoryTestIds.annualCost}
-          label="Annualized"
-          value={formatAmount({ hours: derived.annualHours, usd: derived.annualCostUsd }, '/yr')}
-          emphasize
-        />
+      <div className="mt-6">
+        <StatGrid columns={3}>
+          <Stat
+            valueTestId={costStoryTestIds.windowCost}
+            label={`Last ${data.costEstimate.windowDays} days`}
+            value={formatAmount({ hours: derived.windowHours, usd: derived.windowCostUsd })}
+          />
+          <Stat
+            valueTestId={costStoryTestIds.monthlyCost}
+            label="Monthly run rate"
+            value={formatAmount({ hours: derived.monthlyHours, usd: derived.monthlyCostUsd }, '/mo')}
+          />
+          <Stat
+            valueTestId={costStoryTestIds.annualCost}
+            label="Annualized"
+            value={formatAmount({ hours: derived.annualHours, usd: derived.annualCostUsd }, '/yr')}
+            highlight
+          />
+        </StatGrid>
       </div>
 
       <PeopleTable windowDays={data.meta.windowDays} />
@@ -80,27 +98,6 @@ export function CostStory() {
         left out, so these totals only count human effort.
       </p>
     </section>
-  );
-}
-
-function CostCell({
-  label,
-  value,
-  testId,
-  emphasize = false,
-}: {
-  label: string;
-  value: string;
-  testId: string;
-  emphasize?: boolean;
-}) {
-  const baseBg = emphasize ? 'bg-foreground text-background' : 'bg-card text-foreground';
-  const labelTone = emphasize ? 'text-background/60' : 'text-muted-foreground';
-  return (
-    <div data-testid={testId} className={`${baseBg} p-5`}>
-      <div className={`${labelTone} text-xs font-medium tracking-[0.14em] uppercase`}>{label}</div>
-      <div className="mt-1.5 text-2xl font-medium tabular-nums">{value}</div>
-    </div>
   );
 }
 
@@ -122,14 +119,14 @@ function PeopleTable({ windowDays }: { windowDays: number }) {
   }
   return (
     <div className="mt-12">
-      <h3 className="text-foreground text-sm font-semibold tracking-[0.14em] uppercase">Who's bearing this cost</h3>
+      <SubHeading>Who's bearing this cost</SubHeading>
       <div
         data-testid={costStoryTestIds.peopleTable}
         className="border-border bg-card mt-4 overflow-hidden rounded-md border"
       >
         <table className="w-full">
           <thead className="bg-muted">
-            <tr className="text-muted-foreground text-left text-xs font-medium tracking-[0.14em] uppercase">
+            <tr className="eyebrow text-muted-foreground text-left">
               <th className="px-3 py-2.5">Person</th>
               <th className="px-3 py-2.5 text-right">Count</th>
               <th data-testid={costStoryTestIds.peopleValueHeader} className="px-3 py-2.5 text-right">

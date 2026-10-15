@@ -1,6 +1,8 @@
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { fmtDaysShort } from '../format/days.ts';
+import { ActHeader } from '../primitives/ActHeader.tsx';
 import { Citation } from '../primitives/Citation.tsx';
+import { Stat, StatGrid } from '../primitives/Stat.tsx';
 
 export const openPrAgeStoryTestIds = {
   section: 'open-pr-age-story-section',
@@ -18,13 +20,10 @@ export function OpenPrAgeStory() {
   const hasOpenPrs = pr.openCount > 0;
 
   return (
-    <section data-testid={openPrAgeStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-        {openPrAgeStoryCopy.eyebrow}
-      </div>
-      <h2 className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+    <section data-testid={openPrAgeStoryTestIds.section}>
+      <ActHeader icon="pullRequest" eyebrow={openPrAgeStoryCopy.eyebrow}>
         {hasOpenPrs ? openPrAgeStoryCopy.heading : openPrAgeStoryCopy.emptyHeading}
-      </h2>
+      </ActHeader>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
         {hasOpenPrs ? (
@@ -41,13 +40,11 @@ export function OpenPrAgeStory() {
       </p>
 
       {hasOpenPrs && pr.openAvgAgeDays !== null && (
-        <div className="divide-border mt-6 grid max-w-md grid-cols-2 divide-x">
-          <BacklogStat className="pr-6" value={pr.openCount.toLocaleString()} label="still open" />
-          <BacklogStat
-            className="pl-6"
-            value={`${pr.openAvgAgeDays} ${pr.openAvgAgeDays === 1 ? 'day' : 'days'}`}
-            label="average age"
-          />
+        <div className="mt-6">
+          <StatGrid columns={2}>
+            <Stat label="still open" value={pr.openCount.toLocaleString()} />
+            <Stat label="average age" value={`${pr.openAvgAgeDays} ${pr.openAvgAgeDays === 1 ? 'day' : 'days'}`} />
+          </StatGrid>
         </div>
       )}
 
@@ -58,8 +55,14 @@ export function OpenPrAgeStory() {
           </div>
         ) : (
           <div className="space-y-3">
-            {pr.openAgeBuckets.map((bucket) => (
-              <AgeBucketRow key={bucket.label} label={bucket.label} count={bucket.count} total={pr.openCount} />
+            {pr.openAgeBuckets.map((bucket, i) => (
+              <AgeBucketRow
+                key={bucket.label}
+                label={bucket.label}
+                count={bucket.count}
+                total={pr.openCount}
+                color={AGE_COLORS[i]}
+              />
             ))}
             <p className="text-muted-foreground pt-3 text-sm leading-relaxed">
               Time-to-merge in your data: p50{' '}
@@ -74,22 +77,31 @@ export function OpenPrAgeStory() {
   );
 }
 
-function BacklogStat({ value, label, className }: { value: string; label: string; className?: string }) {
-  return (
-    <div className={className}>
-      <div className="text-foreground text-3xl font-medium tabular-nums">{value}</div>
-      <div className="text-muted-foreground mt-1 text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
-    </div>
-  );
-}
+// Older buckets take hotter severity colors.
+const AGE_COLORS = [
+  'var(--severity-low)',
+  'var(--severity-medium)',
+  'var(--severity-high)',
+  'var(--severity-critical)',
+];
 
-function AgeBucketRow({ label, count, total }: { label: string; count: number; total: number }) {
+function AgeBucketRow({
+  label,
+  count,
+  total,
+  color,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  color: string | undefined;
+}) {
   const pct = total === 0 ? 0 : Math.round((count / total) * 100);
   return (
     <div className="grid grid-cols-[6rem_1fr_3rem] items-center gap-3 text-sm">
       <div className="text-muted-foreground tabular-nums">{label}</div>
       <div className="bg-muted h-2 overflow-hidden rounded-full">
-        <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
       <div className="text-foreground text-right font-semibold tabular-nums">{count.toLocaleString()}</div>
     </div>

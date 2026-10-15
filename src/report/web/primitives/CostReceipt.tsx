@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { assumptionFields } from '../assumptionFields.ts';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { type ValueUpdate, useAssumptions } from '../hooks/useAssumptions.tsx';
@@ -14,7 +13,7 @@ export const costReceiptTestIds = {
 } as const;
 
 export const costReceiptCopy = {
-  observedLabel: 'PRs merged',
+  observedLabel: 'PRs merged or reviewed',
   observedBadge: 'observed',
   minutesLabel: 'review per PR',
   minutesSuffix: 'min',
@@ -26,7 +25,6 @@ export function CostReceipt() {
   const { assumptions, setHourlyRate, setMinutesPerPr } = useAssumptions();
   const { unit } = useDisplayUnit();
   const { costEstimate } = useEmbeddedData();
-  const analytics = useAnalytics();
   const observed = costEstimate.humanMergeCount + costEstimate.humanReviewCount;
   const { windowDays } = costEstimate;
   const annualizeMultiplier = 365 / Math.max(1, windowDays);
@@ -45,7 +43,6 @@ export function CostReceipt() {
         testId={costReceiptTestIds.minutes}
         value={assumptions.minutesPerPr}
         onChange={setMinutesPerPr}
-        onCommit={(value) => analytics.capture('assumption_changed', { field: 'minutes_per_pr', value })}
         ariaLabel={assumptionFields.minutesPerPr.label}
         suffix={costReceiptCopy.minutesSuffix}
         label={costReceiptCopy.minutesLabel}
@@ -59,7 +56,6 @@ export function CostReceipt() {
             testId={costReceiptTestIds.rate}
             value={assumptions.hourlyRateUsd}
             onChange={setHourlyRate}
-            onCommit={(value) => analytics.capture('assumption_changed', { field: 'hourly_rate', value })}
             ariaLabel={assumptionFields.hourlyRateUsd.label}
             prefix={assumptionFields.hourlyRateUsd.prefix}
             suffix={assumptionFields.hourlyRateUsd.suffix}
@@ -110,7 +106,7 @@ function Factor({
       <span className={labelClass}>
         {label}
         {badge && (
-          <span className="bg-primary/10 text-primary ml-1.5 rounded px-1 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+          <span className="bg-primary/10 text-primary ml-1.5 rounded px-1 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase">
             {badge}
           </span>
         )}
@@ -124,7 +120,6 @@ function EditableFactor({
   testId,
   value,
   onChange,
-  onCommit,
   ariaLabel,
   label,
   prefix,
@@ -135,7 +130,6 @@ function EditableFactor({
   testId: string;
   value: number;
   onChange: (next: ValueUpdate) => void;
-  onCommit: (n: number) => void;
   ariaLabel: string;
   label: string;
   prefix?: string;
@@ -156,7 +150,6 @@ function EditableFactor({
     const parsed = Number(draft);
     const next = clamp(draft !== '' && Number.isFinite(parsed) ? parsed : value);
     onChange(next);
-    onCommit(next);
     setDraft(String(next));
     setIsEditing(false);
   };

@@ -1,7 +1,8 @@
-const REPORT_QUERY = 'utm_source=patchwave-analysis&utm_medium=report';
+import { PATCHWAVE_SIGNUP_URL, PATCHWAVE_URL, withUtm } from '../../urls.ts';
 
 export const reportCtaUrls = {
-  verdict: `https://patchwave.ai/?${REPORT_QUERY}&utm_content=verdict`,
-  automation: `https://patchwave.ai/?${REPORT_QUERY}&utm_content=automation`,
-  final: `https://patchwave.ai/?${REPORT_QUERY}&utm_content=final-cta`,
+  automation: withUtm(PATCHWAVE_SIGNUP_URL, { medium: 'report', content: 'automation' }),
+  final: withUtm(PATCHWAVE_SIGNUP_URL, { medium: 'report', content: 'final-cta' }),
+  header: withUtm(PATCHWAVE_URL, { medium: 'report', content: 'header' }),
+  howItWorks: withUtm(`${PATCHWAVE_URL}#how-it-works`, { medium: 'report', content: 'how-it-works' }),
 } as const;

@@ -9,6 +9,7 @@ import { createLogger } from './context/Logger.ts';
 import { PrompterImpl } from './context/Prompter.ts';
 import { welcomeBannerBody, welcomeBannerTitle } from './interactive/banner.ts';
 import { openReport } from './interactive/openReport.ts';
+import { showOutro } from './interactive/outro.ts';
 import { formatInteractiveTokenError, interactiveResolveToken } from './interactive/tokenWalkthrough.ts';
 import { enforceTty } from './interactive/ttyGate.ts';
 import { type Analytics, NoopAnalytics } from './telemetry/Analytics.ts';
@@ -73,7 +74,10 @@ const isFullRun = parseCli(argv).kind === 'ok';
 let token = '';
 if (isFullRun) {
   prompter.intro(welcomeBannerTitle());
-  prompter.note(welcomeBannerBody(), 'What this is');
+  prompter.note(
+    welcomeBannerBody({ telemetryEnabled: !telemetryDisabled && (POSTHOG_KEY !== '' || SENTRY_DSN !== '') }),
+    'What this is',
+  );
 
   const tokenResult = await interactiveResolveToken({ prompter });
   if (tokenResult.isErr()) {
@@ -86,14 +90,11 @@ if (isFullRun) {
 
 const ctx = createContext({
   token,
-  appVersion: pkg.version,
   io,
   env,
   logger,
   analytics,
   prompter,
-  anonymousId,
-  telemetryDisabled,
 });
 
 try {
@@ -101,6 +102,7 @@ try {
 
   if (result.kind === 'completed') {
     await openReport({ context: ctx, htmlPath: result.run.htmlPath });
+    showOutro(ctx);
   }
 
   await shutdown();

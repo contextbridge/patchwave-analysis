@@ -2,7 +2,7 @@
 
 ## Project: patchwave-analysis
 
-A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It runs in the user's environment, crawls `api.github.com`, and writes a self-contained HTML report to a temporary directory. No data leaves the user's network unless they choose to share the generated report.
+A diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org. It runs in the user's environment, crawls `api.github.com`, and writes a self-contained HTML report to a temporary directory. The report never leaves the user's machine.
 
 The single entrypoint is `patchwave-analysis [<org-or-user>]` — an interactive session that prompts for the target if omitted, then opens the generated report when the scan finishes. There are no other flags; the time window (90 days) is fixed.
 
@@ -20,12 +20,12 @@ patchwave-analysis/
 ├── src/
 │   ├── collectors/        per-slice GitHub data collectors (repos, PRs, CVEs, …)
 │   ├── github/            Octokit client wiring (retry + throttling plugins)
-│   ├── heuristics/        derived metrics (toil cost, automation upside, …)
-│   ├── interactive/       Clack prompts: token walkthrough, share/open, banner, TTY gate
-│   ├── prompt/            Prompter abstraction over @clack/prompts
-│   ├── report/            report aggregation + `report/web/` React UI
-│   ├── testHelpers/       shared test utilities
-│   ├── context.ts         CliContext DI root (see Conventions)
+│   ├── context/           Context DI root + injected dependencies (Prompter, Io, FileSystem, …)
+│   ├── heuristics/        PR classification (bump type)
+│   ├── interactive/       Clack prompts: token walkthrough, scope gate, banner, report open, TTY gate
+│   ├── report/            report aggregation, cost formulas + `report/web/` React UI
+│   ├── telemetry/         PostHog analytics + Sentry crash reporting
+│   ├── testHelpers/       shared test utilities and fakes
 │   ├── cli.ts             arg parsing + main()
 │   └── index.ts           bootstrap: telemetry/logger/analytics wiring, then main()
 ├── scripts/               analyze.sh installer + build-report-web.ts
@@ -61,14 +61,14 @@ The following files under `.claude/rules/` carry team conventions enforced for `
 
 Beyond the rules:
 
-- **Dependency injection is non-negotiable.** All business logic flows through the typed `CliContext` (`src/context.ts`). Prefer explicit context-object wiring over module-level singletons or global mocking.
+- **Dependency injection is non-negotiable.** All business logic flows through the typed `Context` (`src/context/index.ts`). Prefer explicit context-object wiring over module-level singletons or global mocking.
 - **`ctx` always comes first, and is destructured at the point of use.** Helpers that take a context list it as the first parameter (`fn(ctx, other)`); pull the fields you need at the top of the body (`const { io, logger } = ctx;`) rather than reaching through `ctx.io.stdout` at each call site. This narrows each function to the surface it depends on and keeps test stubs honest.
 - **Business output (stdout) and diagnostics (logger → stderr) stay on separate channels** so piped consumers see clean stdout while humans get readable logs.
 - **Use Temporal for all time handling.** Use `@js-temporal/polyfill` via `src/time.ts`, keep in-process values as Temporal objects, serialize only ISO strings at JSON boundaries, and do not use `Date`.
 - **In Zod string schemas, prefer `.nonempty()` over `.min(1)`** (`.trim().nonempty()` when surrounding whitespace should not count).
 - **Destructured defaults over `??` fallbacks.** Apply defaults in a single destructuring assignment — `const { version = '0.0.1' } = input;`, not per-field `??`.
 - **Helpers at the bottom of files.** Primary exports come first; module-local helpers and factories sit below them. In test files they live after all `describe()` blocks.
-- **The product is always "PatchWave" in prose and UI copy** — capital P and W, one word. Never "patchwave", "Patchwave", or "patch wave". The only lowercase forms are literal identifiers that must match their real-world spelling: the `patchwave-analysis` CLI/binary name, the `patchwave-report.html` artifact, and the `patchwave.ai` domain.
+- **The product is always "PatchWave" in prose and UI copy** — capital P and W, one word. Never "patchwave", "Patchwave", or "patch wave". The only lowercase forms are literal identifiers that must match their real-world spelling: the `patchwave-analysis` CLI/binary name, the `patchwave-report.html` artifact, and the `patchwave.ai` domain. This CLI is "PatchWave Dependency Checkup" (or "the checkup") in prose; "PatchWave" alone means the GitHub app it promotes.
 
 ### File naming
 
@@ -83,4 +83,4 @@ Use relative imports with explicit `.ts` / `.tsx` extensions (`import { main } f
 
 ## Telemetry
 
-Instrumentation (PostHog analytics + Sentry crash reporting, gated by build-time keys) is wired in `src/index.ts`. `Sentry.init` must run before `createLogger` so its `pinoIntegration` subscribes to pino's diagnostics channel first. Crash reports omit automatic request data and the machine hostname, but include error messages and stack traces; those may contain org names, repo names, tokens, or other sensitive details. See the "Telemetry & privacy" section of `README.md` for the user-facing disclosure.
+Instrumentation (PostHog analytics + Sentry crash reporting, gated by build-time keys) is wired in `src/index.ts`. `Sentry.init` must run before `createLogger` so its `pinoIntegration` subscribes to pino's diagnostics channel first. Crash reports omit automatic request data and the machine hostname, but include error messages and stack traces; those may contain org names, repo names, tokens, or other sensitive details. The generated report sends no analytics; report clicks are measured through the campaign tags in `src/report/web/reportCtaUrls.ts`. See the "Telemetry & privacy" section of `README.md` for the user-facing disclosure.

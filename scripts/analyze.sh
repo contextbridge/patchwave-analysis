@@ -23,9 +23,10 @@
 # you to re-run it interactively (it does not hang).
 #
 # Privacy: the binary reads from api.github.com and writes its report to a local
-# temp dir — nothing leaves your machine unless you choose to share the report.
-# It sends anonymous usage and crash telemetry only (never org or repo names,
-# tokens, report contents, or your hostname); disable it with DO_NOT_TRACK=1.
+# temp dir — the report never leaves your machine.
+# The CLI sends usage events and crash reports. Crash details may include
+# sensitive data; see the README. The report itself sends nothing.
+# Disable telemetry with DO_NOT_TRACK=1 before running the scan.
 #
 # Auth is the CLI's job: it reads GITHUB_TOKEN, then GH_TOKEN, then `gh auth
 # token`. Export a token first, or be logged in via the gh CLI.
@@ -101,12 +102,12 @@ detect_platform() {
   case "$(uname -s)" in
     Darwin) _detected_os=darwin ;;
     Linux) _detected_os=linux ;;
-    *) fail "unsupported OS: $(uname -s). patchwave-analysis supports macOS and Linux." ;;
+    *) fail "unsupported OS: $(uname -s). PatchWave Dependency Checkup supports macOS and Linux." ;;
   esac
   case "$(uname -m)" in
     arm64 | aarch64) _detected_arch=arm64 ;;
     x86_64 | amd64) _detected_arch=amd64 ;;
-    *) fail "unsupported architecture: $(uname -m). patchwave-analysis supports amd64 and arm64." ;;
+    *) fail "unsupported architecture: $(uname -m). PatchWave Dependency Checkup supports amd64 and arm64." ;;
   esac
   printf '%s %s\n' "$_detected_os" "$_detected_arch"
 }

@@ -1,164 +1,112 @@
-/* PatchWave report — uses the ContextBridge design system (planbridge ui package).
-   OKLCH brand palette, IBM Plex Sans (chrome + prose), IBM Plex Mono (code). */
+/* PatchWave report: the PatchWave brand (see brand/README.md). Light-only, like patchwave.ai. */
 
 @import 'tailwindcss';
+@import './pixel/pixel.css';
 
-/* IBM Plex Sans — chrome and body. Only the weights we use. */
-@import '@fontsource/ibm-plex-sans/400.css';
-@import '@fontsource/ibm-plex-sans/500.css';
-@import '@fontsource/ibm-plex-sans/600.css';
+/* Radio Canada for body and headings, Geist Mono for data and eyebrows. Latin subsets only, as on the site, to keep
+   the inlined report small. */
+@font-face {
+  font-family: 'Radio Canada';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url('@fontsource-variable/radio-canada/files/radio-canada-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
-/* IBM Plex Mono — code and the org wordmark. */
-@import '@fontsource/ibm-plex-mono/400.css';
-@import '@fontsource/ibm-plex-mono/500.css';
+@font-face {
+  font-family: 'Radio Canada';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url('@fontsource-variable/radio-canada/files/radio-canada-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+    U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/geist-mono/files/geist-mono-latin-ext-wght-normal.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
-  --cb-font-sans: 'IBM Plex Sans', system-ui, sans-serif;
-  --cb-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  color-scheme: light;
 
-  --background: oklch(100% 0 0);
-  --foreground: oklch(0% 0 0);
-  --muted-foreground: var(--color-neutral-600);
-  --border: var(--color-neutral-200);
+  /* The brand colors the report uses, from @patchwave/brand colors.css with the website's neutral overrides (ink,
+     paper). */
+  --brand-white: #ffffff;
+  --brand-ink: #000000;
+  --brand-paper: #f1f1f1;
+  --brand-violet-pale: #ecebfd;
+  --brand-violet-light: #9babf9;
+  --brand-violet: #5a49ff;
+  --brand-violet-deep: #2211e3;
+  --brand-violet-night: #130a7b;
+  --brand-butter: #fef29e;
+  --brand-sun: #fde447;
+  --brand-pink-pale: #f2cbff;
+  --brand-pink: #e188ff;
+  --brand-purple: #cb2dff;
 
-  --peach: oklch(88.5% 0.075 70);
-  --tangerine: oklch(77% 0.17 55);
-  --coral: oklch(66% 0.22 30);
-  --red: oklch(58% 0.25 27);
-  --violet: oklch(52% 0.29 310);
-  --royal: oklch(48% 0.26 265);
-  --royal-light: oklch(65% 0.24 265);
-  --violet-light: oklch(70% 0.25 310);
+  --brand-font-body: 'Radio Canada', system-ui, sans-serif;
+  /* Geist Mono lacks →, so a system mono draws it rather than Courier. */
+  --brand-font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --color-amber-50: oklch(98.5% 0.02 95);
-  --color-amber-100: oklch(96% 0.052 95.5);
-  --color-amber-200: oklch(92% 0.1 96);
-  --color-amber-300: oklch(87.5% 0.15 96.5);
-  --color-amber-400: oklch(81.5% 0.182 97);
-  --color-amber-500: oklch(75.5% 0.19 97.5);
-  --color-amber-600: oklch(66% 0.172 98);
-  --color-amber-700: oklch(55% 0.15 98.5);
-  --color-amber-800: oklch(46.5% 0.122 99);
-  --color-amber-900: oklch(40.5% 0.102 99.5);
-  --color-amber-950: oklch(28% 0.072 100);
+  --background: var(--brand-white);
+  --foreground: var(--brand-ink);
+  /* Ink at 64% and 15% on white, as literals: Bun's CSS minifier drops all but one color-mix() custom property per
+     rule. */
+  --muted-foreground: #5c5c5c;
+  --border: #d9d9d9;
 
-  --color-neutral-50: oklch(98.5% 0 0);
-  --color-neutral-100: oklch(96.7% 0 0);
-  --color-neutral-200: oklch(93% 0 0);
-  --color-neutral-300: oklch(87% 0 0);
-  --color-neutral-400: oklch(70.8% 0 0);
-  --color-neutral-500: oklch(55.6% 0 0);
-  --color-neutral-600: oklch(43.9% 0 0);
-  --color-neutral-700: oklch(37.1% 0 0);
-  --color-neutral-800: oklch(26.9% 0 0);
-  --color-neutral-900: oklch(20.5% 0 0);
-  --color-neutral-950: oklch(18% 0 0);
-  --color-neutral-975: oklch(12% 0 0);
-  --color-neutral-990: oklch(8% 0 0);
-
-  --color-green-50: oklch(98.3% 0.018 155);
-  --color-green-100: oklch(96% 0.041 156);
-  --color-green-200: oklch(92% 0.08 157);
-  --color-green-300: oklch(86.5% 0.132 158);
-  --color-green-400: oklch(78.5% 0.184 159);
-  --color-green-500: oklch(72% 0.21 160);
-  --color-green-600: oklch(62.5% 0.186 160.5);
-  --color-green-700: oklch(53% 0.15 161);
-  --color-green-800: oklch(45% 0.118 162);
-  --color-green-900: oklch(38.5% 0.094 162.5);
-  --color-green-950: oklch(28% 0.065 163);
-
-  --color-teal-50: oklch(98% 0.014 180);
-  --color-teal-100: oklch(95.5% 0.034 181);
-  --color-teal-200: oklch(91% 0.064 181.5);
-  --color-teal-300: oklch(85% 0.104 182);
-  --color-teal-400: oklch(77% 0.136 182.5);
-  --color-teal-500: oklch(70.2% 0.151 162.68);
-  --color-teal-600: oklch(60% 0.139 183);
-  --color-teal-700: oklch(51% 0.115 183.5);
-  --color-teal-800: oklch(43% 0.092 184);
-  --color-teal-900: oklch(36.5% 0.075 184.5);
-  --color-teal-950: oklch(28% 0.058 185);
-
-  --card: var(--background);
+  --card: var(--brand-white);
   --card-foreground: var(--foreground);
-  --primary: var(--royal);
-  --primary-foreground: var(--background);
-  --secondary: var(--color-neutral-50);
+  --primary: var(--brand-violet);
+  --primary-foreground: var(--brand-white);
+  --secondary: var(--brand-paper);
   --secondary-foreground: var(--foreground);
-  --accent: var(--color-neutral-50);
-  --accent-foreground: var(--foreground);
-  --muted: var(--color-neutral-50);
+  --accent: var(--brand-violet-pale);
+  --accent-foreground: var(--brand-violet-night);
+  --muted: var(--brand-paper);
 
-  --radius: 0.625rem;
-  --destructive: var(--red);
-  --input: var(--color-neutral-200);
-  --ring: var(--color-neutral-400);
+  --radius: 0.5rem;
+  --input: var(--border);
+  --ring: var(--brand-violet);
 
-  /* Savings highlight. A lighter green reads on the dark palette but washes out
-     on white, so light mode uses a darker green for contrast. */
-  --savings: var(--color-green-700);
+  --savings: var(--brand-violet-deep);
 
-  /* CVE severity palette from GitHub's Primer severity roles (Critical=danger,
-     High=severe, Medium=attention, Low=neutral). Vivid enough to read as solid
-     fills on both backgrounds, so one set serves light and dark. */
-  --severity-critical: #f85149;
-  --severity-high: #db6d28;
-  --severity-medium: #d29922;
-  --severity-low: #8b949e;
-}
-
-/* Dark palette. Applies when the OS asks for it (unless a Storybook story forces
-   light with .theme-light) and when .theme-dark is set explicitly. The .theme-*
-   classes exist only so Storybook can force a scheme; the shipped report never
-   sets them. Keep the two blocks below in sync. */
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light) {
-    --background: var(--color-neutral-990);
-    --foreground: var(--color-neutral-50);
-    --muted-foreground: var(--color-neutral-400);
-    --border: var(--color-neutral-800);
-
-    --card: var(--color-neutral-975);
-    --card-foreground: var(--foreground);
-    --primary: var(--royal-light);
-    --primary-foreground: var(--color-neutral-50);
-    --secondary: var(--color-neutral-900);
-    --secondary-foreground: var(--foreground);
-    --accent: var(--color-neutral-900);
-    --accent-foreground: var(--foreground);
-    --muted: var(--color-neutral-900);
-
-    --input: var(--color-neutral-800);
-    --ring: var(--color-neutral-600);
-    --savings: var(--color-green-400);
-  }
-}
-
-:root.theme-dark {
-  --background: var(--color-neutral-990);
-  --foreground: var(--color-neutral-50);
-  --muted-foreground: var(--color-neutral-400);
-  --border: var(--color-neutral-800);
-
-  --card: var(--color-neutral-975);
-  --card-foreground: var(--foreground);
-  --primary: var(--royal-light);
-  --primary-foreground: var(--color-neutral-50);
-  --secondary: var(--color-neutral-900);
-  --secondary-foreground: var(--foreground);
-  --accent: var(--color-neutral-900);
-  --accent-foreground: var(--foreground);
-  --muted: var(--color-neutral-900);
-
-  --input: var(--color-neutral-800);
-  --ring: var(--color-neutral-600);
-  --savings: var(--color-green-400);
+  /* The brand has no warning colors, so severities use the conventional red, orange and amber, with brand violet for
+     low. Critical and high clear 3:1 on white for large text; critical also carries white badge text. */
+  --severity-critical: #dc2626;
+  --severity-high: #ea580c;
+  --severity-medium: #fbbf24;
+  --severity-low: var(--brand-violet-light);
+  --destructive: var(--severity-critical);
 }
 
 @theme inline {
-  --font-sans: var(--cb-font-sans);
-  --font-mono: var(--cb-font-mono);
+  --font-sans: var(--brand-font-body);
+  --font-mono: var(--brand-font-mono);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -179,27 +127,32 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-savings: var(--savings);
+  --color-severity-critical: var(--severity-critical);
+  --color-severity-high: var(--severity-high);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --color-peach: var(--peach);
-  --color-tangerine: var(--tangerine);
-  --color-coral: var(--coral);
-  --color-red: var(--red);
-  --color-violet: var(--violet);
-  --color-royal: var(--royal);
-  --color-royal-light: var(--royal-light);
-
-  --color-neutral-975: var(--color-neutral-975);
-  --color-neutral-990: var(--color-neutral-990);
+  --color-brand-white: var(--brand-white);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-paper: var(--brand-paper);
+  --color-brand-violet-pale: var(--brand-violet-pale);
+  --color-brand-violet-light: var(--brand-violet-light);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-violet-deep: var(--brand-violet-deep);
+  --color-brand-violet-night: var(--brand-violet-night);
+  --color-brand-butter: var(--brand-butter);
+  --color-brand-sun: var(--brand-sun);
+  --color-brand-pink-pale: var(--brand-pink-pale);
+  --color-brand-pink: var(--brand-pink);
+  --color-brand-purple: var(--brand-purple);
 }
 
 html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--cb-font-sans);
+  font-family: var(--brand-font-body);
 }
 
 html {
@@ -216,8 +169,18 @@ html {
   }
 }
 
-.font-mono {
-  font-family: var(--cb-font-mono);
+/* Pixel art scales by whole numbers, so it must never be smoothed. */
+@utility pixelated {
+  image-rendering: pixelated;
+}
+
+/* The small mono caps label over figures, table columns and sections. Callers set the color. */
+@utility eyebrow {
+  @apply font-mono text-xs tracking-wider uppercase;
+}
+
+@utility text-link {
+  @apply text-primary underline underline-offset-4;
 }
 
 @media print {
@@ -226,5 +189,18 @@ html {
   }
   body {
     background: white;
+  }
+  /* Scene bands drop their sky and print as plain dark text on white. */
+  .print-plain {
+    background: none !important;
+    color: var(--brand-ink) !important;
+    text-shadow: none !important;
+  }
+  .print-plain * {
+    color: var(--brand-ink) !important;
+    text-shadow: none !important;
+  }
+  .pixel-frame {
+    filter: none;
   }
 }

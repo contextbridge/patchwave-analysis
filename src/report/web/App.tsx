@@ -7,20 +7,24 @@ import { MethodologyAppendix } from './acts/MethodologyAppendix.tsx';
 import { OpenPrAgeStory } from './acts/OpenPrAgeStory.tsx';
 import { RiskStory } from './acts/RiskStory.tsx';
 import { Verdict } from './acts/Verdict.tsx';
-import { useAnalytics } from './analytics/AnalyticsContext.tsx';
 import { EmbeddedDataProvider } from './data/EmbeddedDataContext.tsx';
 import { scopeLabel } from './format/scope.ts';
 import { AssumptionsProvider } from './hooks/useAssumptions.tsx';
 import { AssumptionsDisclosureProvider } from './hooks/useAssumptionsDisclosure.tsx';
 import { type DisplayUnit, DisplayUnitProvider, useDisplayUnit } from './hooks/useDisplayUnit.tsx';
 import { FootnoteProvider } from './hooks/useFootnotes.tsx';
-import { BrandMark } from './primitives/BrandMark.tsx';
+import { Container } from './primitives/Container.tsx';
+import { Logo } from './primitives/Logo.tsx';
+import { PixelRule } from './primitives/PixelRule.tsx';
+import { WaveDivider } from './primitives/WaveDivider.tsx';
+import { reportCtaUrls } from './reportCtaUrls.ts';
 import type { EmbeddedReportData } from './types.ts';
 
 export const appTestIds = {
   main: 'report-main',
   header: 'report-header',
   headerContext: 'report-header-context',
+  headerLogo: 'report-header-logo',
   unitToggle: 'report-unit-toggle',
   unitUsd: 'report-unit-usd',
   unitHours: 'report-unit-hours',
@@ -38,14 +42,24 @@ export function App({ data }: { data: EmbeddedReportData }) {
           <AssumptionsDisclosureProvider>
             <FootnoteProvider>
               <ReportHeader org={data.meta.org} repositoryScope={data.meta.repositoryScope} />
-              <main data-testid={appTestIds.main} className="mx-auto max-w-[1024px] px-6 pb-32 pt-12 sm:pt-16">
+              <main data-testid={appTestIds.main}>
                 <Verdict />
-                <AutomatedStory />
-                <CostStory />
-                <OpenPrAgeStory />
-                <RiskStory />
+                <SceneEdge variant="out" />
+                <Container className="pt-12 pb-24 sm:pt-16">
+                  <AutomatedStory />
+                  <ActBreak />
+                  <CostStory />
+                  <ActBreak />
+                  <OpenPrAgeStory />
+                  <ActBreak />
+                  <RiskStory />
+                </Container>
+                <SceneEdge variant="into" />
                 <CallToAction />
-                <MethodologyAppendix />
+                <SceneEdge variant="out" />
+                <Container className="pt-12 pb-32 sm:pt-16">
+                  <MethodologyAppendix />
+                </Container>
               </main>
             </FootnoteProvider>
           </AssumptionsDisclosureProvider>
@@ -60,26 +74,29 @@ function ReportHeader({ org, repositoryScope }: { org: string; repositoryScope: 
   return (
     <header
       data-testid={appTestIds.header}
-      className="border-border bg-background sticky top-0 z-50 flex h-12 items-center justify-between border-b px-6 no-print"
+      className="border-brand-violet-night bg-background sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b-2 px-4 no-print sm:px-6"
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <a href="https://patchwave.ai" className="text-foreground flex shrink-0 items-center gap-2 no-underline">
-          <BrandMark className="text-foreground size-4" />
-          <span className="text-foreground text-[15px] font-semibold tracking-tight">PatchWave</span>
+      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <a
+          data-testid={appTestIds.headerLogo}
+          href={reportCtaUrls.header}
+          className="flex shrink-0 items-center no-underline transition-opacity hover:opacity-80"
+        >
+          <Logo />
         </a>
-        <span className="bg-border h-4 w-px shrink-0" aria-hidden />
+        <span className="bg-border h-6 w-0.5 shrink-0" aria-hidden />
         <p
           data-testid={appTestIds.headerContext}
-          className="text-muted-foreground truncate text-sm leading-none font-medium"
+          className="text-muted-foreground min-w-0 truncate text-sm leading-none font-medium"
         >
           {appCopy.analysisFor} {label ? `${org} (${label})` : org}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex shrink-0 items-center gap-4">
         <UnitToggle />
         <a
-          href="https://patchwave.ai"
-          className="text-muted-foreground hover:text-foreground hidden shrink-0 text-xs font-medium tracking-wide uppercase no-underline sm:inline"
+          href={reportCtaUrls.header}
+          className="eyebrow text-foreground hover:text-primary hidden shrink-0 no-underline lg:inline"
         >
           patchwave.ai
         </a>
@@ -90,12 +107,10 @@ function ReportHeader({ org, repositoryScope }: { org: string; repositoryScope: 
 
 function UnitToggle() {
   const { unit, setUnit } = useDisplayUnit();
-  const analytics = useAnalytics();
   const buttonRefs = { hours: useRef<HTMLButtonElement>(null), usd: useRef<HTMLButtonElement>(null) };
   const select = (next: DisplayUnit) => {
     if (next === unit) return;
     setUnit(next);
-    analytics.capture('display_unit_changed', { unit: next });
   };
   const options = [
     { value: 'hours', label: 'hrs', ariaLabel: 'Hours', testId: appTestIds.unitHours },
@@ -106,7 +121,7 @@ function UnitToggle() {
       data-testid={appTestIds.unitToggle}
       role="radiogroup"
       aria-label="Show engineering cost as"
-      className="border-border bg-card inline-flex rounded-md border p-0.5"
+      className="border-border bg-card inline-flex rounded-md border p-0.5 font-mono"
       onKeyDown={(event) => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
           event.preventDefault();
@@ -127,13 +142,30 @@ function UnitToggle() {
           tabIndex={unit === option.value ? 0 : -1}
           data-testid={option.testId}
           onClick={() => select(option.value)}
-          className={`rounded px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-colors ${
-            unit === option.value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
+          className={`rounded px-2.5 py-1 text-xs font-bold tracking-wider whitespace-nowrap uppercase transition-colors ${
+            unit === option.value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function ActBreak() {
+  return (
+    <div className="my-16 sm:my-20 print:my-10">
+      <PixelRule />
+    </div>
+  );
+}
+
+/** Waves where a scene meets the white page. */
+function SceneEdge({ variant }: { variant: 'into' | 'out' }) {
+  return (
+    <div className="no-print">
+      <WaveDivider variant={variant} />
     </div>
   );
 }

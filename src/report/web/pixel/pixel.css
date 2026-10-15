@@ -1,0 +1,280 @@
+/* Pixel chrome from the PatchWave site: the pixel-* utilities and animations from
+   packages/website/src/styles/tailwind.css that the report uses, copied as-is apart from pixel-frame's
+   border-image longhands, plus the report's own pixel-text-shadow. See brand/README.md. */
+
+@theme inline {
+  --animate-nudge: nudge 0.5s steps(1) infinite;
+
+  @keyframes nudge {
+    50% {
+      translate: var(--pixel, 2px) 0;
+    }
+  }
+}
+
+/*
+ * A game menu window: a navy outline with stepped corners, as a 9-slice at 2px art pixels, on a hard drop shadow.
+ */
+@utility pixel-frame {
+  border: 8px solid transparent;
+  /* Longhands, as Bun's CSS minifier drops the url from a border-image shorthand. */
+  border-image-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%23130a7b' d='M2 0h8v1H2zM1 1h1v1H1zM10 1h1v1H10zM0 2h1v1H0zM11 2h1v1H11zM0 3h1v1H0zM11 3h1v1H11zM0 4h1v1H0zM11 4h1v1H11zM0 5h1v1H0zM11 5h1v1H11zM0 6h1v1H0zM11 6h1v1H11zM0 7h1v1H0zM11 7h1v1H11zM0 8h1v1H0zM11 8h1v1H11zM0 9h1v1H0zM11 9h1v1H11zM1 10h1v1H1zM10 10h1v1H10zM2 11h8v1H2z'/%3E%3Cpath fill='%23ffffff' d='M2 1h8v1H2zM1 2h10v1H1zM1 3h10v1H1zM1 4h10v1H1zM1 5h10v1H1zM1 6h10v1H1zM1 7h10v1H1zM1 8h10v1H1zM1 9h10v1H1zM2 10h8v1H2z'/%3E%3C/svg%3E");
+  border-image-slice: 4 fill;
+  border-image-width: 8px;
+  border-image-repeat: stretch;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 4px 0 var(--brand-violet-night));
+}
+
+/* A violet diamond at 2px art pixels: the ornament in the middle of a PixelRule. */
+@utility pixel-diamond {
+  width: 14px;
+  height: 14px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Cpath fill='%235a49ff' d='M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+/*
+ * A chunky game-menu button: a face lit along its top and left and shaded along its bottom and right, on a darker
+ * base like a keycap's side, inside an outline with stepped corners. Hover lifts the face an art pixel off the base,
+ * with a glint sweeping across it and a sparkle where it ends, and pressing sinks it flush. --pixel sets the size of an art pixel, and variants
+ * color it with --button-face, --button-highlight, --button-shade and --button-base. Light labels look pressed into
+ * the face with --button-text-shadow along their top edge. The outline is --pixel-line.
+ */
+@utility pixel-button {
+  --depth: var(--pixel);
+  --lift: 0px;
+  position: relative;
+  isolation: isolate;
+  translate: 0 var(--lift);
+  text-shadow: 0 -2px 0 var(--button-text-shadow, transparent);
+
+  /* The outline and base. It reaches below the face by --depth, less however far the face has moved. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 calc(var(--lift) - var(--depth));
+    z-index: -2;
+    background: var(--button-base);
+    box-shadow: inset 0 0 0 var(--pixel) var(--pixel-line, var(--brand-ink));
+    clip-path: polygon(
+      var(--pixel) 0,
+      calc(100% - var(--pixel)) 0,
+      calc(100% - var(--pixel)) var(--pixel),
+      100% var(--pixel),
+      100% calc(100% - var(--pixel)),
+      calc(100% - var(--pixel)) calc(100% - var(--pixel)),
+      calc(100% - var(--pixel)) 100%,
+      var(--pixel) 100%,
+      var(--pixel) calc(100% - var(--pixel)),
+      0 calc(100% - var(--pixel)),
+      0 var(--pixel),
+      var(--pixel) var(--pixel)
+    );
+    pointer-events: none;
+  }
+
+  /* The face, with the glint waiting off its left edge. */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: var(--pixel);
+    z-index: -1;
+    background:
+      linear-gradient(
+          to right,
+          transparent 0 20%,
+          rgb(255 255 255 / 0.45) 20% 60%,
+          transparent 60% 80%,
+          rgb(255 255 255 / 0.45) 80%
+        )
+        calc(var(--pixel) * -10) 0 / calc(var(--pixel) * 10) 100% no-repeat,
+      var(--button-face);
+    box-shadow:
+      inset var(--pixel) var(--pixel) 0 var(--button-highlight),
+      inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 var(--button-shade);
+    pointer-events: none;
+  }
+
+  &:hover:not(:disabled) {
+    --lift: calc(var(--pixel) * -1);
+  }
+  &:hover:not(:disabled)::after {
+    animation: button-glint 0.48s steps(6) both;
+  }
+  &:active:not(:disabled) {
+    --lift: var(--depth);
+  }
+
+  /*
+   * The sparkle's frames stack in the face's top corner, where the glint ends, hidden until hover. They stay inside the
+   * outline, as any arm past it would vanish into a light page.
+   */
+  & > [data-sparkle] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: grid;
+    pointer-events: none;
+
+    & > * {
+      grid-area: 1 / 1;
+      opacity: 0;
+    }
+  }
+  /* Longhands, as the production minifier collapses an `animation` shorthand without a name to `none`. */
+  &:hover:not(:disabled) > [data-sparkle] > * {
+    animation-duration: 0.5s;
+    animation-delay: 0.36s;
+    animation-timing-function: steps(1);
+    animation-fill-mode: forwards;
+  }
+  &:hover:not(:disabled) > [data-sparkle] > :nth-child(1) {
+    animation-name: button-sparkle-dot;
+  }
+  &:hover:not(:disabled) > [data-sparkle] > :nth-child(2) {
+    animation-name: button-sparkle-small;
+  }
+  &:hover:not(:disabled) > [data-sparkle] > :nth-child(3) {
+    animation-name: button-sparkle-big;
+  }
+
+  &:focus-visible {
+    outline: var(--pixel) dashed var(--brand-purple);
+    outline-offset: calc(var(--pixel) * 2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover:not(:disabled)::after,
+    &:hover:not(:disabled) > [data-sparkle] > * {
+      animation: none;
+    }
+  }
+}
+
+/* The sparkle grows from a dot to its full size and back, then goes out. */
+@keyframes button-sparkle-dot {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  20%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes button-sparkle-small {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  20%,
+  60% {
+    opacity: 1;
+  }
+  80%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes button-sparkle-big {
+  0%,
+  60%,
+  100% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes button-glint {
+  to {
+    background-position:
+      calc(100% + var(--pixel) * 10) 0,
+      0 0;
+  }
+}
+
+/* A hard ink drop shadow that lifts headline text off a scene. */
+@utility pixel-text-shadow {
+  text-shadow: 4px 4px 0 var(--brand-ink);
+}
+
+/*
+ * A range input as a 16-bit slider: a navy groove filled violet up to a square keycap thumb. Set --range-fill to the
+ * value's position along the range, from 0 to 1.
+ */
+@utility pixel-range {
+  --thumb: 20px;
+  height: var(--thumb);
+  appearance: none;
+  cursor: pointer;
+  background:
+    linear-gradient(var(--brand-violet), var(--brand-violet)) 2px center /
+      calc((100% - var(--thumb)) * var(--range-fill, 0) + var(--thumb) / 2) 4px no-repeat,
+    linear-gradient(var(--brand-violet-pale), var(--brand-violet-pale)) center / calc(100% - 4px) 4px no-repeat,
+    linear-gradient(var(--brand-violet-night), var(--brand-violet-night)) center / 100% 8px no-repeat;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+  /* Firefox drops a whole rule when it doesn't know a selector in its list, so each engine's thumb is its own rule. */
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: var(--thumb);
+    height: var(--thumb);
+    border: 2px solid var(--brand-violet-night);
+    background: var(--brand-violet);
+    box-shadow:
+      inset 2px 2px 0 var(--brand-violet-light),
+      inset -2px -2px 0 var(--brand-violet-deep);
+  }
+  &::-moz-range-thumb {
+    box-sizing: border-box;
+    width: var(--thumb);
+    height: var(--thumb);
+    border: 2px solid var(--brand-violet-night);
+    border-radius: 0;
+    background: var(--brand-violet);
+    box-shadow:
+      inset 2px 2px 0 var(--brand-violet-light),
+      inset -2px -2px 0 var(--brand-violet-deep);
+  }
+}
+
+/* A row of pixel waves, used sparingly between sections. */
+@utility pixel-waves {
+  height: 32px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 8' shape-rendering='crispEdges'%3E%3Cpath fill='%23ecebfd' d='M4 0h2v1H4zM2 1h2v1H2zM6 1h1v1H6zM1 2h1v1H1zM7 2h1v1H7zM15 2h1v1h-1zM0 3h1v1H0zM8 3h2v1H8zM13 3h2v1h-2zM11 4h2v1h-2z'/%3E%3Cpath fill='%239babf9' d='M4 1h2v1H4zM2 2h2v1H2zM6 2h1v1H6zM1 3h1v1H1zM7 3h1v1H7zM15 3h1v1h-1zM9 4h2v1H9zM13 4h1v1h-1z'/%3E%3Cpath fill='%235a49ff' d='M4 2h2v1H4zM2 3h5v1H2zM0 4h9v1H0zM14 4h2v1h-2zM0 5h16v1H0zM2 6h12v1H2zM5 7h6v1H5z'/%3E%3Cpath fill='%232211e3' d='M0 6h2v2H0zM14 6h2v2h-2zM2 7h3v1H2zM11 7h3v1h-3z'/%3E%3C/svg%3E")
+    0 0 / 64px 32px repeat-x;
+  image-rendering: pixelated;
+}
+
+/*
+ * Banded sunset sky that scenes paint over once their canvas is ready. --ocean is the height of the water
+ * below the horizon.
+ */
+@utility pixel-sky {
+  background: linear-gradient(
+    to top,
+    var(--brand-violet-deep) 0 var(--ocean),
+    var(--brand-butter) var(--ocean) calc(var(--ocean) + 12px),
+    var(--brand-pink-pale) 0 calc(var(--ocean) + 24px),
+    var(--brand-pink) 0 calc(var(--ocean) + 40px),
+    var(--brand-violet-light) 0 calc(var(--ocean) + 60px),
+    var(--brand-violet) 0 calc(var(--ocean) + 92px),
+    var(--brand-violet-deep) 0 calc(var(--ocean) + 148px),
+    var(--brand-violet-night) 0
+  );
+}
+
+/* A faint checkerboard behind pixel art in a PixelTile. */
+@utility pixel-dither {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 2' shape-rendering='crispEdges'%3E%3Crect width='1' height='1' fill='%239babf9' fill-opacity='.28'/%3E%3Crect x='1' y='1' width='1' height='1' fill='%239babf9' fill-opacity='.28'/%3E%3C/svg%3E");
+  background-size: 4px 4px;
+  image-rendering: pixelated;
+}

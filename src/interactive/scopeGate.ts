@@ -1,7 +1,8 @@
 import type { Context } from '../context/index.ts';
 import type { GithubError } from '../github/errors.ts';
+import { GITHUB_NEW_TOKEN_URL } from '../urls.ts';
 
-// PatchWave needs a classic token with `repo` (private repos + PR data) and
+// PatchWave Dependency Checkup needs a classic token with `repo` (private repos + PR data) and
 // `read:org` (org repo listing). `repo` also covers `security_events` for CVEs.
 const REQUIRED_SCOPES = ['repo', 'read:org'] as const;
 
@@ -39,7 +40,7 @@ function missingScopeFix(missing: string[]): string {
   return [
     `The token is missing the ${missing.map((s) => `\`${s}\``).join(' and ')} scope${missing.length > 1 ? 's' : ''}.`,
     '',
-    'Grant a classic token both of these, then run patchwave-analysis again:',
+    'Grant a classic token both of these, then run the checkup again:',
     '',
     '  • repo       private repos and pull-request data (also covers security_events)',
     "  • read:org   listing the org's repos",
@@ -47,15 +48,15 @@ function missingScopeFix(missing: string[]): string {
 }
 
 const SCOPE_GATE_WARNING =
-  "This token can't read everything PatchWave needs, so the report would undercount. Fix it, then run patchwave-analysis again.";
+  "This token can't read everything this analysis needs, so the report would undercount. Fix it, then run the checkup again.";
 
 const FINE_GRAINED_FIX = [
-  'PatchWave needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
+  'PatchWave Dependency Checkup needs a classic token; fine-grained tokens are not supported due to GitHub API restrictions.',
   '',
-  'Create one at https://github.com/settings/tokens/new with these scopes:',
+  `Create one at ${GITHUB_NEW_TOKEN_URL} with these scopes:`,
   '',
   '  • repo       private repos and pull-request data (also covers security_events)',
   "  • read:org   listing the org's repos",
   '',
-  'Then export GITHUB_TOKEN and run patchwave-analysis again.',
+  'Then export GITHUB_TOKEN and run the checkup again.',
 ].join('\n');

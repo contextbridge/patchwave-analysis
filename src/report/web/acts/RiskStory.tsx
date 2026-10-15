@@ -3,9 +3,12 @@ import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { repoShortName } from '../format/repo.ts';
 import { useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { INSTALL_COMMAND } from '../lib/installCommand.ts';
+import { ActHeader } from '../primitives/ActHeader.tsx';
 import { Citation } from '../primitives/Citation.tsx';
 import { CommandBlock } from '../primitives/CommandBlock.tsx';
 import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
+import { Stat, StatGrid } from '../primitives/Stat.tsx';
+import { SubHeading } from '../primitives/SubHeading.tsx';
 
 export const riskStoryTestIds = {
   section: 'risk-story-section',
@@ -37,20 +40,14 @@ export function RiskStory() {
 
   if (cve.status === 'no-access') {
     return (
-      <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-          {riskStoryCopy.eyebrow}
-        </div>
-        <h2
-          data-testid={riskStoryTestIds.heading}
-          className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
-        >
+      <section data-testid={riskStoryTestIds.section}>
+        <ActHeader icon="shield" eyebrow={riskStoryCopy.eyebrow} headingTestId={riskStoryTestIds.heading}>
           {riskStoryCopy.noAccessHeading}
-        </h2>
+        </ActHeader>
         <p className="text-foreground mt-5 leading-relaxed">
-          Reading Dependabot security alerts needs admin access to <code>{meta.org}</code>'s repositories, and the token
-          used to run the analysis doesn't have it. Run PatchWave against an org you administer and you'll see your open
-          alerts here, ranked by severity and by how long they've sat unpatched.
+          Your account can't read <code>{meta.org}</code>'s Dependabot security alerts. Ask an org owner or security
+          manager to run the checkup, and they'll see your open alerts here, ranked by severity and by how long they've
+          sat unpatched.
         </p>
         <CommandBlock command={INSTALL_COMMAND} label="the install command" testId={riskStoryTestIds.runCommand} />
       </section>
@@ -59,16 +56,10 @@ export function RiskStory() {
 
   if (cve.status === 'scope-missing') {
     return (
-      <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-          {riskStoryCopy.eyebrow}
-        </div>
-        <h2
-          data-testid={riskStoryTestIds.heading}
-          className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
-        >
+      <section data-testid={riskStoryTestIds.section}>
+        <ActHeader icon="shield" eyebrow={riskStoryCopy.eyebrow} headingTestId={riskStoryTestIds.heading}>
           {riskStoryCopy.scopeMissingHeading}
-        </h2>
+        </ActHeader>
         <p className="text-foreground mt-5 leading-relaxed">
           Reading Dependabot security alerts needs the{' '}
           <code className="bg-muted rounded px-1.5 py-0.5 font-mono text-sm">{cve.requiredScope}</code> OAuth scope,
@@ -85,16 +76,10 @@ export function RiskStory() {
 
   if (cve.totalOpenAlerts === 0) {
     return (
-      <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-        <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-          {riskStoryCopy.eyebrow}
-        </div>
-        <h2
-          data-testid={riskStoryTestIds.heading}
-          className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
-        >
+      <section data-testid={riskStoryTestIds.section}>
+        <ActHeader icon="shield" eyebrow={riskStoryCopy.eyebrow} headingTestId={riskStoryTestIds.heading}>
           {riskStoryCopy.noAlertsHeading}
-        </h2>
+        </ActHeader>
         <p className="text-foreground mt-5 leading-relaxed">
           No open Dependabot security alerts across the repos in scope. That can mean you're caught up, or that security
           alerts aren't enabled everywhere. Check the appendix data for repos with alerts disabled.
@@ -106,16 +91,10 @@ export function RiskStory() {
   const hasOldest = cve.oldestCriticalDays !== null || cve.oldestHighDays !== null;
 
   return (
-    <section data-testid={riskStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-        {riskStoryCopy.eyebrow}
-      </div>
-      <h2
-        data-testid={riskStoryTestIds.heading}
-        className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl"
-      >
+    <section data-testid={riskStoryTestIds.section}>
+      <ActHeader icon="shield" eyebrow={riskStoryCopy.eyebrow} headingTestId={riskStoryTestIds.heading}>
         {cve.totalOpenAlerts.toLocaleString()} open security alerts
-      </h2>
+      </ActHeader>
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
         AI made finding vulnerabilities the easy part; fixing them is now the bottleneck
@@ -135,21 +114,23 @@ export function RiskStory() {
       </div>
 
       {hasOldest && (
-        <div className="bg-foreground mt-4 grid grid-cols-2 gap-px">
-          {cve.oldestCriticalDays !== null && (
-            <AgeCell label="Oldest open Critical" days={cve.oldestCriticalDays} tone="critical" />
-          )}
-          {cve.oldestHighDays !== null && <AgeCell label="Oldest open High" days={cve.oldestHighDays} tone="high" />}
+        <div className="mt-4">
+          <StatGrid columns={2}>
+            {cve.oldestCriticalDays !== null && (
+              <Stat label="Oldest open Critical" value={`${cve.oldestCriticalDays} days`} tone="critical" />
+            )}
+            {cve.oldestHighDays !== null && (
+              <Stat label="Oldest open High" value={`${cve.oldestHighDays} days`} tone="high" />
+            )}
+          </StatGrid>
         </div>
       )}
 
       {cve.topReposBySeverity.length > 0 && (
-        <>
-          <h3 className="text-foreground mt-10 text-sm font-semibold tracking-[0.14em] uppercase">
-            Top repos by severity
-          </h3>
+        <div className="mt-10">
+          <SubHeading>Top repos by severity</SubHeading>
           <TopReposBySeverityBars repos={cve.topReposBySeverity} />
-        </>
+        </div>
       )}
 
       {cve.reposWithSecurityAlertsDisabled.length > 0 && (
@@ -170,7 +151,7 @@ export function RiskStory() {
             href={`#${reposWithoutSecurityAlertsId}`}
             data-testid={riskStoryTestIds.disabledAlertsLink}
             onClick={() => reveal('calculation')}
-            className="text-primary underline underline-offset-4"
+            className="text-link"
           >
             {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'See the repo' : 'See the full list'}
           </a>
@@ -249,16 +230,4 @@ function RepoSeverityBar({ repo, maxTotal }: { repo: RepoSeverityRow; maxTotal: 
 
 function repoTotal(r: RepoSeverityRow): number {
   return r.critical + r.high + r.medium + r.low;
-}
-
-function AgeCell({ label, days, tone }: { label: string; days: number; tone: 'critical' | 'high' }) {
-  const color = tone === 'critical' ? 'var(--severity-critical)' : 'var(--severity-high)';
-  return (
-    <div className="bg-card p-5">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
-      <div className="mt-1.5 text-2xl font-medium tabular-nums" style={{ color }}>
-        {days} days
-      </div>
-    </div>
-  );
 }

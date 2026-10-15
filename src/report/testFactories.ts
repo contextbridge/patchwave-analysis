@@ -1,5 +1,4 @@
 import { Factory } from 'fishery';
-import type { ReportAnalyticsConfig } from '../telemetry/Analytics.ts';
 import { instantFromString } from '../time.ts';
 import type {
   CostEstimate,
@@ -98,7 +97,7 @@ export const people = Factory.define<People>(() => ({
   commenters: [],
 }));
 
-const costEstimate = Factory.define<CostEstimate>(() => ({
+export const costEstimate = Factory.define<CostEstimate>(() => ({
   humanMergeCount: HUMAN_MERGE_COUNT,
   humanReviewCount: HUMAN_REVIEW_COUNT,
   openCount: 102,
@@ -155,10 +154,3 @@ export const reportBundle = Factory.define<ReportBundle>(() => ({
 // The web report (App, dev server) consumes the bundle in its embedded shape,
 // with `generatedAt` serialized to a string.
 export const embeddedReportData = Factory.define<EmbeddedReportData>(() => toEmbeddedShape(reportBundle.build()));
-
-export const reportAnalyticsConfig = Factory.define<ReportAnalyticsConfig>(() => ({
-  telemetryDisabled: false,
-  reportId: 'report-1234',
-  generatedByAnonymousId: 'anon-5678',
-  version: '0.0.1',
-}));

@@ -2,6 +2,11 @@
   "name": "patchwave-analysis",
   "version": "0.7.1",
   "description": "Diagnostic CLI that measures Dependabot toil and CVE exposure across a GitHub org.",
+  "homepage": "https://patchwave.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/contextbridge/patchwave-analysis.git"
+  },
   "type": "module",
   "bin": {
     "patchwave-analysis": "./src/index.ts"
@@ -46,8 +51,8 @@
   "devDependencies": {
     "@contextbridge-ai/eslint-config": "^0.1.0",
     "@contextbridge-ai/prettier-config": "^0.0.1",
-    "@fontsource/ibm-plex-mono": "^5.3.0",
-    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/radio-canada": "^5.3.0",
     "@graphql-codegen/cli": "^7.4.4",
     "@graphql-codegen/typed-document-node": "^7.1.1",
     "@graphql-codegen/typescript-operations": "^6.1.10",
@@ -97,7 +102,6 @@
     "p-map": "^7.0.8",
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0",
-    "posthog-js": "^1.438.2",
     "posthog-node": "^5.55.0",
     "radix-ui": "^1.7.0",
     "react": "^19",

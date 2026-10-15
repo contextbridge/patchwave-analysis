@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
-import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
+import { ActHeader } from '../primitives/ActHeader.tsx';
 import { Citation } from '../primitives/Citation.tsx';
+import { PixelTile } from '../primitives/PixelTile.tsx';
+import { Sprite } from '../primitives/Sprite.tsx';
+import { Stat, StatGrid } from '../primitives/Stat.tsx';
 import { reportCtaUrls } from '../reportCtaUrls.ts';
-import { callToActionCopy } from './CallToAction.tsx';
 
 export const automatedStoryTestIds = {
   section: 'automated-story-section',
@@ -18,20 +20,23 @@ export const automatedStoryTestIds = {
   primaryCta: 'automated-story-primary-cta',
 } as const;
 
+export const automatedStorySectionId = 'patchwave';
+
+export const automatedStoryCopy = {
+  ctaLabel: (savings: string) => `Start saving ${savings}`,
+  ctaFallbackLabel: 'Join the public beta',
+  ctaNote: 'Free for 30 days. No credit card.',
+} as const;
+
 const SHARE_MIN = 50;
 const SHARE_MAX = 80;
 const SHARE_STEP = 5;
 const SHARE_DEFAULT = 65;
 const SHARE_MID = (SHARE_MIN + SHARE_MAX) / 2;
-const SHARE_STOPS = Array.from(
-  { length: (SHARE_MAX - SHARE_MIN) / SHARE_STEP + 1 },
-  (_, i) => SHARE_MIN + i * SHARE_STEP,
-);
 
 export function AutomatedStory() {
   const { derived } = useAssumptions();
   const formatAmount = useFormatAmount();
-  const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const today = { hours: derived.annualHours, usd: derived.annualCostUsd };
@@ -41,29 +46,31 @@ export function AutomatedStory() {
   const savings = { hours: autoMerged.hours + accelerated.hours, usd: autoMerged.usd + accelerated.usd };
 
   return (
-    <section data-testid={automatedStoryTestIds.section} className="border-foreground mt-20 border-t pt-10">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.16em] uppercase">
-        If this were automated
-      </div>
-      <h2 className="text-foreground mt-2 text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
+    <section id={automatedStorySectionId} data-testid={automatedStoryTestIds.section} className="scroll-mt-24">
+      <ActHeader icon="bolt" eyebrow="If this were automated">
         Today vs. with PatchWave auto-merge
-      </h2>
+      </ActHeader>
+
+      <MeetPatch />
 
       <p className="text-foreground mt-5 text-base leading-relaxed">
-        PatchWave reviews each update and merges the ones it can clear safely. For the rest, it posts its analysis on
-        the PR to accelerate the human review. Here's how much engineering time your team would get back.
+        PatchWave analyzes each update and merges it when the analysis shows the upgrade is safe. When it isn't sure, it
+        posts that analysis on the PR to speed up the human review. Here's how much engineering time your team would get
+        back.
       </p>
 
-      <div className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2">
-        <CompareCard testId={automatedStoryTestIds.todayCost} label="Today" value={formatAmount(today, '/yr')} />
-        <CompareCard
-          testId={automatedStoryTestIds.patchwaveCost}
-          label="PatchWave savings"
-          value={formatAmount(savings, '/yr')}
-          detail={`${formatAmount(autoMerged)} from auto-merge + ${formatAmount(accelerated)} from accelerated reviews`}
-          detailTestId={automatedStoryTestIds.savingsBreakdown}
-          accent
-        />
+      <div className="mt-6">
+        <StatGrid columns={2}>
+          <Stat valueTestId={automatedStoryTestIds.todayCost} label="Today" value={formatAmount(today, '/yr')} />
+          <Stat
+            valueTestId={automatedStoryTestIds.patchwaveCost}
+            label="PatchWave savings"
+            value={formatAmount(savings, '/yr')}
+            detail={`${formatAmount(autoMerged)} from auto-merge + ${formatAmount(accelerated)} from accelerated reviews`}
+            detailTestId={automatedStoryTestIds.savingsBreakdown}
+            highlight
+          />
+        </StatGrid>
       </div>
 
       <div className="border-border bg-card mt-5 rounded-md border p-4 no-print">
@@ -71,7 +78,10 @@ export function AutomatedStory() {
           <label htmlFor="automerge-share" className="text-foreground text-sm font-medium">
             PRs auto-merged
           </label>
-          <span data-testid={automatedStoryTestIds.delta} className="text-primary text-sm font-semibold tabular-nums">
+          <span
+            data-testid={automatedStoryTestIds.delta}
+            className="text-primary font-mono text-sm font-bold tabular-nums"
+          >
             {sharePct}%
           </span>
         </div>
@@ -84,17 +94,10 @@ export function AutomatedStory() {
           step={SHARE_STEP}
           value={sharePct}
           onChange={(e) => setSharePct(Number(e.target.value))}
-          className="accent-primary mt-3 block w-full"
+          style={{ '--range-fill': (sharePct - SHARE_MIN) / (SHARE_MAX - SHARE_MIN) } as CSSProperties}
+          className="pixel-range mt-3 block w-full"
         />
-        <div className="mt-2 flex justify-between px-[3px]" aria-hidden>
-          {SHARE_STOPS.map((stop) => (
-            <span
-              key={stop}
-              className={`h-1.5 w-1.5 rounded-full ${stop <= sharePct ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-            />
-          ))}
-        </div>
-        <div className="text-muted-foreground mt-1 flex justify-between text-xs tabular-nums">
+        <div className="text-muted-foreground mt-2 flex justify-between font-mono text-xs tabular-nums">
           <span>{SHARE_MIN}%</span>
           <span>{SHARE_MID}%</span>
           <span>{SHARE_MAX}%</span>
@@ -108,49 +111,17 @@ export function AutomatedStory() {
         <Citation source="mohayeji-2025" />.
       </p>
 
-      <Button asChild className="mt-6 no-print">
-        <a
-          data-testid={automatedStoryTestIds.primaryCta}
-          href={reportCtaUrls.automation}
-          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_primary' })}
-        >
-          {callToActionCopy.ctaLabel}
-        </a>
-      </Button>
-    </section>
-  );
-}
-
-function CompareCard({
-  label,
-  value,
-  testId,
-  detail,
-  detailTestId,
-  accent = false,
-}: {
-  label: string;
-  value: string;
-  testId: string;
-  detail?: string;
-  detailTestId?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="border-border bg-card flex flex-col justify-center rounded-md border p-5">
-      <div className="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">{label}</div>
-      <div
-        data-testid={testId}
-        className={`${accent ? 'text-savings' : 'text-foreground'} mt-2 text-3xl font-medium tabular-nums sm:text-4xl`}
-      >
-        {value}
+      <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 no-print">
+        <Button asChild variant="pixel" cursor>
+          <a data-testid={automatedStoryTestIds.primaryCta} href={reportCtaUrls.automation}>
+            {savings.hours >= 1
+              ? automatedStoryCopy.ctaLabel(formatAmount(savings, '/yr'))
+              : automatedStoryCopy.ctaFallbackLabel}
+          </a>
+        </Button>
+        <p className="text-muted-foreground m-0 text-sm">{automatedStoryCopy.ctaNote}</p>
       </div>
-      {detail && (
-        <div data-testid={detailTestId} className="text-muted-foreground mt-2 text-xs">
-          {detail}
-        </div>
-      )}
-    </div>
+    </section>
   );
 }
 
@@ -159,4 +130,20 @@ function CompareCard({
 // render a headline one off from its visible components.
 function part(amount: Amount, rate: number): Amount {
   return { hours: Math.round(amount.hours * rate), usd: Math.round(amount.usd * rate) };
+}
+
+function MeetPatch() {
+  return (
+    <div className="mt-6 flex items-center gap-6">
+      <PixelTile tone="ink" size="bust" shape="circle">
+        <Sprite sprite="patchHead" scale={3} />
+      </PixelTile>
+      <div className="grid gap-1">
+        <p className="text-foreground m-0 text-2xl font-bold">Meet Patch.</p>
+        <p className="text-muted-foreground m-0 max-w-md text-lg leading-snug text-pretty">
+          Patch is an agent that automatically analyzes, fixes and merges your Dependabot PRs.
+        </p>
+      </div>
+    </div>
+  );
 }
