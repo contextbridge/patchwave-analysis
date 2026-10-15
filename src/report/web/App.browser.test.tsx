@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { suppressNavigation } from '../../testHelpers/suppressNavigation.ts';
 import {
+  costEstimate,
   cveExposureNoAccess,
   cveExposureOk,
   cveExposureScopeMissing,
@@ -9,7 +11,7 @@ import {
   personActivity,
   prBacklog,
 } from '../testFactories.ts';
-import { automatedStoryTestIds } from './acts/AutomatedStory.tsx';
+import { automatedStoryCopy, automatedStorySectionId, automatedStoryTestIds } from './acts/AutomatedStory.tsx';
 import { callToActionCopy, callToActionTestIds } from './acts/CallToAction.tsx';
 import { costStoryCopy, costStoryTestIds } from './acts/CostStory.tsx';
 import { methodologyAppendixTestIds } from './acts/MethodologyAppendix.tsx';
@@ -99,18 +101,45 @@ describe('cost headline', () => {
     expect(screen.getByTestId(verdictTestIds.annualCost)).toHaveTextContent(headline);
   });
 
-  it('notes that the headline excludes the open backlog', () => {
+  it('notes that the calculation excludes the open backlog', () => {
     renderReport();
 
-    expect(screen.getByTestId(verdictTestIds.section)).toHaveTextContent(
+    expect(screen.getByTestId(costStoryTestIds.section)).toHaveTextContent(
       'Does not include the 102 Dependabot PRs that are still open',
     );
   });
 
-  it('edits the assumptions inline, with no separate adjust control', () => {
+  it('backs the headline with the open backlog and security alerts', () => {
+    renderReport();
+
+    const stats = screen.getByTestId(verdictTestIds.problemStats);
+    expect(stats).toHaveTextContent('102 Dependabot updates are still open, 74 days on average.');
+    expect(stats).toHaveTextContent('7 known vulnerabilities are still unpatched, including 1 critical and 3 high.');
+  });
+
+  it('uses the singular for one open update and one vulnerability', () => {
+    renderReport({
+      prBacklog: prBacklog.build({ openCount: 1, openAvgAgeDays: 1 }),
+      cve: cveExposureOk.build({ totalOpenAlerts: 1, bySeverity: { critical: 0, high: 1, medium: 0, low: 0 } }),
+    });
+
+    const stats = screen.getByTestId(verdictTestIds.problemStats);
+    expect(stats).toHaveTextContent(
+      '1 Dependabot update is still open, 1 day on average. Until it merges, that dependency stays out of date.',
+    );
+    expect(stats).toHaveTextContent('1 known vulnerability is still unpatched, including 1 high.');
+  });
+
+  it('leaves security alerts out of the headline when the scan could not read them', () => {
+    renderReport({ cve: cveExposureNoAccess.build() });
+
+    expect(screen.getByTestId(verdictTestIds.problemStats)).not.toHaveTextContent('vulnerabilities');
+  });
+
+  it('edits the assumptions inline in the calculation, with no separate adjust control', () => {
     renderReport({ unit: 'usd' });
 
-    const section = screen.getByTestId(verdictTestIds.section);
+    const section = screen.getByTestId(costStoryTestIds.section);
     expect(within(section).queryByText(/adjust/i)).toBeNull();
     expect(within(section).getByTestId(costReceiptTestIds.minutes)).toBeInTheDocument();
     expect(within(section).getByTestId(costReceiptTestIds.rate)).toBeInTheDocument();
@@ -461,7 +490,7 @@ describe('methodology appendix', () => {
     );
     expect(screen.getByTestId(methodologyAppendixTestIds.contextbridgeLink)).toHaveAttribute(
       'href',
-      'https://contextbridge.ai',
+      'https://contextbridge.ai/',
     );
   });
 
@@ -501,13 +530,7 @@ describe('sections and calls to action', () => {
       name: 'verdict',
       testId: verdictTestIds.primaryCta,
       label: verdictCopy.primaryCta,
-      href: reportCtaUrls.verdict,
-    },
-    {
-      name: 'automation',
-      testId: automatedStoryTestIds.primaryCta,
-      label: callToActionCopy.ctaLabel,
-      href: reportCtaUrls.automation,
+      href: `#${automatedStorySectionId}`,
     },
     {
       name: 'call to action',
@@ -515,12 +538,50 @@ describe('sections and calls to action', () => {
       label: callToActionCopy.ctaLabel,
       href: reportCtaUrls.final,
     },
+    {
+      name: 'how it works',
+      testId: callToActionTestIds.howItWorks,
+      label: callToActionCopy.howItWorksLabel,
+      href: reportCtaUrls.howItWorks,
+    },
   ])('points the $name CTA at its destination', ({ testId, label, href }) => {
     renderReport();
 
     const cta = screen.getByTestId(testId);
     expect(cta).toHaveTextContent(label);
     expect(cta).toHaveAttribute('href', href);
+  });
+
+  it('labels the automation CTA with the savings shown above it', () => {
+    renderReport();
+
+    const savings = screen.getByTestId(automatedStoryTestIds.patchwaveCost).textContent ?? '';
+    const cta = screen.getByTestId(automatedStoryTestIds.primaryCta);
+    expect(cta).toHaveTextContent(automatedStoryCopy.ctaLabel(savings));
+    expect(cta).toHaveAttribute('href', reportCtaUrls.automation);
+  });
+
+  it('drops the savings from the automation CTA when there is nothing to save', () => {
+    renderReport({
+      costEstimate: costEstimate.build({ humanMergeCount: 0, humanReviewCount: 0 }),
+    });
+
+    expect(screen.getByTestId(automatedStoryTestIds.primaryCta)).toHaveTextContent(automatedStoryCopy.ctaFallbackLabel);
+  });
+
+  it('sends trial CTAs to sign-up and the header to the homepage, tagged with UTM parameters', () => {
+    expect(reportCtaUrls.automation).toBe(
+      'https://app.patchwave.ai/join?utm_source=patchwave-analysis&utm_medium=report&utm_content=automation',
+    );
+    expect(reportCtaUrls.header).toBe(
+      'https://patchwave.ai/?utm_source=patchwave-analysis&utm_medium=report&utm_content=header',
+    );
+  });
+
+  it('links the header logo to the PatchWave homepage', () => {
+    renderReport();
+
+    expect(screen.getByTestId(appTestIds.headerLogo)).toHaveAttribute('href', reportCtaUrls.header);
   });
 });
 
@@ -550,12 +611,4 @@ function appendixDetails(): HTMLDetailsElement {
     throw new Error('appendix <details> not found');
   }
   return details;
-}
-
-// Clicking a real <a href> would navigate the test page away. Cancel the default in the capture
-// phase so React's onClick still fires (preventDefault doesn't stop propagation).
-function suppressNavigation(): () => void {
-  const handler = (e: Event) => e.preventDefault();
-  document.addEventListener('click', handler, true);
-  return () => document.removeEventListener('click', handler, true);
 }

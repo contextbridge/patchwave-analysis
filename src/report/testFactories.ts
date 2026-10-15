@@ -97,7 +97,7 @@ export const people = Factory.define<People>(() => ({
   commenters: [],
 }));
 
-const costEstimate = Factory.define<CostEstimate>(() => ({
+export const costEstimate = Factory.define<CostEstimate>(() => ({
   humanMergeCount: HUMAN_MERGE_COUNT,
   humanReviewCount: HUMAN_REVIEW_COUNT,
   openCount: 102,

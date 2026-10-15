@@ -13,7 +13,7 @@ export const costReceiptTestIds = {
 } as const;
 
 export const costReceiptCopy = {
-  observedLabel: 'PRs merged',
+  observedLabel: 'PRs merged or reviewed',
   observedBadge: 'observed',
   minutesLabel: 'review per PR',
   minutesSuffix: 'min',
@@ -106,7 +106,7 @@ function Factor({
       <span className={labelClass}>
         {label}
         {badge && (
-          <span className="bg-primary/10 text-primary ml-1.5 rounded px-1 py-0.5 text-[10px] font-medium tracking-wide uppercase">
+          <span className="bg-primary/10 text-primary ml-1.5 rounded px-1 py-0.5 font-mono text-[10px] font-bold tracking-wider uppercase">
             {badge}
           </span>
         )}

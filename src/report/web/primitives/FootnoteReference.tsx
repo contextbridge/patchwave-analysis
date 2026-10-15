@@ -43,7 +43,7 @@ export function FootnoteReference({
 
 export function FootnoteBodyLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="text-link">
       {children}
     </a>
   );
