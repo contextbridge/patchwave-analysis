@@ -7,7 +7,6 @@ import { MethodologyAppendix } from './acts/MethodologyAppendix.tsx';
 import { OpenPrAgeStory } from './acts/OpenPrAgeStory.tsx';
 import { RiskStory } from './acts/RiskStory.tsx';
 import { Verdict } from './acts/Verdict.tsx';
-import { useAnalytics } from './analytics/AnalyticsContext.tsx';
 import { EmbeddedDataProvider } from './data/EmbeddedDataContext.tsx';
 import { scopeLabel } from './format/scope.ts';
 import { AssumptionsProvider } from './hooks/useAssumptions.tsx';
@@ -90,12 +89,10 @@ function ReportHeader({ org, repositoryScope }: { org: string; repositoryScope: 
 
 function UnitToggle() {
   const { unit, setUnit } = useDisplayUnit();
-  const analytics = useAnalytics();
   const buttonRefs = { hours: useRef<HTMLButtonElement>(null), usd: useRef<HTMLButtonElement>(null) };
   const select = (next: DisplayUnit) => {
     if (next === unit) return;
     setUnit(next);
-    analytics.capture('display_unit_changed', { unit: next });
   };
   const options = [
     { value: 'hours', label: 'hrs', ariaLabel: 'Hours', testId: appTestIds.unitHours },

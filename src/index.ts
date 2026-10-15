@@ -73,7 +73,10 @@ const isFullRun = parseCli(argv).kind === 'ok';
 let token = '';
 if (isFullRun) {
   prompter.intro(welcomeBannerTitle());
-  prompter.note(welcomeBannerBody(), 'What this is');
+  prompter.note(
+    welcomeBannerBody({ telemetryEnabled: !telemetryDisabled && (POSTHOG_KEY !== '' || SENTRY_DSN !== '') }),
+    'What this is',
+  );
 
   const tokenResult = await interactiveResolveToken({ prompter });
   if (tokenResult.isErr()) {
@@ -86,14 +89,11 @@ if (isFullRun) {
 
 const ctx = createContext({
   token,
-  appVersion: pkg.version,
   io,
   env,
   logger,
   analytics,
   prompter,
-  anonymousId,
-  telemetryDisabled,
 });
 
 try {

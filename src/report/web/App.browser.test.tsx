@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { FakeAnalytics } from '../../testHelpers/FakeAnalytics.ts';
 import {
   cveExposureNoAccess,
   cveExposureOk,
@@ -17,7 +16,6 @@ import { methodologyAppendixTestIds } from './acts/MethodologyAppendix.tsx';
 import { openPrAgeStoryCopy, openPrAgeStoryTestIds } from './acts/OpenPrAgeStory.tsx';
 import { riskStoryCopy, riskStoryTestIds } from './acts/RiskStory.tsx';
 import { verdictCopy, verdictTestIds } from './acts/Verdict.tsx';
-import { AnalyticsProvider } from './analytics/AnalyticsContext.tsx';
 import { App, appTestIds } from './App.tsx';
 import type { DisplayUnit } from './hooks/useDisplayUnit.tsx';
 import { INSTALL_COMMAND } from './lib/installCommand.ts';
@@ -526,62 +524,8 @@ describe('sections and calls to action', () => {
   });
 });
 
-describe('analytics', () => {
-  it.each([
-    { name: 'verdict', testId: verdictTestIds.primaryCta, which: 'verdict_primary' },
-    { name: 'automation', testId: automatedStoryTestIds.primaryCta, which: 'automated_story_primary' },
-    { name: 'call to action', testId: callToActionTestIds.cta, which: 'call_to_action_primary' },
-  ])('captures cta_clicked for the $name CTA', ({ testId, which }) => {
-    const analytics = new FakeAnalytics();
-    renderWithAnalytics(analytics);
-
-    const restore = suppressNavigation();
-    fireEvent.click(screen.getByTestId(testId));
-    restore();
-
-    expect(analytics.captureCalls).toContainEqual({ event: 'cta_clicked', properties: { which } });
-  });
-
-  it.each([
-    { field: 'hourly_rate', testId: costReceiptTestIds.rate, value: 275 },
-    { field: 'minutes_per_pr', testId: costReceiptTestIds.minutes, value: 24 },
-  ])('captures assumption_changed when $field is committed', ({ field, testId, value }) => {
-    const analytics = new FakeAnalytics();
-    renderWithAnalytics(analytics, { unit: 'usd' });
-
-    const input = screen.getByTestId(testId);
-    fireEvent.change(input, { target: { value: String(value) } });
-    fireEvent.blur(input);
-
-    expect(analytics.captureCalls).toContainEqual({ event: 'assumption_changed', properties: { field, value } });
-  });
-
-  it('captures display_unit_changed only when the unit actually changes', () => {
-    const analytics = new FakeAnalytics();
-    renderWithAnalytics(analytics);
-
-    // Hours is already active, so re-selecting it captures nothing.
-    fireEvent.click(screen.getByTestId(appTestIds.unitHours));
-    expect(analytics.capturedEvents('display_unit_changed')).toHaveLength(0);
-
-    fireEvent.click(screen.getByTestId(appTestIds.unitUsd));
-    expect(analytics.captureCalls).toContainEqual({ event: 'display_unit_changed', properties: { unit: 'usd' } });
-  });
-});
-
 function renderReport({ unit = 'hours', ...overrides }: Partial<EmbeddedReportData> & { unit?: DisplayUnit } = {}) {
   render(<App data={{ ...embeddedReportData.build(), ...overrides }} />);
-  if (unit === 'usd') {
-    switchToDollars();
-  }
-}
-
-function renderWithAnalytics(analytics: FakeAnalytics, { unit = 'hours' }: { unit?: DisplayUnit } = {}) {
-  render(
-    <AnalyticsProvider value={analytics}>
-      <App data={embeddedReportData.build()} />
-    </AnalyticsProvider>,
-  );
   if (unit === 'usd') {
     switchToDollars();
   }

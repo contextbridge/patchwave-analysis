@@ -11,7 +11,6 @@ import { promptForRepositorySelection } from './interactive/repositorySelectionP
 import { checkTokenScopes } from './interactive/scopeGate.ts';
 import { promptForTarget } from './interactive/targetPrompt.ts';
 import { buildReport } from './report/buildReport.ts';
-import type { ReportAnalyticsConfig } from './telemetry/Analytics.ts';
 import type { Instant } from './time.ts';
 
 // The CLI is intentionally flag-free (besides --help): the rolling window and
@@ -35,7 +34,7 @@ export type MainResult =
   | { kind: 'completed'; code: 0; run: CompletedRun };
 
 export async function main(ctx: Context, argv: readonly string[]): Promise<MainResult> {
-  const { logger, io, clock, analytics, fs, prompter, githubClient, telemetryDisabled, anonymousId, appVersion } = ctx;
+  const { logger, io, clock, analytics, fs, prompter, githubClient } = ctx;
 
   const parsed = parseCli(argv);
   if (parsed.kind === 'err') {
@@ -47,8 +46,7 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
 
   const startedAt = clock.now();
 
-  // One id per run, registered as a super-property so every CLI event carries it and joins to the
-  // report-view events the frontend sends under the same pw_report_id.
+  // One id per run, registered as a super-property so every CLI event from the run carries it.
   const reportId = crypto.randomUUID();
   analytics.register({ pw_report_id: reportId });
 
@@ -94,20 +92,12 @@ export async function main(ctx: Context, argv: readonly string[]): Promise<MainR
   const spinner = prompter.spinner();
   spinner.start(`Scanning ${target} (last ${WINDOW_DAYS} days)...`);
 
-  const analyticsConfig: ReportAnalyticsConfig = {
-    telemetryDisabled,
-    reportId,
-    generatedByAnonymousId: anonymousId,
-    version: appVersion,
-  };
-
   const rendered = await buildReport(ctx, {
     target,
     targetKind,
     repos,
     repositorySelection,
     windowDays: WINDOW_DAYS,
-    analytics: analyticsConfig,
   });
   if (rendered.isErr()) {
     spinner.stop('Scan failed.');

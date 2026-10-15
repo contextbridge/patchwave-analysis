@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ASSUMED_REVIEW_SPEEDUP } from '../../costFormulas.ts';
-import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { type Amount, useFormatAmount } from '../format/amount.ts';
 import { useAssumptions } from '../hooks/useAssumptions.tsx';
@@ -31,7 +30,6 @@ const SHARE_STOPS = Array.from(
 export function AutomatedStory() {
   const { derived } = useAssumptions();
   const formatAmount = useFormatAmount();
-  const analytics = useAnalytics();
   const [sharePct, setSharePct] = useState(SHARE_DEFAULT);
 
   const today = { hours: derived.annualHours, usd: derived.annualCostUsd };
@@ -109,11 +107,7 @@ export function AutomatedStory() {
       </p>
 
       <Button asChild className="mt-6 no-print">
-        <a
-          data-testid={automatedStoryTestIds.primaryCta}
-          href={reportCtaUrls.automation}
-          onClick={() => analytics.capture('cta_clicked', { which: 'automated_story_primary' })}
-        >
+        <a data-testid={automatedStoryTestIds.primaryCta} href={reportCtaUrls.automation}>
           {callToActionCopy.ctaLabel}
         </a>
       </Button>

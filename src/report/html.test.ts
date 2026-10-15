@@ -1,11 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { renderHtmlFrom, toEmbeddedShape } from './html.ts';
-import { reportAnalyticsConfig, reportBundle, reportMeta } from './testFactories.ts';
+import { reportBundle, reportMeta } from './testFactories.ts';
 
 const STUB_TEMPLATE =
-  '<!doctype html><html><body><script type="application/json" id="patchwave-data">__PATCHWAVE_DATA__</script><script type="application/json" id="patchwave-analytics">__PATCHWAVE_ANALYTICS__</script></body></html>';
-
-const analytics = reportAnalyticsConfig.build();
+  '<!doctype html><html><body><script type="application/json" id="patchwave-data">__PATCHWAVE_DATA__</script></body></html>';
 
 const LINE_SEP = String.fromCharCode(0x2028);
 const PARA_SEP = String.fromCharCode(0x2029);
@@ -33,7 +31,7 @@ describe('toEmbeddedShape', () => {
 describe('renderHtmlFrom', () => {
   test('substitutes the placeholder and embeds parseable JSON', () => {
     const bundle = reportBundle.build();
-    const result = renderHtmlFrom(STUB_TEMPLATE, bundle, analytics);
+    const result = renderHtmlFrom(STUB_TEMPLATE, bundle);
     expect(result.isOk()).toBe(true);
     const rendered = result.unwrapOr('');
 
@@ -47,41 +45,21 @@ describe('renderHtmlFrom', () => {
     expect(parsed.meta.org).toBe(bundle.meta.org);
   });
 
-  test('substitutes the analytics placeholder with the embedded config', () => {
-    const result = renderHtmlFrom(STUB_TEMPLATE, reportBundle.build(), analytics);
-    expect(result.isOk()).toBe(true);
-    const rendered = result.unwrapOr('');
-
-    expect(rendered).not.toContain('__PATCHWAVE_ANALYTICS__');
-    const match = /<script type="application\/json" id="patchwave-analytics">([\s\S]*?)<\/script>/.exec(rendered);
-    expect(match).not.toBeNull();
-    const parsed = JSON.parse(match?.[1] ?? '') as { reportId: string };
-    expect(parsed.reportId).toBe(analytics.reportId);
-  });
-
   test('returns a missing-placeholder err when the data placeholder is absent', () => {
-    const result = renderHtmlFrom('<html><body>no placeholder</body></html>', reportBundle.build(), analytics);
+    const result = renderHtmlFrom('<html><body>no placeholder</body></html>', reportBundle.build());
     expect(result.isErr()).toBe(true);
     if (result.isErr()) expect(result.error).toMatchObject({ kind: 'missing-placeholder' });
-  });
-
-  test('returns a missing-placeholder err when the analytics placeholder is absent', () => {
-    const dataOnly =
-      '<html><body><script type="application/json" id="patchwave-data">__PATCHWAVE_DATA__</script></body></html>';
-    const result = renderHtmlFrom(dataOnly, reportBundle.build(), analytics);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) expect(result.error.message).toContain('__PATCHWAVE_ANALYTICS__');
   });
 
   test('escapes </script> sequences inside the embedded JSON', () => {
     const bundle = reportBundle.build({
       meta: reportMeta.build({ org: 'malicious</script><script>alert(1)</script>' }),
     });
-    const result = renderHtmlFrom(STUB_TEMPLATE, bundle, analytics);
+    const result = renderHtmlFrom(STUB_TEMPLATE, bundle);
     expect(result.isOk()).toBe(true);
     const rendered = result.unwrapOr('');
     const scriptCloses = rendered.match(/<\/script>/gi) ?? [];
-    expect(scriptCloses).toHaveLength(2);
+    expect(scriptCloses).toHaveLength(1);
     expect(rendered).toContain('<\\/script>');
   });
 
@@ -89,7 +67,7 @@ describe('renderHtmlFrom', () => {
     const bundle = reportBundle.build({
       meta: reportMeta.build({ org: `a<!--b${LINE_SEP}c${PARA_SEP}d` }),
     });
-    const result = renderHtmlFrom(STUB_TEMPLATE, bundle, analytics);
+    const result = renderHtmlFrom(STUB_TEMPLATE, bundle);
     expect(result.isOk()).toBe(true);
     const rendered = result.unwrapOr('');
     expect(rendered).toContain('<\\!--');

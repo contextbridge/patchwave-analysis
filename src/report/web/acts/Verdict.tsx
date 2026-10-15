@@ -1,4 +1,3 @@
-import { useAnalytics } from '../analytics/AnalyticsContext.tsx';
 import { Button } from '../components/ui/button.tsx';
 import { useEmbeddedData } from '../data/EmbeddedDataContext.tsx';
 import { useFormatAmount } from '../format/amount.ts';
@@ -25,7 +24,6 @@ export function Verdict() {
   const formatAmount = useFormatAmount();
   const { prBacklog } = useEmbeddedData();
   const { openCount } = prBacklog;
-  const analytics = useAnalytics();
 
   return (
     <section data-testid={verdictTestIds.section} className="pt-4">
@@ -58,11 +56,7 @@ export function Verdict() {
       </div>
 
       <Button asChild className="mt-7">
-        <a
-          data-testid={verdictTestIds.primaryCta}
-          href={reportCtaUrls.verdict}
-          onClick={() => analytics.capture('cta_clicked', { which: 'verdict_primary' })}
-        >
+        <a data-testid={verdictTestIds.primaryCta} href={reportCtaUrls.verdict}>
           {verdictCopy.primaryCta}
         </a>
       </Button>

@@ -77,7 +77,9 @@ The report is one self-contained file with every metric baked in. It carries no 
 
 ## Telemetry & privacy
 
-We send anonymous usage events and crash reports so we can improve the tool. Crash reports omit the machine hostname, request data, cookies, and HTTP bodies. Error messages and stack traces are included and may themselves contain org or repo names, tokens, or other sensitive details; report contents are not collected, but details embedded in an error may be sent. The generated report stays on your machine.
+The CLI sends anonymous usage events and crash reports so we can improve the tool. Usage events cover when a scan runs, how it ends, and counts such as repos and Dependabot PRs scanned; they never include org or repo names. Crash reports omit the machine hostname, request data, cookies, and HTTP bodies. Error messages and stack traces are included and may themselves contain org or repo names, tokens, or other sensitive details. See our [privacy policy](https://contextbridge.ai/privacy-policy).
+
+The generated report stays on your machine and sends nothing. Its data, fonts, and images are embedded in the HTML file. Links to PatchWave include campaign tags that say which link you clicked, but no org or repo details.
 
 To disable telemetry, set any of these in your environment:
 

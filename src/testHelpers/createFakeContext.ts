@@ -57,9 +57,6 @@ export function createFakeContext(options: CreateFakeContextOptions = {}): FakeC
     analytics,
     prompter,
     browserOpener,
-    appVersion: '0.0.0-test',
-    anonymousId: 'fake-anon-id',
-    telemetryDisabled: false,
     ...options.overrides,
   };
 

@@ -24,8 +24,9 @@
 #
 # Privacy: the binary reads from api.github.com and writes its report to a local
 # temp dir — the report never leaves your machine.
-# It sends anonymous usage and crash telemetry only (never org or repo names,
-# tokens, report contents, or your hostname); disable it with DO_NOT_TRACK=1.
+# The CLI sends usage events and crash reports. Crash details may include
+# sensitive data; see the README. The report itself sends nothing.
+# Disable telemetry with DO_NOT_TRACK=1 before running the scan.
 #
 # Auth is the CLI's job: it reads GITHUB_TOKEN, then GH_TOKEN, then `gh auth
 # token`. Export a token first, or be logged in via the gh CLI.
