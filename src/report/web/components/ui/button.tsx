@@ -2,9 +2,15 @@ import { type VariantProps, cva } from 'class-variance-authority';
 import { Slot } from 'radix-ui';
 import * as React from 'react';
 import { cn } from '../../lib/utils.ts';
+import type { PaletteColor } from '../../pixel/palette.ts';
+import { PixelIcon } from '../../primitives/PixelIcon.tsx';
+
+// The pixel variants are the site's game-menu buttons (packages/website/src/components/ui/Button.tsx).
+const pixelBase =
+  'group pixel-button rounded-none font-mono font-bold tracking-wider uppercase no-underline focus-visible:ring-0';
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  'inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -16,6 +22,10 @@ const buttonVariants = cva(
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         link: 'text-primary underline-offset-4 hover:underline',
+        pixel: `${pixelBase} text-brand-white [--button-base:var(--brand-violet-night)] [--button-face:var(--brand-violet)] [--button-highlight:var(--brand-violet-light)] [--button-shade:var(--brand-violet-deep)] [--button-text-shadow:var(--brand-violet-deep)]`,
+        // The palette has no darker gold, so the shade mixes the sun toward purple, which in oklch runs through amber
+        // and orange, and the base darkens that orange to brown so it reads as the button's shadowed side.
+        sun: `${pixelBase} text-brand-ink [--button-base:color-mix(in_oklab,color-mix(in_oklch,var(--brand-sun),var(--brand-purple)_35%),var(--brand-ink)_55%)] [--button-face:var(--brand-sun)] [--button-highlight:var(--brand-butter)] [--button-shade:color-mix(in_oklch,var(--brand-sun),var(--brand-purple)_20%)]`,
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
@@ -28,6 +38,17 @@ const buttonVariants = cva(
         'icon-lg': 'size-10',
       },
     },
+    compoundVariants: [
+      {
+        variant: ['default', 'destructive', 'outline', 'secondary', 'ghost', 'link'],
+        className: "[&_svg:not([class*='size-'])]:size-4",
+      },
+      {
+        variant: ['pixel', 'sun'],
+        className:
+          'h-auto min-h-12 gap-3 px-6 py-0 text-sm has-[>svg]:px-6 [--pixel:3px] md:min-h-14 md:px-8 md:text-base',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
       size: 'default',
@@ -35,17 +56,25 @@ const buttonVariants = cva(
   },
 );
 
+const cursorColors: Partial<Record<string, PaletteColor>> = { pixel: 'sun', sun: 'violetNight' };
+
 function Button({
   className,
   variant = 'default',
   size = 'default',
   asChild = false,
+  cursor = false,
+  children,
   ...props
 }: React.ComponentProps<'button'> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    /** Pixel variants only: leads with a menu cursor that nudges toward the label on hover. */
+    cursor?: boolean;
   }) {
   const Comp = asChild ? Slot.Root : 'button';
+  const cursorColor = cursorColors[variant ?? 'default'];
+  const isPixel = cursorColor !== undefined;
 
   return (
     <Comp
@@ -54,7 +83,21 @@ function Button({
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {isPixel && cursor && (
+        <span className="group-hover:animate-nudge motion-reduce:animate-none">
+          <PixelIcon glyph="play" color={cursorColor} size="lg" />
+        </span>
+      )}
+      {asChild ? <Slot.Slottable>{children}</Slot.Slottable> : children}
+      {isPixel && (
+        <span data-sparkle aria-hidden="true">
+          <PixelIcon icon="sparkleDot" size="lg" />
+          <PixelIcon icon="sparkleSmall" size="lg" />
+          <PixelIcon icon="sparkle" size="lg" />
+        </span>
+      )}
+    </Comp>
   );
 }
 
