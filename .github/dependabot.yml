@@ -22,6 +22,9 @@ updates:
       default-days: 7
     ignore:
       - dependency-name: '@types/bun'
+      # 7.0.x ships without the programmatic API that tooling like typescript-eslint needs. 7.1.x supposedly will.
+      - dependency-name: typescript
+        versions: ['7.0.x']
     groups:
       bun-minor-patch:
         update-types:
