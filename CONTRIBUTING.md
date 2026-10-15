@@ -20,12 +20,13 @@ This is a single package with a flat `src/` tree:
 src/
 ├── collectors/      per-slice GitHub data collectors (repos, PRs, CVEs, …)
 ├── github/          Octokit client wiring (retry + throttling)
-├── heuristics/      derived metrics (toil cost, automation upside, …)
-├── interactive/     Clack prompts (token walkthrough, share/open, banner, TTY gate)
-├── prompt/          Prompter abstraction over @clack/prompts
-├── report/          report aggregation + report/web/ React UI
-├── upload/          artifact sharing
-└── *.ts             CLI bootstrap, context (DI root), Octokit/IO/telemetry plumbing
+├── context/         Context DI root + injected dependencies (Prompter, Io, FileSystem, …)
+├── heuristics/      PR classification (bump type)
+├── interactive/     Clack prompts (token walkthrough, scope gate, banner, report open, TTY gate)
+├── report/          report aggregation, cost formulas + report/web/ React UI
+├── telemetry/       PostHog analytics + Sentry crash reporting
+├── testHelpers/     shared test utilities and fakes
+└── *.ts             CLI bootstrap (index.ts), arg parsing + main() (cli.ts), shared types
 ```
 
 ## Development

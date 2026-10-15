@@ -20,12 +20,12 @@ patchwave-analysis/
 ├── src/
 │   ├── collectors/        per-slice GitHub data collectors (repos, PRs, CVEs, …)
 │   ├── github/            Octokit client wiring (retry + throttling plugins)
-│   ├── heuristics/        derived metrics (toil cost, automation upside, …)
-│   ├── interactive/       Clack prompts: token walkthrough, share/open, banner, TTY gate
-│   ├── prompt/            Prompter abstraction over @clack/prompts
-│   ├── report/            report aggregation + `report/web/` React UI
-│   ├── testHelpers/       shared test utilities
-│   ├── context.ts         CliContext DI root (see Conventions)
+│   ├── context/           Context DI root + injected dependencies (Prompter, Io, FileSystem, …)
+│   ├── heuristics/        PR classification (bump type)
+│   ├── interactive/       Clack prompts: token walkthrough, scope gate, banner, report open, TTY gate
+│   ├── report/            report aggregation, cost formulas + `report/web/` React UI
+│   ├── telemetry/         PostHog analytics + Sentry crash reporting
+│   ├── testHelpers/       shared test utilities and fakes
 │   ├── cli.ts             arg parsing + main()
 │   └── index.ts           bootstrap: telemetry/logger/analytics wiring, then main()
 ├── scripts/               analyze.sh installer + build-report-web.ts
@@ -61,7 +61,7 @@ The following files under `.claude/rules/` carry team conventions enforced for `
 
 Beyond the rules:
 
-- **Dependency injection is non-negotiable.** All business logic flows through the typed `CliContext` (`src/context.ts`). Prefer explicit context-object wiring over module-level singletons or global mocking.
+- **Dependency injection is non-negotiable.** All business logic flows through the typed `Context` (`src/context/index.ts`). Prefer explicit context-object wiring over module-level singletons or global mocking.
 - **`ctx` always comes first, and is destructured at the point of use.** Helpers that take a context list it as the first parameter (`fn(ctx, other)`); pull the fields you need at the top of the body (`const { io, logger } = ctx;`) rather than reaching through `ctx.io.stdout` at each call site. This narrows each function to the surface it depends on and keeps test stubs honest.
 - **Business output (stdout) and diagnostics (logger → stderr) stay on separate channels** so piped consumers see clean stdout while humans get readable logs.
 - **Use Temporal for all time handling.** Use `@js-temporal/polyfill` via `src/time.ts`, keep in-process values as Temporal objects, serialize only ISO strings at JSON boundaries, and do not use `Date`.
