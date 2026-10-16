@@ -70,9 +70,11 @@ The report covers:
 
 ## What is PatchWave?
 
-PatchWave is a GitHub app that automatically analyzes, fixes and merges your Dependabot PRs. It's free for 30 days, up to 100 PRs, no credit card.
+PatchWave is a GitHub app that automatically analyzes, fixes and merges your Dependabot PRs. Everyone gets 25 free PRs every month. No credit card required.
 
-- [Join the public beta](https://app.patchwave.ai/join?utm_source=patchwave-analysis&utm_medium=readme)
+Paid plans start at $10 a month for 35 PRs total, including your 25 free PRs. All plans include analysis, fixing, and unlimited repositories and users. Only unused paid PRs roll over for one month. See [pricing](https://patchwave.ai/pricing) for larger allowances and volume discounts.
+
+- [Sign up for free](https://app.patchwave.ai/join?utm_source=patchwave-analysis&utm_medium=readme)
 - [Learn more at patchwave.ai](https://patchwave.ai/?utm_source=patchwave-analysis&utm_medium=readme)
 
 ## What it reads from GitHub

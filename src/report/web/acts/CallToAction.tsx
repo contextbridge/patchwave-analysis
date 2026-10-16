@@ -12,9 +12,9 @@ export const callToActionTestIds = {
 export const callToActionCopy = {
   heading: 'Wave goodbye to (most) dependency update work.',
   pitch: 'PatchWave is a GitHub app that automatically analyzes, fixes and merges your Dependabot PRs.',
-  trialTerms: 'Free for 30 days, up to 100 PRs.',
-  ctaLabel: 'Join the public beta',
-  ctaNote: 'No credit card. The 30 days start when you install the GitHub App.',
+  freeTerms: '25 free PRs every month.',
+  ctaLabel: 'Sign up for free',
+  ctaNote: 'No credit card required.',
   howItWorksLabel: 'See how it works',
 } as const;
 
@@ -36,7 +36,7 @@ export function CallToAction() {
         </h2>
         <p className="m-0 max-w-2xl text-lg leading-relaxed text-balance sm:text-xl">{callToActionCopy.pitch}</p>
         <p className="text-brand-butter m-0 text-2xl leading-tight font-bold text-balance">
-          {callToActionCopy.trialTerms}
+          {callToActionCopy.freeTerms}
         </p>
         <div className="mt-4 grid justify-items-center gap-4">
           <Button asChild variant="sun" cursor>

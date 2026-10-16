@@ -11,7 +11,7 @@ import {
   personActivity,
   prBacklog,
 } from '../testFactories.ts';
-import { automatedStoryCopy, automatedStorySectionId, automatedStoryTestIds } from './acts/AutomatedStory.tsx';
+import { automatedStorySectionId, automatedStoryTestIds } from './acts/AutomatedStory.tsx';
 import { callToActionCopy, callToActionTestIds } from './acts/CallToAction.tsx';
 import { costStoryCopy, costStoryTestIds } from './acts/CostStory.tsx';
 import { methodologyAppendixTestIds } from './acts/MethodologyAppendix.tsx';
@@ -552,24 +552,28 @@ describe('sections and calls to action', () => {
     expect(cta).toHaveAttribute('href', href);
   });
 
-  it('labels the automation CTA with the savings shown above it', () => {
+  it('offers free signup with monthly PR terms in both signup sections', () => {
     renderReport();
 
-    const savings = screen.getByTestId(automatedStoryTestIds.patchwaveCost).textContent ?? '';
-    const cta = screen.getByTestId(automatedStoryTestIds.primaryCta);
-    expect(cta).toHaveTextContent(automatedStoryCopy.ctaLabel(savings));
-    expect(cta).toHaveAttribute('href', reportCtaUrls.automation);
+    expect(screen.getByTestId(automatedStoryTestIds.primaryCta)).toHaveTextContent('Sign up for free');
+    expect(screen.getByTestId(automatedStoryTestIds.primaryCta)).toHaveAttribute('href', reportCtaUrls.automation);
+    expect(screen.getByTestId(automatedStoryTestIds.section)).toHaveTextContent(
+      '25 free PRs every month. No credit card required.',
+    );
+    expect(screen.getByTestId(callToActionTestIds.cta)).toHaveTextContent('Sign up for free');
+    expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent('25 free PRs every month.');
+    expect(screen.getByTestId(callToActionTestIds.section)).toHaveTextContent('No credit card required.');
   });
 
-  it('drops the savings from the automation CTA when there is nothing to save', () => {
+  it('offers free signup even when there is nothing to save', () => {
     renderReport({
       costEstimate: costEstimate.build({ humanMergeCount: 0, humanReviewCount: 0 }),
     });
 
-    expect(screen.getByTestId(automatedStoryTestIds.primaryCta)).toHaveTextContent(automatedStoryCopy.ctaFallbackLabel);
+    expect(screen.getByTestId(automatedStoryTestIds.primaryCta)).toHaveTextContent('Sign up for free');
   });
 
-  it('sends trial CTAs to sign-up and the header to the homepage, tagged with UTM parameters', () => {
+  it('sends signup CTAs to sign-up and the header to the homepage, tagged with UTM parameters', () => {
     expect(reportCtaUrls.automation).toBe(
       'https://app.patchwave.ai/join?utm_source=patchwave-analysis&utm_medium=report&utm_content=automation',
     );

@@ -23,9 +23,8 @@ export const automatedStoryTestIds = {
 export const automatedStorySectionId = 'patchwave';
 
 export const automatedStoryCopy = {
-  ctaLabel: (savings: string) => `Start saving ${savings}`,
-  ctaFallbackLabel: 'Join the public beta',
-  ctaNote: 'Free for 30 days. No credit card.',
+  ctaLabel: 'Sign up for free',
+  ctaNote: '25 free PRs every month. No credit card required.',
 } as const;
 
 const SHARE_MIN = 50;
@@ -114,9 +113,7 @@ export function AutomatedStory() {
       <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 no-print">
         <Button asChild variant="pixel" cursor>
           <a data-testid={automatedStoryTestIds.primaryCta} href={reportCtaUrls.automation}>
-            {savings.hours >= 1
-              ? automatedStoryCopy.ctaLabel(formatAmount(savings, '/yr'))
-              : automatedStoryCopy.ctaFallbackLabel}
+            {automatedStoryCopy.ctaLabel}
           </a>
         </Button>
         <p className="text-muted-foreground m-0 text-sm">{automatedStoryCopy.ctaNote}</p>
