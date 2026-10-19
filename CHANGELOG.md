@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/contextbridge/patchwave-analysis/compare/v1.0.0...v1.0.1) (2026-10-19)
+
+
+### Bug Fixes
+
+* align signup messaging with monthly free PR pricing ([#83](https://github.com/contextbridge/patchwave-analysis/issues/83)) ([6a4c0c6](https://github.com/contextbridge/patchwave-analysis/commit/6a4c0c6c77af646224b0de5193416225276607f0))
+
 ## [1.0.0](https://github.com/contextbridge/patchwave-analysis/compare/v0.7.1...v1.0.0) (2026-10-15)
 
 
