@@ -81,9 +81,10 @@ Paid plans start at $10 a month for 35 PRs total, including your 25 free PRs. Al
 
 Everything comes from `api.github.com` over a fixed 90-day window. After choosing a target, the checkup asks whether to analyze all active repositories or choose a subset. For the selected repos (archived repos and forks are always skipped), it reads:
 
-- The repo list, visibility, and primary-language metadata (plus whether Dependabot security updates are enabled)
+- The repo list, visibility, and primary-language metadata
 - The open Dependabot PR backlog and PRs resolved in the window — state, timing, reviews, and who merged
 - Open Dependabot security alerts, from the org-level endpoint when your account can use it and from each repo otherwise
+- Whether Dependabot security updates are enabled, disabled, or paused for inactivity
 
 All calls are read only. It writes nothing back to GitHub and reads no repository file contents.
 

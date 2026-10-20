@@ -18,7 +18,6 @@ const repoSchema = z.object({
   security_and_analysis: z
     .object({
       dependabot_alerts: z.object({ status: z.enum(['enabled', 'disabled']) }).optional(),
-      dependabot_security_updates: z.object({ status: z.enum(['enabled', 'disabled']) }).optional(),
     })
     .nullish(),
 });
@@ -65,7 +64,6 @@ function toRepoMeta(raw: RawRepo): RepoMeta {
     defaultBranch: raw.default_branch ?? 'main',
     primaryLanguage: raw.language ?? null,
     pushedAt: raw.pushed_at ?? null,
-    dependabotSecurityUpdates: toBoolStatus(security?.dependabot_security_updates?.status),
     dependabotAlertsEnabled: toBoolStatus(security?.dependabot_alerts?.status),
   };
 }

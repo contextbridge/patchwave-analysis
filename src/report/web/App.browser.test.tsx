@@ -7,6 +7,7 @@ import {
   cveExposureOk,
   cveExposureScopeMissing,
   embeddedReportData,
+  orgOverview,
   people,
   personActivity,
   prBacklog,
@@ -379,6 +380,40 @@ describe('security exposure', () => {
     expect(repos).toHaveTextContent('acme/b');
   });
 
+  it('calls out paused repos with their open alerts and links into the appendix list', () => {
+    renderReport({
+      orgOverview: orgOverview.build({ reposWithDependabotPaused: ['acme/a', 'acme/b'] }),
+      cve: cveExposureOk.build({ alertsInPausedRepos: { total: 4, critical: 1 } }),
+    });
+
+    const callout = screen.getByTestId(riskStoryTestIds.pausedUpdatesCallout);
+    expect(callout).toHaveTextContent(
+      'Did you know: 2 of your 24 repos have Dependabot updates paused because nobody acted on their pull requests for 90 days. Those repos get no new security or version updates until someone does. They have 4 open security alerts, including 1 critical.',
+    );
+    expect(within(callout).getByTestId(riskStoryTestIds.pausedUpdatesCta)).toHaveAttribute(
+      'href',
+      reportCtaUrls.dependabotPaused,
+    );
+
+    const restore = suppressNavigation();
+    fireEvent.click(within(callout).getByTestId(riskStoryTestIds.pausedUpdatesLink));
+    restore();
+
+    expect(appendixDetails()).toHaveAttribute('open');
+    const repos = screen.getByTestId(methodologyAppendixTestIds.pausedRepos);
+    expect(repos).toHaveTextContent('acme/a');
+    expect(repos).toHaveTextContent('acme/b');
+  });
+
+  it('omits the paused callout when CVE data could not be read', () => {
+    renderReport({
+      orgOverview: orgOverview.build({ reposWithDependabotPaused: ['acme/a'] }),
+      cve: cveExposureNoAccess.build(),
+    });
+
+    expect(screen.queryByTestId(riskStoryTestIds.pausedUpdatesCallout)).toBeNull();
+  });
+
   it('shows the no-alerts state when nothing is open', () => {
     renderReport({ cve: cveExposureOk.build({ totalOpenAlerts: 0 }) });
 
@@ -491,6 +526,22 @@ describe('methodology appendix', () => {
     expect(screen.getByTestId(methodologyAppendixTestIds.contextbridgeLink)).toHaveAttribute(
       'href',
       'https://contextbridge.ai/',
+    );
+  });
+
+  it('reports paused and unknown repos alongside security-update coverage', () => {
+    renderReport({
+      orgOverview: orgOverview.build({
+        reposWithSecurityUpdates: 15,
+        reposWithSecurityUpdatesPercentage: 62.5,
+        reposWithSecurityUpdatesUnknown: 2,
+        reposWithDependabotPaused: ['acme/a', 'acme/b', 'acme/c'],
+      }),
+    });
+    openRawDataTab();
+
+    expect(screen.getByTestId(methodologyAppendixTestIds.rawData)).toHaveTextContent(
+      'Security updates15 repos (62.5%), 3 paused, 2 unknown',
     );
   });
 
