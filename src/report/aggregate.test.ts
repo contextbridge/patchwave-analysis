@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test';
-import { collectedData, collectionContext, cveAlert, cveSliceOk, dependabotPr, repoMeta } from '../testFactories.ts';
+import {
+  collectedData,
+  collectionContext,
+  cveAlert,
+  cveSliceOk,
+  dependabotPr,
+  repoMeta,
+  securityUpdatesSlice,
+} from '../testFactories.ts';
 import { instantFromString } from '../time.ts';
 import { aggregate } from './aggregate.ts';
 
@@ -53,17 +61,16 @@ test('rolls org/visibility/language/security-update counts up into orgOverview',
         name: 'a',
         visibility: 'public',
         primaryLanguage: 'TypeScript',
-        dependabotSecurityUpdates: true,
       }),
       repoMeta.build({
         name: 'b',
         visibility: 'private',
         primaryLanguage: 'JavaScript',
-        dependabotSecurityUpdates: true,
       }),
-      repoMeta.build({ name: 'c', visibility: 'private', primaryLanguage: 'Go', dependabotSecurityUpdates: false }),
+      repoMeta.build({ name: 'c', visibility: 'private', primaryLanguage: 'Go' }),
       repoMeta.build({ name: 'd', visibility: 'internal', primaryLanguage: null, archived: true }),
     ],
+    securityUpdates: ['a', 'b'].map((name) => securityUpdatesSlice.build({ name })),
   });
 
   const bundle = aggregate(data);
@@ -75,6 +82,43 @@ test('rolls org/visibility/language/security-update counts up into orgOverview',
     nodeTsRepoCount: 2,
     reposWithSecurityUpdates: 2,
   });
+});
+
+test('counts paused repos and unconfirmed ones apart from security-update coverage', () => {
+  const data = collectedData.build({
+    repos: ['enabled', 'paused', 'disabled', 'no-admin', 'check-failed'].map((name) => repoMeta.build({ name })),
+    securityUpdates: [
+      securityUpdatesSlice.build({ name: 'enabled' }),
+      securityUpdatesSlice.build({ name: 'paused', status: 'paused' }),
+      securityUpdatesSlice.build({ name: 'disabled', status: 'disabled' }),
+      securityUpdatesSlice.build({ name: 'no-admin', status: 'unknown' }),
+    ],
+  });
+
+  expect(aggregate(data).orgOverview).toMatchObject({
+    reposWithSecurityUpdates: 1,
+    reposWithSecurityUpdatesPercentage: 20,
+    reposWithSecurityUpdatesUnknown: 2,
+    reposWithDependabotPaused: ['acme/paused'],
+  });
+});
+
+test('counts open alerts in repos where Dependabot is paused', () => {
+  const data = collectedData.build({
+    cve: [
+      cveSliceOk.build({
+        name: 'paused',
+        alerts: [
+          cveAlert.build({ name: 'paused', severity: 'critical' }),
+          cveAlert.build({ name: 'paused', severity: 'high' }),
+        ],
+      }),
+      cveSliceOk.build({ alerts: [cveAlert.build({ severity: 'critical' })] }),
+    ],
+    securityUpdates: [securityUpdatesSlice.build({ name: 'paused', status: 'paused' })],
+  });
+
+  expect(aggregate(data).cve.alertsInPausedRepos).toEqual({ total: 2, critical: 1 });
 });
 
 test('excludes forks from active repo counts without counting them as archived', () => {

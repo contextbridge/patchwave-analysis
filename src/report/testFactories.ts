@@ -35,6 +35,8 @@ export const orgOverview = Factory.define<OrgOverview>(() => ({
   nodeTsRepoPercentage: 75,
   reposWithSecurityUpdates: 19,
   reposWithSecurityUpdatesPercentage: 79.2,
+  reposWithSecurityUpdatesUnknown: 0,
+  reposWithDependabotPaused: [],
 }));
 
 export const prBacklog = Factory.define<PrBacklog>(() => ({
@@ -118,6 +120,7 @@ export const cveExposureOk = Factory.define<CveExposure>(() => ({
   oldestCriticalDays: 95,
   oldestHighDays: 200,
   reposWithSecurityAlertsDisabled: [],
+  alertsInPausedRepos: { total: 0, critical: 0 },
 }));
 
 export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
@@ -129,6 +132,7 @@ export const cveExposureScopeMissing = Factory.define<CveExposure>(() => ({
   oldestCriticalDays: null,
   oldestHighDays: null,
   reposWithSecurityAlertsDisabled: [],
+  alertsInPausedRepos: { total: 0, critical: 0 },
 }));
 
 export const cveExposureNoAccess = Factory.define<CveExposure>(() => ({
@@ -139,6 +143,7 @@ export const cveExposureNoAccess = Factory.define<CveExposure>(() => ({
   oldestCriticalDays: null,
   oldestHighDays: null,
   reposWithSecurityAlertsDisabled: [],
+  alertsInPausedRepos: { total: 0, critical: 0 },
 }));
 
 export const reportBundle = Factory.define<ReportBundle>(() => ({
