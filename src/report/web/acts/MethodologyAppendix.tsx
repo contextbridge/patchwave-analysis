@@ -8,7 +8,8 @@ import { useAssumptions } from '../hooks/useAssumptions.tsx';
 import { type MethodologyTab, useAssumptionsDisclosure } from '../hooks/useAssumptionsDisclosure.tsx';
 import { useRegisteredFootnotes } from '../hooks/useFootnotes.tsx';
 import { Citation } from '../primitives/Citation.tsx';
-import { reposWithoutSecurityAlertsId } from './RiskStory.tsx';
+import type { EmbeddedReportData } from '../types.ts';
+import { reposWithDependabotPausedId, reposWithoutSecurityAlertsId } from './RiskStory.tsx';
 
 export const methodologyAppendixTestIds = {
   section: 'methodology-appendix-section',
@@ -20,6 +21,7 @@ export const methodologyAppendixTestIds = {
   rawData: 'methodology-raw-data',
   rawDataPerson: 'methodology-raw-data-person',
   disabledAlertsRepos: 'methodology-disabled-alerts-repos',
+  pausedRepos: 'methodology-paused-repos',
   repoLink: 'methodology-repo-link',
   contextbridgeLink: 'methodology-contextbridge-link',
 } as const;
@@ -148,8 +150,31 @@ export function MethodologyAppendix() {
                   </p>
                 </section>
 
+                {org.reposWithDependabotPaused.length > 0 && (
+                  <RepoTable
+                    id={reposWithDependabotPausedId}
+                    heading="Repos with Dependabot updates paused"
+                    testId={methodologyAppendixTestIds.pausedRepos}
+                    repos={org.reposWithDependabotPaused}
+                  >
+                    GitHub paused Dependabot in{' '}
+                    {org.reposWithDependabotPaused.length === 1 ? 'this repo' : 'these repos'} after 90 days without
+                    anyone acting on {org.reposWithDependabotPaused.length === 1 ? 'its' : 'their'} pull requests, so{' '}
+                    {org.reposWithDependabotPaused.length === 1 ? 'it is' : 'they are'} not counted toward
+                    security-update coverage. Merging or closing a Dependabot pull request resumes updates.
+                  </RepoTable>
+                )}
+
                 {cve.reposWithSecurityAlertsDisabled.length > 0 && (
-                  <ReposWithoutAlertsTable repos={cve.reposWithSecurityAlertsDisabled} />
+                  <RepoTable
+                    id={reposWithoutSecurityAlertsId}
+                    heading="Repos without security alerts enabled"
+                    testId={methodologyAppendixTestIds.disabledAlertsRepos}
+                    repos={cve.reposWithSecurityAlertsDisabled}
+                  >
+                    New CVEs in {cve.reposWithSecurityAlertsDisabled.length === 1 ? 'this repo' : 'these repos'} will
+                    not appear in this report.
+                  </RepoTable>
                 )}
               </div>
             )}
@@ -167,10 +192,7 @@ export function MethodologyAppendix() {
                           `${scannedLabel} (${org.publicCount} public, ${org.privateCount} private, ${org.internalCount} internal)`,
                         ],
                         ['Archived excluded', org.archivedExcluded.toLocaleString()],
-                        [
-                          'Security updates',
-                          `${org.reposWithSecurityUpdates} repos (${org.reposWithSecurityUpdatesPercentage}%)`,
-                        ],
+                        ['Security updates', securityUpdatesSummary(org)],
                       ]}
                     />
                   </DataPanel>
@@ -281,15 +303,21 @@ function FormulaRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function ReposWithoutAlertsTable({ repos }: { repos: readonly string[] }) {
+interface RepoTableProps {
+  id: string;
+  heading: string;
+  testId: string;
+  repos: readonly string[];
+  children: ReactNode;
+}
+
+function RepoTable({ id, heading, testId, repos, children }: RepoTableProps) {
   return (
-    <section id={reposWithoutSecurityAlertsId} className="scroll-mt-16">
-      <SectionHeading>Repos without security alerts enabled</SectionHeading>
-      <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">
-        New CVEs in {repos.length === 1 ? 'this repo' : 'these repos'} will not appear in this report.
-      </p>
+    <section id={id} className="scroll-mt-16">
+      <SectionHeading>{heading}</SectionHeading>
+      <p className="text-muted-foreground mt-2 max-w-3xl leading-relaxed">{children}</p>
       <div className="border-border mt-3 overflow-hidden rounded-md border">
-        <table data-testid={methodologyAppendixTestIds.disabledAlertsRepos} className="w-full text-left text-sm">
+        <table data-testid={testId} className="w-full text-left text-sm">
           <tbody className="divide-border divide-y">
             {repos.map((repo) => (
               <tr key={repo}>
@@ -467,4 +495,11 @@ function withAnnual(rows: ReadonlyArray<{ login: string; count: number; annualHo
     count,
     annual: { hours: annualHours, usd: annualCostUsd },
   }));
+}
+
+function securityUpdatesSummary(org: EmbeddedReportData['orgOverview']): string {
+  const parts = [`${org.reposWithSecurityUpdates} repos (${org.reposWithSecurityUpdatesPercentage}%)`];
+  if (org.reposWithDependabotPaused.length > 0) parts.push(`${org.reposWithDependabotPaused.length} paused`);
+  if (org.reposWithSecurityUpdatesUnknown > 0) parts.push(`${org.reposWithSecurityUpdatesUnknown} unknown`);
+  return parts.join(', ');
 }
