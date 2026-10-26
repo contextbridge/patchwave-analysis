@@ -15,7 +15,6 @@ export interface RepoMeta extends RepoRef {
   defaultBranch: string;
   primaryLanguage: string | null;
   pushedAt: string | null;
-  dependabotSecurityUpdates: boolean | null;
   dependabotAlertsEnabled: boolean | null;
 }
 
@@ -64,6 +63,13 @@ export type CveSlice = RepoRef &
     | { status: 'no-access' }
   );
 
+// Dependabot security-update status per repo, from GitHub's automated-security-fixes
+// endpoint: enabled, disabled, or paused for inactivity. The endpoint needs admin
+// access, so repos the token cannot administer are `unknown`.
+export interface SecurityUpdatesSlice extends RepoRef {
+  status: 'enabled' | 'paused' | 'disabled' | 'unknown';
+}
+
 export type RepositorySelectionMode = 'all' | 'selected';
 
 export interface RepositorySelection {
@@ -102,6 +108,7 @@ export interface CollectedData {
   repos: RepoMeta[];
   dependabotPrs: DependabotPr[];
   cve: CveSlice[];
+  securityUpdates: SecurityUpdatesSlice[];
   errors: CollectorWarning[];
 }
 

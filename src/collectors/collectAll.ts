@@ -17,6 +17,7 @@ import {
 import { getCveAlerts, getOrgCveAlerts } from './cve.ts';
 import { listDependabotPrs } from './dependabotPrs.ts';
 import type { TargetKind } from './repos.ts';
+import { getSecurityUpdates } from './securityUpdates.ts';
 
 interface CollectInput {
   readonly repos: RepoMeta[];
@@ -54,13 +55,21 @@ export async function collectAll(ctx: Context, input: CollectInput): Promise<Col
         ).then((prs) => prs.filter((pr) => selectedKeys.has(repoKey(pr))))
       : Promise.resolve([] as DependabotPr[]);
 
-  const [cve, dependabotPrs] = await Promise.all([cvePromise, prsPromise]);
+  const securityUpdatesPromise = crawlPerRepo(
+    selectedRepos,
+    (r) => getSecurityUpdates(githubClient, r),
+    warnings,
+    'securityUpdates',
+  );
+
+  const [cve, dependabotPrs, securityUpdates] = await Promise.all([cvePromise, prsPromise, securityUpdatesPromise]);
 
   return {
     ctx: { org: target, windowDays, windowStart, now, repositorySelection },
     repos,
     dependabotPrs,
     cve,
+    securityUpdates,
     errors: warnings,
   };
 }
