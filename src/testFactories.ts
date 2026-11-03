@@ -1,6 +1,14 @@
 import { Factory } from 'fishery';
 import { instantFromString } from './time.ts';
-import type { CollectedData, CollectionContext, CveAlert, CveSlice, DependabotPr, RepoMeta } from './types.ts';
+import type {
+  CollectedData,
+  CollectionContext,
+  CveAlert,
+  CveSlice,
+  DependabotPr,
+  RepoMeta,
+  SecurityUpdatesSlice,
+} from './types.ts';
 
 // Raw GitHub REST API response shape (snake_case) for `GET /orgs/{org}/repos`
 // and `GET /users/{username}/repos`. Used in CLI/integration tests that stub
@@ -41,7 +49,6 @@ export const repoMeta = Factory.define<RepoMeta>(() => ({
   defaultBranch: 'main',
   primaryLanguage: 'TypeScript',
   pushedAt: '2026-04-01T00:00:00Z',
-  dependabotSecurityUpdates: true,
   dependabotAlertsEnabled: true,
 }));
 
@@ -82,6 +89,12 @@ export const cveSliceOk = Factory.define<Extract<CveSlice, { status: 'ok' }>>(()
   alerts: [],
 }));
 
+export const securityUpdatesSlice = Factory.define<SecurityUpdatesSlice>(() => ({
+  owner: 'acme',
+  name: 'widgets',
+  status: 'enabled',
+}));
+
 export const collectionContext = Factory.define<CollectionContext>(() => ({
   org: 'acme',
   windowDays: 90,
@@ -95,5 +108,6 @@ export const collectedData = Factory.define<CollectedData>(() => ({
   repos: [repoMeta.build()],
   dependabotPrs: [],
   cve: [cveSliceOk.build()],
+  securityUpdates: [securityUpdatesSlice.build()],
   errors: [],
 }));

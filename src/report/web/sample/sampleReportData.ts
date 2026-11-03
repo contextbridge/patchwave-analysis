@@ -12,6 +12,7 @@ import {
   type CveSlice,
   type DependabotPr,
   type RepoMeta,
+  type SecurityUpdatesSlice,
   allActiveRepositorySelection,
 } from '../../../types.ts';
 import { aggregate } from '../../aggregate.ts';
@@ -97,6 +98,7 @@ function buildCollectedData(inputs: SampleInputs): CollectedData {
     repos,
     dependabotPrs: buildPrs(owner, repos, merged, open, closed),
     cve: buildCve(owner, repos),
+    securityUpdates: buildSecurityUpdates(repos),
     errors: [],
   });
 }
@@ -109,9 +111,19 @@ function buildRepos(owner: string, count: number): RepoMeta[] {
       nodeId: `R_sample_${i}`,
       visibility: i % 6 === 0 ? 'public' : 'private',
       primaryLanguage: LANGUAGES[i % LANGUAGES.length] ?? 'TypeScript',
-      dependabotSecurityUpdates: i % 5 !== 0,
     }),
   );
+}
+
+const DISABLED_REPO_INDICES = new Set([0, 5, 10, 15, 20]);
+const PAUSED_REPO_INDICES = new Set([3, 11, 17]);
+
+function buildSecurityUpdates(repos: readonly RepoMeta[]): SecurityUpdatesSlice[] {
+  return repos.map((repo, index): SecurityUpdatesSlice => {
+    const ref = { owner: repo.owner, name: repo.name };
+    if (DISABLED_REPO_INDICES.has(index)) return { ...ref, status: 'disabled' };
+    return { ...ref, status: PAUSED_REPO_INDICES.has(index) ? 'paused' : 'enabled' };
+  });
 }
 
 function buildPrs(
