@@ -3,12 +3,15 @@ import { main } from './cli.ts';
 import { githubRepoResponse } from './testFactories.ts';
 import { type FakeAnalytics, type FakeGithubClient, createFakeContext } from './testHelpers/index.ts';
 
-// The Dependabot PR search is the only GraphQL call; resolve it empty so the
-// happy-path tests reach the report without exercising the search internals.
+// Resolve the Dependabot PR search empty and the per-repo security-update check
+// as enabled, so the happy-path tests reach the report without exercising either.
 function stubEmptyPrSearch(githubClient: FakeGithubClient): void {
   githubClient.onGraphql('DependabotPrsSearch').resolves({
     search: { issueCount: 0, pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
   });
+  githubClient
+    .onRequest('GET /repos/{owner}/{repo}/automated-security-fixes')
+    .resolves({ enabled: true, paused: false });
 }
 
 function expectNoOrgOrRepoNamesInTelemetry(analytics: FakeAnalytics): void {

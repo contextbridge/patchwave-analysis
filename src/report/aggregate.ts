@@ -39,6 +39,8 @@ export interface OrgOverview {
   nodeTsRepoPercentage: number;
   reposWithSecurityUpdates: number;
   reposWithSecurityUpdatesPercentage: number;
+  reposWithSecurityUpdatesUnknown: number;
+  reposWithDependabotPaused: string[];
 }
 
 export interface PrBacklog {
@@ -85,6 +87,7 @@ export interface CveExposure {
   oldestCriticalDays: number | null;
   oldestHighDays: number | null;
   reposWithSecurityAlertsDisabled: string[];
+  alertsInPausedRepos: { total: number; critical: number };
 }
 
 const DEFAULT_PR_CAP = 5;
@@ -144,8 +147,10 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     (r) => r.primaryLanguage === 'TypeScript' || r.primaryLanguage === 'JavaScript',
   ).length;
 
-  // Security-update coverage comes from the REST repo list (`RepoMeta.dependabotSecurityUpdates`).
-  const reposWithSecurityUpdates = repos.filter((r) => r.dependabotSecurityUpdates === true).length;
+  // A repo whose security-updates check failed has no slice and counts as unknown.
+  const statusByRepo = new Map(data.securityUpdates.map((s) => [repoKey(s), s.status]));
+  const coverage = repos.map((r) => ({ repo: r, status: statusByRepo.get(repoKey(r)) ?? 'unknown' }));
+  const reposWithSecurityUpdates = coverage.filter((c) => c.status === 'enabled').length;
 
   return {
     repoCount: repos.length,
@@ -158,6 +163,8 @@ function buildOrgOverview(data: CollectedData): OrgOverview {
     nodeTsRepoPercentage: pct(nodeTsRepoCount, repos.length),
     reposWithSecurityUpdates,
     reposWithSecurityUpdatesPercentage: pct(reposWithSecurityUpdates, repos.length),
+    reposWithSecurityUpdatesUnknown: coverage.filter((c) => c.status === 'unknown').length,
+    reposWithDependabotPaused: coverage.filter((c) => c.status === 'paused').map((c) => repoKey(c.repo)),
   };
 }
 
@@ -303,6 +310,7 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
       oldestCriticalDays: null,
       oldestHighDays: null,
       reposWithSecurityAlertsDisabled: [],
+      alertsInPausedRepos: { total: 0, critical: 0 },
     };
   }
 
@@ -321,6 +329,7 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
       oldestCriticalDays: null,
       oldestHighDays: null,
       reposWithSecurityAlertsDisabled: [],
+      alertsInPausedRepos: { total: 0, critical: 0 },
     };
   }
 
@@ -349,6 +358,9 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
     return Math.max(...filtered.map((a) => daysBetween(now, instantFromString(a.createdAt))));
   };
 
+  const pausedRepos = new Set(data.securityUpdates.filter((s) => s.status === 'paused').map(repoKey));
+  const pausedAlerts = allAlerts.filter((a) => pausedRepos.has(repoKey(a)));
+
   return {
     status: 'ok',
     totalOpenAlerts: allAlerts.length,
@@ -357,6 +369,10 @@ function buildCveExposure(data: CollectedData, now: Instant): CveExposure {
     oldestCriticalDays: oldest('critical'),
     oldestHighDays: oldest('high'),
     reposWithSecurityAlertsDisabled: disabledRepos,
+    alertsInPausedRepos: {
+      total: pausedAlerts.length,
+      critical: pausedAlerts.filter((a) => a.severity === 'critical').length,
+    },
   };
 }
 
