@@ -9,6 +9,7 @@ import { CommandBlock } from '../primitives/CommandBlock.tsx';
 import { SEGMENTS, StackedBar } from '../primitives/StackedBar.tsx';
 import { Stat, StatGrid } from '../primitives/Stat.tsx';
 import { SubHeading } from '../primitives/SubHeading.tsx';
+import { reportCtaUrls } from '../reportCtaUrls.ts';
 
 export const riskStoryTestIds = {
   section: 'risk-story-section',
@@ -21,6 +22,9 @@ export const riskStoryTestIds = {
   topReposToggle: 'risk-story-top-repos-toggle',
   disabledAlertsWarning: 'risk-story-disabled-alerts-warning',
   disabledAlertsLink: 'risk-story-disabled-alerts-link',
+  pausedUpdatesCallout: 'risk-story-paused-updates-callout',
+  pausedUpdatesLink: 'risk-story-paused-updates-link',
+  pausedUpdatesCta: 'risk-story-paused-updates-cta',
 } as const;
 
 export const riskStoryCopy = {
@@ -32,6 +36,7 @@ export const riskStoryCopy = {
 
 const INITIAL_REPO_COUNT = 5;
 export const reposWithoutSecurityAlertsId = 'repos-without-security-alerts';
+export const reposWithDependabotPausedId = 'repos-with-dependabot-paused';
 
 export function RiskStory() {
   const { cve, orgOverview, meta } = useEmbeddedData();
@@ -84,6 +89,7 @@ export function RiskStory() {
           No open Dependabot security alerts across the repos in scope. That can mean you're caught up, or that security
           alerts aren't enabled everywhere. Check the appendix data for repos with alerts disabled.
         </p>
+        <PausedUpdatesCallout />
       </section>
     );
   }
@@ -158,7 +164,58 @@ export function RiskStory() {
           .
         </p>
       )}
+
+      <PausedUpdatesCallout />
     </section>
+  );
+}
+
+function PausedUpdatesCallout() {
+  const { cve, orgOverview, meta } = useEmbeddedData();
+  const { reveal } = useAssumptionsDisclosure();
+  const paused = orgOverview.reposWithDependabotPaused.length;
+  if (paused === 0) return null;
+
+  const one = paused === 1;
+  const { total, critical } = cve.alertsInPausedRepos;
+  return (
+    <p
+      data-testid={riskStoryTestIds.pausedUpdatesCallout}
+      className="border-border bg-card text-muted-foreground mt-4 rounded-md border px-4 py-3 text-sm leading-relaxed"
+    >
+      <span className="text-foreground font-medium">Did you know:</span>{' '}
+      <span className="text-foreground font-semibold tabular-nums">{paused}</span> of{' '}
+      {meta.repositoryScope.mode === 'selected' ? 'the selected' : 'your'}{' '}
+      <span className="text-foreground font-semibold tabular-nums">{orgOverview.repoCount}</span> repos{' '}
+      {one ? 'has' : 'have'} Dependabot updates paused because nobody acted on {one ? 'its' : 'their'} pull requests for
+      90 days. {one ? 'That repo gets' : 'Those repos get'} no new security or version updates until someone does.
+      {total > 0 && (
+        <>
+          {' '}
+          {one ? 'It has' : 'They have'} <span className="text-foreground font-semibold tabular-nums">{total}</span>{' '}
+          open security {total === 1 ? 'alert' : 'alerts'}
+          {critical > 0 && (
+            <>
+              , including <span className="text-foreground font-semibold tabular-nums">{critical}</span> critical
+            </>
+          )}
+          .
+        </>
+      )}{' '}
+      <a data-testid={riskStoryTestIds.pausedUpdatesCta} href={reportCtaUrls.dependabotPaused} className="text-link">
+        PatchWave
+      </a>{' '}
+      keeps Dependabot's pull requests moving so your repos stay current.{' '}
+      <a
+        href={`#${reposWithDependabotPausedId}`}
+        data-testid={riskStoryTestIds.pausedUpdatesLink}
+        onClick={() => reveal('calculation')}
+        className="text-link"
+      >
+        {one ? 'See the paused repo' : 'See the paused repos'}
+      </a>
+      .
+    </p>
   );
 }
 

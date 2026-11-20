@@ -18,7 +18,6 @@ test('listTargetRepos returns kind=org and maps raw repos including dependabotAl
       pushed_at: '2026-04-01T00:00:00Z',
       security_and_analysis: {
         dependabot_alerts: { status: 'enabled' },
-        dependabot_security_updates: { status: 'enabled' },
       },
     },
     {
@@ -60,7 +59,6 @@ test('listTargetRepos returns kind=org and maps raw repos including dependabotAl
       name: 'widgets',
       nodeId: 'R_kgDOwidgets',
       dependabotAlertsEnabled: true,
-      dependabotSecurityUpdates: true,
     });
     expect(result.value.repos[1]).toMatchObject({ dependabotAlertsEnabled: false });
     expect(result.value.repos[2]).toMatchObject({ dependabotAlertsEnabled: null });
