@@ -1,5 +1,81 @@
 # Changelog
 
+## [2.0.0](https://github.com/contextbridge/patchwave-analysis/compare/v1.0.1...v2.0.0) (2026-11-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* **deps-dev:** GraphQL 14 and 15 are no longer supported. The <code>graphql</code> peer dependency is now <code>^16.0.0 || ^17.0.0</code>, so upgrade <code>graphql</code> to version 16 or 17 before updating to this version.</p> </li> <li> <p><a href="https://redirect.github.com/dotansimha/graphql-code-generator/pull/11075">#11075</a> <a href="https://github.com/dotansimha/graphql-code-generator/commit/fa49a3725bf269abf07616b5df1336cf86a4838d"><code>fa49a37</code></a> Thanks <a href="https://github.com/eddeee888"><code>@​eddeee888</code></a>! - Node.js versions below 22.18.0 are no longer supported. Upgrade to Node.js 22.18.0 or later before updating to this version.</p> </li> <li> <p><a href="https://redirect.github.com/dotansimha/graphql-code-generator/pull/11075">#11075</a> <a href="https://github.com/dotansimha/graphql-code-generator/commit/fa49a3725bf269abf07616b5df1336cf86a4838d"><code>fa49a37</code></a> Thanks <a href="https://github.com/eddeee888"><code>@​eddeee888</code></a>! - Remove the deprecated <code>emitLegacyCommonJSImports</code> config option and the <code>--emit-legacy-common-js-imports</code> CLI flag</p> <p>Use <code>importExtension</code> (or <code>--import-extension</code>) to set the extension appended to relative imports. When <code>importExtension</code> is not set, no extension is appended.</p> <p><code>@graphql-codegen/plugin-helpers</code> no longer exports <code>normalizeImportExtension</code>. Use <code>importExtension ?? ''</code> instead.</p> <p>Migration:</p> <pre lang="diff"><code> const config: CodegenConfig = {
+    -  emitLegacyCommonJSImports: false,
+    +  importExtension: '.js',
+     };
+    </code></pre>
+    </li>
+    </ul>
+    <h3>Minor Changes</h3>
+    <ul>
+    <li>
+    <p><a
+    href="https://redirect.github.com/dotansimha/graphql-code-generator/pull/11103">#11103</a>
+    <a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/409ffbfda5c56d6f46f0e0a4045c547714df2264"><code>409ffbf</code></a>
+    Thanks <a
+    href="https://github.com/jerelmiller"><code>@​jerelmiller</code></a>! -
+    Add support for graphql v17 fragment
+    arguments (<code>experimentalFragmentArguments</code>).</p>
+    <p>To use fragment arguments, set the parser option in the root
+    <code>config</code>:</p>
+    <pre lang="ts"><code>const config: CodegenConfig = {
+      config: { experimentalFragmentArguments: true }
+      // ...
+    }
+    </code></pre>
+    </li>
+    </ul>
+    <!-- raw HTML omitted -->
+    </blockquote>
+    <p>... (truncated)</p>
+    </details>
+    <details>
+    <summary>Commits</summary>
+    <ul>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/e5a5669f4197c6db561956a9b4c47244d4e29b48"><code>e5a5669</code></a>
+    chore(release): update monorepo packages versions (<a
+    href="https://github.com/dotansimha/graphql-code-generator/tree/HEAD/packages/plugins/typescript/operations/issues/11085">#11085</a>)</li>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/409ffbfda5c56d6f46f0e0a4045c547714df2264"><code>409ffbf</code></a>
+    Add support for GraphQL 17 experimental fragment arguments (<a
+    href="https://github.com/dotansimha/graphql-code-generator/tree/HEAD/packages/plugins/typescript/operations/issues/11103">#11103</a>)</li>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/fa49a3725bf269abf07616b5df1336cf86a4838d"><code>fa49a37</code></a>
+    Next major feature branch (<a
+    href="https://github.com/dotansimha/graphql-code-generator/tree/HEAD/packages/plugins/typescript/operations/issues/11075">#11075</a>)</li>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/11ac951a30b79369d3b0aa78f83a79d309ffcc77"><code>11ac951</code></a>
+    test: copy dev-test fixtures into package tests (<a
+    href="https://github.com/dotansimha/graphql-code-generator/tree/HEAD/packages/plugins/typescript/operations/issues/11098">#11098</a>)</li>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/cbefcf33b7fde93d3a44c337a4edb5f32ab38fdb"><code>cbefcf3</code></a>
+    Revert &quot;chore: update <a
+    href="https://github.com/graphql-tools"><code>@​graphql-tools</code></a>
+    to latest majors and drop Node below 22....</li>
+    <li><a
+    href="https://github.com/dotansimha/graphql-code-generator/commit/1161d66e36bb074809849cca9367213deed9c443"><code>1161d66</code></a>
+    chore: update <a
+    href="https://github.com/graphql-tools"><code>@​graphql-tools</code></a>
+    to latest majors and drop Node below 22.18 and g...</li>
+    <li>See full diff in <a
+    href="https://github.com/dotansimha/graphql-code-generator/commits/@graphql-codegen/typescript-operations@7.0.0/packages/plugins/typescript/operations">compare
+    view</a></li>
+    </ul>
+    </details>
+    <br />
+
+### Build
+
+* **deps-dev:** bump @graphql-codegen/typescript-operations from 6.2.0 to 7.0.0 ([#96](https://github.com/contextbridge/patchwave-analysis/issues/96)) ([745aa38](https://github.com/contextbridge/patchwave-analysis/commit/745aa381576d6721ecda24271a421e5ac08b6677))
+
 ## [1.0.1](https://github.com/contextbridge/patchwave-analysis/compare/v1.0.0...v1.0.1) (2026-10-19)
 
 
