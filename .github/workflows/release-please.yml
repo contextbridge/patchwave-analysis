@@ -10,8 +10,9 @@ jobs:
   release-please:
     name: release-please
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions: {}
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       # release-please runs with an app token (not GITHUB_TOKEN) so the tag it
       # pushes on release triggers the tag-gated release.yml workflow.
@@ -26,9 +27,14 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
 
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ steps.app-token.outputs.token }}
-          target-branch: main
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          persist-credentials: false
+
+      - uses: $/.github/actions/bootstrap
+
+      # Runs release-please as a library so it can load scripts/releasePlease/IgnoreDependabot.ts.
+      - name: Run release-please
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: bun run scripts/releasePlease/run.ts
