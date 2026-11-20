@@ -23,7 +23,7 @@
   "scripts": {
     "start": "bun run build:assets && bun run src/index.ts",
     "test": "bun run test:unit && bun run test:browser",
-    "test:unit": "bun run build:assets && bun test ./src --path-ignore-patterns='**/*.browser.test.tsx'",
+    "test:unit": "bun run build:assets && bun test ./src ./scripts --path-ignore-patterns='**/*.browser.test.tsx'",
     "test:browser": "vitest run",
     "typecheck": "bun run build:assets && tsc --noEmit",
     "lint": "eslint . --max-warnings 0 --cache",
@@ -79,6 +79,7 @@
     "lint-staged": "^17.6.0",
     "playwright": "^1.65.0",
     "prettier": "^3.9.10",
+    "release-please": "^17.6.0",
     "storybook": "^10.6.6",
     "tailwindcss": "^4",
     "typescript": "^6.0.3",
